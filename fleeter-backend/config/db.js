@@ -1,12 +1,15 @@
+const path = require('path');
+// Explicitly resolve .env path relative to this file
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+
 const { Pool } = require('pg');
-require('dotenv').config();
 
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
+  user: String(process.env.DB_USER || 'postgres'),
+  host: String(process.env.DB_HOST || 'localhost'),
+  database: String(process.env.DB_NAME || 'fleeter_db'),
+  password: String(process.env.DB_PASSWORD || ''),
+  port: Number(process.env.DB_PORT || 5432),
 });
 
 module.exports = {
