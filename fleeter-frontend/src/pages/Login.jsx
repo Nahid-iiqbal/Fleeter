@@ -1,50 +1,90 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
 
-export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+function Login() {
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/auth/login`, { email, password });
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('role', res.data.role);
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-      if (res.data.role === 'owner' || res.data.role === 'admin') {
-        navigate('/owner');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(''); // Clear previous errors
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // 1. Save the token and user details to localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role);
+        localStorage.setItem('userId', data.user_id);
+        
+        // 2. Route the user based on their role
+        if (data.role === 'owner' || data.role === 'admin') {
+          navigate('/owner-dashboard');
+        } else if (data.role === 'driver') {
+          navigate('/driver-portal');
+        } else {
+          setError('Unrecognized user role.');
+        }
       } else {
-        navigate('/driver');
+        // Display backend error (e.g., "User not found" or "Invalid password")
+        setError(data.error || 'Login failed');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      console.error('Login request failed', err);
+      setError('Network error. Is the backend running?');
     }
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f1f5f9' }}>
-      <form onSubmit={handleLogin} style={{ background: '#fff', padding: '2.5rem', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', width: '320px' }}>
-        <h2 style={{ marginBottom: '1.5rem', textAlign: 'center', color: '#0f172a' }}>Fleeter Login</h2>
-        {error && <div style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.9rem' }}>{error}</div>}
-        
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Email</label>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-        </div>
-
-        <div style={{ marginBottom: '1.5rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.3rem', fontSize: '0.85rem' }}>Password</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-        </div>
-
-        <button type="submit" style={{ width: '100%', padding: '0.75rem', background: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-          Sign In
+    <div style={{ maxWidth: '400px', margin: '50px auto', fontFamily: 'sans-serif' }}>
+      <h2>Login to Fleeter</h2>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <input 
+          type="email" 
+          name="email" 
+          placeholder="Email address" 
+          onChange={handleChange} 
+          required 
+          style={{ padding: '10px' }}
+        />
+        <input 
+          type="password" 
+          name="password" 
+          placeholder="Password" 
+          onChange={handleChange} 
+          required 
+          style={{ padding: '10px' }}
+        />
+        <button type="submit" style={{ padding: '10px', background: '#007BFF', color: 'white', border: 'none', cursor: 'pointer' }}>
+          Login
         </button>
       </form>
+      
+      {error && <p style={{ marginTop: '15px', color: 'red' }}>{error}</p>}
+
+      <div style={{ marginTop: '20px', textAlign: 'center' }}>
+        <p>Don't have an account?</p>
+        <Link to="/register" style={{ color: '#007BFF', textDecoration: 'none', fontWeight: 'bold' }}>
+          Create an account
+        </Link>
+      </div>
     </div>
   );
 }
+
+export default Login;

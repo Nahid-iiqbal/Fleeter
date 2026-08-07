@@ -1,4 +1,18 @@
 {
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
   "sqltools.connections": [
     {
       "ssh": "Disabled",
@@ -8,7 +22,8 @@
       "driver": "PostgreSQL",
       "name": "Fleeter DB",
       "database": "fleeter_db",
-      "username": "postgres"
+      "username": "postgres",
+      "password": "2356"
     }
   ]
 }
