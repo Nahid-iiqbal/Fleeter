@@ -7,8 +7,6 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import OwnerDashboard from "./pages/OwnerDashboard";
 import DriverPortal from "./pages/DriverPortal";
-
-// Import the new wrapper
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
