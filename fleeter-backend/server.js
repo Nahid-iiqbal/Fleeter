@@ -13,6 +13,7 @@ app.use("/api/auth", require("./routes/auth"));
 app.use("/api/tracking", require("./routes/tracking"));
 app.use("/api/dashboard", require("./routes/dashboard"));
 app.use("/api/drivers", require("./routes/drivers"));
+app.use("/api/vehicles", require("./routes/vehicles"));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

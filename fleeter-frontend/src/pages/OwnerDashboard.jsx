@@ -25,12 +25,18 @@ function OwnerDashboard() {
   const [driversLoaded, setDriversLoaded] = useState(false); // checks if already loaded
   const [driversLoading, setDriversLoading] = useState(false); // can be used for loading screen later
 
+  // Same thing for Vehicles data
+  const [vehicles, setVehicles] = useState([]);
+  const [vehiclesLoaded, setVehiclesLoaded] = useState(false);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+
   // We will eventually fetch real data here
   const [stats, setStats] = useState({
     totalVehicles: 0,
     activeDrivers: 0,
     alerts: 0,
   });
+
 
   // Function to fetch drivers data
   const fetchDrivers = async () => {
@@ -64,7 +70,7 @@ function OwnerDashboard() {
 
 
       console.log("DRIVERS API RESPONSE:", data);
-      
+
       setDrivers(data);
 
       // Mark as successfully loaded
@@ -76,6 +82,54 @@ function OwnerDashboard() {
       setDriversLoading(false);
     }
   };
+
+
+  // Function to fetch vehicle data
+  const fetchVehicles = async () => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      setVehiclesLoading(true);
+
+      const response = await fetch(
+        "http://localhost:5000/api/vehicles",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch vehicles");
+      }
+
+      const data = await response.json();
+
+      console.log("VEHICLES API RESPONSE:", data);
+
+      setVehicles(data);
+      setVehiclesLoaded(true);
+    } catch (error) {
+      console.error("Error loading vehicles:", error);
+    } finally {
+      setVehiclesLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     // 1. Grab the token from local storage
@@ -131,6 +185,7 @@ function OwnerDashboard() {
 
 
   // New useEffect for handling Drivers data for Drivers tab
+  // Load drivers only when the Drivers tab is opened
   useEffect(() => {
     if (activeTab !== "drivers") {
       return;
@@ -143,6 +198,20 @@ function OwnerDashboard() {
 
     fetchDrivers();
   }, [activeTab, driversLoaded, navigate]);
+
+  // useEffect for Vehicles data
+  // Load vehicles only when the Vehicles tab is opened
+  useEffect(() => {
+    if (activeTab !== "vehicles") {
+      return;
+    }
+
+    if (vehiclesLoaded) {
+      return;
+    }
+
+    fetchVehicles();
+  }, [activeTab, vehiclesLoaded, navigate]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -342,8 +411,96 @@ function OwnerDashboard() {
                 border: "1px solid #e0e0e0",
               }}
             >
-              <h2>Fleet Inventory</h2>
-              <p>List of all vehicles will be rendered here.</p>
+              {/* Header */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "20px",
+                }}
+              >
+                <h2 style={{ margin: 0 }}>Fleet Inventory</h2>
+
+                <button
+                  onClick={fetchVehicles}
+                  disabled={vehiclesLoading}
+                  style={{
+                    padding: "8px 14px",
+                    border: "none",
+                    borderRadius: "5px",
+                    backgroundColor: "#3498db",
+                    color: "white",
+                    cursor: vehiclesLoading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {vehiclesLoading ? "Refreshing..." : "Refresh"}
+                </button>
+              </div>
+
+              {/* Vehicle table */}
+              {vehiclesLoading ? (
+                <p>Loading vehicles...</p>
+              ) : vehicles.length === 0 ? (
+                <p>No vehicles found.</p>
+              ) : (
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th style={tableHeaderStyle}>ID</th>
+                      <th style={tableHeaderStyle}>Registration</th>
+                      <th style={tableHeaderStyle}>Vehicle</th>
+                      <th style={tableHeaderStyle}>Type</th>
+                      <th style={tableHeaderStyle}>Fuel</th>
+                      <th style={tableHeaderStyle}>Driver</th>
+                      <th style={tableHeaderStyle}>Status</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {vehicles.map((vehicle) => (
+                      <tr key={vehicle.vehicle_id}>
+                        <td style={tableCellStyle}>
+                          {vehicle.vehicle_id}
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {vehicle.registration_no}
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {vehicle.brand} {vehicle.model}
+                          <br />
+                          <small>
+                            Year: {vehicle.year || "N/A"}
+                          </small>
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {vehicle.type}
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {vehicle.fuel_type}
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {vehicle.current_driver_name || "Unassigned"}
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {vehicle.status}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
 
