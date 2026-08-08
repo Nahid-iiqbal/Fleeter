@@ -1,10 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+// Table styles (Header and cell)
+const tableHeaderStyle = {
+  textAlign: "left",
+  padding: "12px",
+  borderBottom: "2px solid #ddd",
+  color: "#555",
+};
+
+const tableCellStyle = {
+  padding: "12px",
+  borderBottom: "1px solid #eee",
+};
+
+
 function OwnerDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  
+  // Var for fetching Drivers data
+  const [drivers, setDrivers] = useState([]);
+  const [driversLoaded, setDriversLoaded] = useState(false); // checks if already loaded
+  const [driversLoading, setDriversLoading] = useState(false); // can be used for loading screen later
 
   // We will eventually fetch real data here
   const [stats, setStats] = useState({
@@ -12,6 +31,51 @@ function OwnerDashboard() {
     activeDrivers: 0,
     alerts: 0,
   });
+
+  // Function to fetch drivers data
+  const fetchDrivers = async () => {
+    const token = localStorage.getItem("token");
+
+    try {
+      setDriversLoading(true);
+
+      const response = await fetch(
+        "http://localhost:5000/api/drivers",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.status === 401) {
+        localStorage.clear();
+        navigate("/login");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch drivers");
+      }
+
+      const data = await response.json();
+
+
+      console.log("DRIVERS API RESPONSE:", data);
+      
+      setDrivers(data);
+
+      // Mark as successfully loaded
+      setDriversLoaded(true);
+
+    } catch (error) {
+      console.error("Error loading drivers:", error);
+    } finally {
+      setDriversLoading(false);
+    }
+  };
 
   useEffect(() => {
     // 1. Grab the token from local storage
@@ -64,6 +128,21 @@ function OwnerDashboard() {
 
     fetchDashboardData();
   }, [navigate]);
+
+
+  // New useEffect for handling Drivers data for Drivers tab
+  useEffect(() => {
+    if (activeTab !== "drivers") {
+      return;
+    }
+
+    // Already fetched → don't fetch again
+    if (driversLoaded) {
+      return;
+    }
+
+    fetchDrivers();
+  }, [activeTab, driversLoaded, navigate]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -278,8 +357,91 @@ function OwnerDashboard() {
                 border: "1px solid #e0e0e0",
               }}
             >
-              <h2>Driver Management</h2>
-              <p>List of drivers and their statuses will be rendered here.</p>
+              {/* Header */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "20px",
+                }}
+              >
+                <h2 style={{ margin: 0 }}>Driver Management</h2>
+
+                <button
+                  onClick={fetchDrivers}
+                  disabled={driversLoading}
+                  style={{
+                    padding: "8px 14px",
+                    border: "none",
+                    borderRadius: "5px",
+                    backgroundColor: "#3498db",
+                    color: "white",
+                    cursor: driversLoading ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {driversLoading ? "Refreshing..." : "Refresh"}
+                </button>
+              </div>
+
+              {/* Driver table */}
+              {driversLoading ? (
+                <p>Loading drivers...</p>
+              ) : drivers.length === 0 ? (
+                <p>No drivers found.</p>
+              ) : (
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th style={tableHeaderStyle}>ID</th>
+                      <th style={tableHeaderStyle}>Name</th>
+                      <th style={tableHeaderStyle}>License</th>
+                      <th style={tableHeaderStyle}>Phone</th>
+                      <th style={tableHeaderStyle}>Status</th>
+                      <th style={tableHeaderStyle}>Joined</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {drivers.map((driver) => (
+                      <tr key={driver.driver_id}>
+                        <td style={tableCellStyle}>
+                          {driver.driver_id}
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {driver.full_name}
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {driver.license_no}
+                          <br />
+                          <small>
+                            Type: {driver.license_type}
+                          </small>
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {driver.phone}
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {driver.status}
+                        </td>
+
+                        <td style={tableCellStyle}>
+                          {driver.joined_date}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           )}
         </div>
