@@ -33,4 +33,45 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
+
+// GET /api/drivers/:driverId
+router.get("/:driverId", authMiddleware, async (req, res) => {
+  try {
+    const { driverId } = req.params;
+
+    const result = await pool.query(
+      `
+        SELECT
+          driver_id,
+          full_name,
+          license_no,
+          license_type,
+          license_expiry,
+          phone,
+          address,
+          status,
+          joined_date,
+          created_at
+        FROM Driver
+        WHERE driver_id = $1
+      `,
+      [driverId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Driver not found",
+      });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching driver:", error);
+
+    res.status(500).json({
+      message: "Failed to fetch driver",
+    });
+  }
+});
+
 module.exports = router;
