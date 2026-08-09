@@ -5,6 +5,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import DriverDetails from "./DriverDetails";
 import VehicleDetails from "./VehicleDetails";
 
+// import tables to show the list
+import DriversTable from "../components/DriversTable";
+import VehiclesTable from "../components/VehiclesTable";
+
 // Table styles (Header and cell)
 const tableHeaderStyle = {
   textAlign: "left",
@@ -41,9 +45,9 @@ function OwnerDashboard() {
   const selectedVehicleId = vehicleProfileMatch
     ? vehicleProfileMatch[1]
     : null;
-  
+
   const [loading, setLoading] = useState(true);
-  
+
   // Var for fetching Drivers data
   const [drivers, setDrivers] = useState([]);
   const [driversLoaded, setDriversLoaded] = useState(false); // checks if already loaded
@@ -425,6 +429,7 @@ function OwnerDashboard() {
             </div>
           )}
 
+
           {/* VEHICLES TAB CONTENT */}
           {activeTab === "vehicles" && (
             selectedVehicleId ? (
@@ -433,122 +438,17 @@ function OwnerDashboard() {
                 onBack={() => navigate("/dashboard/vehicles")}
               />
             ) : (
-              <div
-                style={{
-                  backgroundColor: "white",
-                  padding: "20px",
-                  borderRadius: "8px",
-                  border: "1px solid #e0e0e0",
-                }}
-              >
-                {/* Header */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <h2 style={{ margin: 0 }}>Fleet Inventory</h2>
-
-                  <button
-                    onClick={fetchVehicles}
-                    disabled={vehiclesLoading}
-                    style={{
-                      padding: "8px 14px",
-                      border: "none",
-                      borderRadius: "5px",
-                      backgroundColor: "#3498db",
-                      color: "white",
-                      cursor: vehiclesLoading ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {vehiclesLoading ? "Refreshing..." : "Refresh"}
-                  </button>
-                </div>
-
-                {/* Vehicle table */}
-                {vehiclesLoading ? (
-                  <p>Loading vehicles...</p>
-                ) : vehicles.length === 0 ? (
-                  <p>No vehicles found.</p>
-                ) : (
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                    }}
-                  >
-                    <thead>
-                      <tr>
-                        <th style={tableHeaderStyle}>ID</th>
-                        <th style={tableHeaderStyle}>Registration</th>
-                        <th style={tableHeaderStyle}>Vehicle</th>
-                        <th style={tableHeaderStyle}>Type</th>
-                        <th style={tableHeaderStyle}>Fuel</th>
-                        <th style={tableHeaderStyle}>Driver</th>
-                        <th style={tableHeaderStyle}>Status</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {vehicles.map((vehicle) => (
-                        <tr key={vehicle.vehicle_id}>
-                          <td style={tableCellStyle}>
-                            {vehicle.vehicle_id}
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            {vehicle.registration_no}
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            <button
-                              onClick={() =>
-                                navigate(
-                                  `/dashboard/vehicles/${vehicle.vehicle_id}`
-                                )
-                              }
-                              style={{
-                                background: "none",
-                                border: "none",
-                                padding: 0,
-                                color: "#3498db",
-                                cursor: "pointer",
-                                fontSize: "inherit",
-                                fontWeight: "600",
-                              }}
-                            >
-                              {vehicle.brand} {vehicle.model}
-                              <br />
-                              <small>
-                                Year: {vehicle.year || "N/A"}
-                              </small></button>
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            {vehicle.type}
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            {vehicle.fuel_type}
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            {vehicle.current_driver_name || "Unassigned"}
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            {vehicle.status}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>)
+              <VehiclesTable
+                vehicles={vehicles}
+                vehiclesLoading={vehiclesLoading}
+                onRefresh={fetchVehicles}
+                onVehicleClick={(vehicleId) =>
+                  navigate(`/dashboard/vehicles/${vehicleId}`)
+                }
+              />
+            )
           )}
+
 
           {/* DRIVERS TAB CONTENT */}
           {activeTab === "drivers" && (
@@ -594,80 +494,26 @@ function OwnerDashboard() {
                 </div>
 
                 {/* Driver table */}
-                {driversLoading ? (
-                  <p>Loading drivers...</p>
-                ) : drivers.length === 0 ? (
-                  <p>No drivers found.</p>
-                ) : (
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                    }}
-                  >
-                    <thead>
-                      <tr>
-                        <th style={tableHeaderStyle}>ID</th>
-                        <th style={tableHeaderStyle}>Name</th>
-                        <th style={tableHeaderStyle}>License</th>
-                        <th style={tableHeaderStyle}>Phone</th>
-                        <th style={tableHeaderStyle}>Status</th>
-                        <th style={tableHeaderStyle}>Joined</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {drivers.map((driver) => (
-                        <tr key={driver.driver_id}>
-                          <td style={tableCellStyle}>
-                            {driver.driver_id}
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            <button
-                              onClick={() => navigate(`/dashboard/drivers/${driver.driver_id}`)}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                padding: 0,
-                                color: "#3498db",
-                                cursor: "pointer",
-                                fontSize: "inherit",
-                                fontWeight: "600",
-                              }}
-                            >
-                              {driver.full_name}
-                            </button>
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            {driver.license_no}
-                            <br />
-                            <small>
-                              Type: {driver.license_type}
-                            </small>
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            {driver.phone}
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            {driver.status}
-                          </td>
-
-                          <td style={tableCellStyle}>
-                            {driver.joined_date}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {activeTab === "drivers" && (
+                  selectedDriverId ? (
+                    <DriverDetails
+                      driverId={selectedDriverId}
+                      onBack={() => navigate("/dashboard/drivers")}
+                    />
+                  ) : (
+                    <DriversTable
+                      drivers={drivers}
+                      driversLoading={driversLoading}
+                      onRefresh={fetchDrivers}
+                      onDriverClick={(driverId) =>
+                        navigate(`/dashboard/drivers/${driverId}`)
+                      }
+                    />
+                  )
                 )}
               </div>)
           )}
         </div>
-
       </main>
     </div>
   );
