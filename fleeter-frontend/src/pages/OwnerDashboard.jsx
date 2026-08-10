@@ -458,61 +458,17 @@ function OwnerDashboard() {
                 onBack={() => navigate("/dashboard/drivers")}
               />
             ) : (
-              <div
-                style={{
-                  backgroundColor: "white",
-                  padding: "20px",
-                  borderRadius: "8px",
-                  border: "1px solid #e0e0e0",
-                }}
-              >
-                {/* Header */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "20px",
-                  }}
-                >
-                  <h2 style={{ margin: 0 }}>Driver Management</h2>
-
-                  <button
-                    onClick={fetchDrivers}
-                    disabled={driversLoading}
-                    style={{
-                      padding: "8px 14px",
-                      border: "none",
-                      borderRadius: "5px",
-                      backgroundColor: "#3498db",
-                      color: "white",
-                      cursor: driversLoading ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    {driversLoading ? "Refreshing..." : "Refresh"}
-                  </button>
-                </div>
-
-                {/* Driver table */}
-                {activeTab === "drivers" && (
-                  selectedDriverId ? (
-                    <DriverDetails
-                      driverId={selectedDriverId}
-                      onBack={() => navigate("/dashboard/drivers")}
-                    />
-                  ) : (
-                    <DriversTable
-                      drivers={drivers}
-                      driversLoading={driversLoading}
-                      onRefresh={fetchDrivers}
-                      onDriverClick={(driverId) =>
-                        navigate(`/dashboard/drivers/${driverId}`)
-                      }
-                    />
-                  )
-                )}
-              </div>)
+              <DriversTable
+                drivers={drivers}
+                driversLoading={driversLoading}
+                onRefresh={fetchDrivers}
+                onDriverClick={(driverId) =>
+                  navigate(`/dashboard/drivers/${driverId}`)
+                }
+              />
+            )
           )}
+
         </div>
       </main>
     </div>
