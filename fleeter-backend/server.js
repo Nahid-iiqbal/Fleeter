@@ -14,7 +14,7 @@ app.use("/api/tracking", require("./routes/tracking"));
 app.use("/api/dashboard", require("./routes/dashboard"));
 app.use("/api/drivers", require("./routes/drivers"));
 app.use("/api/vehicles", require("./routes/vehicles"));
-
+app.use("/api/driver", require("./routes/driver"));
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Fleeter server listening on port ${PORT}`);

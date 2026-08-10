@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 // import driver and vehicle details for the details page
@@ -65,7 +65,7 @@ function OwnerDashboard() {
   });
 
   // Function to fetch drivers data
-  const fetchDrivers = async () => {
+  const fetchDrivers = useCallback(async () => {
     const token = localStorage.getItem("token");
 
     try {
@@ -102,10 +102,10 @@ function OwnerDashboard() {
     } finally {
       setDriversLoading(false);
     }
-  };
+  }, [navigate]);
 
   // Function to fetch vehicle data
-  const fetchVehicles = async () => {
+  const fetchVehicles = useCallback(async () => {
     const token = localStorage.getItem("token");
 
     if (!token) {
@@ -145,7 +145,7 @@ function OwnerDashboard() {
     } finally {
       setVehiclesLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     // 1. Grab the token from local storage
@@ -212,7 +212,7 @@ function OwnerDashboard() {
     }
 
     fetchDrivers();
-  }, [activeTab, driversLoaded, navigate]);
+  }, [activeTab, driversLoaded, fetchDrivers]);
 
   // useEffect for Vehicles data
   // Load vehicles only when the Vehicles tab is opened
@@ -226,7 +226,7 @@ function OwnerDashboard() {
     }
 
     fetchVehicles();
-  }, [activeTab, vehiclesLoaded, navigate]);
+  }, [activeTab, vehiclesLoaded, fetchVehicles]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -312,12 +312,12 @@ function OwnerDashboard() {
               Drivers
             </li>
             <li
-              onClick={() => setActiveTab("recruit")}
+              onClick={() => navigate("/dashboard/recruit")}
               style={{
                 padding: "15px 20px",
                 cursor: "pointer",
                 backgroundColor:
-                  activeTab === "drivers" ? "#34495e" : "transparent",
+                  activeTab === "recruit" ? "#34495e" : "transparent",
               }}
             >
               Recruit
