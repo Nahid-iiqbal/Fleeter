@@ -14,12 +14,11 @@ const tableCellStyle = {
   borderBottom: "1px solid #eee",
 };
 
-
 function OwnerDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
-  
+
   // Var for fetching Drivers data
   const [drivers, setDrivers] = useState([]);
   const [driversLoaded, setDriversLoaded] = useState(false); // checks if already loaded
@@ -37,7 +36,6 @@ function OwnerDashboard() {
     alerts: 0,
   });
 
-
   // Function to fetch drivers data
   const fetchDrivers = async () => {
     const token = localStorage.getItem("token");
@@ -45,16 +43,13 @@ function OwnerDashboard() {
     try {
       setDriversLoading(true);
 
-      const response = await fetch(
-        "http://localhost:5000/api/drivers",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch("http://localhost:5000/api/drivers", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (response.status === 401) {
         localStorage.clear();
@@ -68,21 +63,18 @@ function OwnerDashboard() {
 
       const data = await response.json();
 
-
       console.log("DRIVERS API RESPONSE:", data);
 
       setDrivers(data);
 
       // Mark as successfully loaded
       setDriversLoaded(true);
-
     } catch (error) {
       console.error("Error loading drivers:", error);
     } finally {
       setDriversLoading(false);
     }
   };
-
 
   // Function to fetch vehicle data
   const fetchVehicles = async () => {
@@ -96,16 +88,13 @@ function OwnerDashboard() {
     try {
       setVehiclesLoading(true);
 
-      const response = await fetch(
-        "http://localhost:5000/api/vehicles",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch("http://localhost:5000/api/vehicles", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (response.status === 401) {
         localStorage.clear();
@@ -129,7 +118,6 @@ function OwnerDashboard() {
       setVehiclesLoading(false);
     }
   };
-
 
   useEffect(() => {
     // 1. Grab the token from local storage
@@ -182,7 +170,6 @@ function OwnerDashboard() {
 
     fetchDashboardData();
   }, [navigate]);
-
 
   // New useEffect for handling Drivers data for Drivers tab
   // Load drivers only when the Drivers tab is opened
@@ -295,6 +282,17 @@ function OwnerDashboard() {
               }}
             >
               Drivers
+            </li>
+            <li
+              onClick={() => setActiveTab("recruit")}
+              style={{
+                padding: "15px 20px",
+                cursor: "pointer",
+                backgroundColor:
+                  activeTab === "drivers" ? "#34495e" : "transparent",
+              }}
+            >
+              Recruit
             </li>
           </ul>
         </nav>
@@ -465,9 +463,7 @@ function OwnerDashboard() {
                   <tbody>
                     {vehicles.map((vehicle) => (
                       <tr key={vehicle.vehicle_id}>
-                        <td style={tableCellStyle}>
-                          {vehicle.vehicle_id}
-                        </td>
+                        <td style={tableCellStyle}>{vehicle.vehicle_id}</td>
 
                         <td style={tableCellStyle}>
                           {vehicle.registration_no}
@@ -476,26 +472,18 @@ function OwnerDashboard() {
                         <td style={tableCellStyle}>
                           {vehicle.brand} {vehicle.model}
                           <br />
-                          <small>
-                            Year: {vehicle.year || "N/A"}
-                          </small>
+                          <small>Year: {vehicle.year || "N/A"}</small>
                         </td>
 
-                        <td style={tableCellStyle}>
-                          {vehicle.type}
-                        </td>
+                        <td style={tableCellStyle}>{vehicle.type}</td>
 
-                        <td style={tableCellStyle}>
-                          {vehicle.fuel_type}
-                        </td>
+                        <td style={tableCellStyle}>{vehicle.fuel_type}</td>
 
                         <td style={tableCellStyle}>
                           {vehicle.current_driver_name || "Unassigned"}
                         </td>
 
-                        <td style={tableCellStyle}>
-                          {vehicle.status}
-                        </td>
+                        <td style={tableCellStyle}>{vehicle.status}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -567,33 +555,21 @@ function OwnerDashboard() {
                   <tbody>
                     {drivers.map((driver) => (
                       <tr key={driver.driver_id}>
-                        <td style={tableCellStyle}>
-                          {driver.driver_id}
-                        </td>
+                        <td style={tableCellStyle}>{driver.driver_id}</td>
 
-                        <td style={tableCellStyle}>
-                          {driver.full_name}
-                        </td>
+                        <td style={tableCellStyle}>{driver.full_name}</td>
 
                         <td style={tableCellStyle}>
                           {driver.license_no}
                           <br />
-                          <small>
-                            Type: {driver.license_type}
-                          </small>
+                          <small>Type: {driver.license_type}</small>
                         </td>
 
-                        <td style={tableCellStyle}>
-                          {driver.phone}
-                        </td>
+                        <td style={tableCellStyle}>{driver.phone}</td>
 
-                        <td style={tableCellStyle}>
-                          {driver.status}
-                        </td>
+                        <td style={tableCellStyle}>{driver.status}</td>
 
-                        <td style={tableCellStyle}>
-                          {driver.joined_date}
-                        </td>
+                        <td style={tableCellStyle}>{driver.joined_date}</td>
                       </tr>
                     ))}
                   </tbody>
