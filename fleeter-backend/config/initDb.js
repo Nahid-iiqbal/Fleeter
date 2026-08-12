@@ -61,15 +61,17 @@ const initializeDatabase = async () => {
 
       -- 5. DRIVER
       CREATE TABLE Driver (
-        driver_id SERIAL PRIMARY KEY,
-        user_id INT NULL REFERENCES User_Account(user_id) ON DELETE SET NULL,
-        owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
-        full_name VARCHAR(100) NOT NULL,
-        phone VARCHAR(15),
-        status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'on_leave', 'suspended', 'terminated')),
-        joined_date DATE NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (user_id, owner_id)
+          driver_id   SERIAL PRIMARY KEY,
+          user_id     INT NULL,
+          owner_id    INT NULL,
+          full_name   VARCHAR(100) NOT NULL,
+          phone       VARCHAR(15),
+          status      VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'on_leave', 'suspended', 'terminated')),
+          joined_date DATE NOT NULL,
+          created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES User_Account(user_id) ON DELETE SET NULL,
+          FOREIGN KEY (owner_id) REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
+          UNIQUE (user_id) -- CHANGED: Ensures one user account = one driver profile globally
       );
 
       -- 6. VEHICLE
