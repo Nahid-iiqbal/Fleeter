@@ -19,12 +19,13 @@ const initializeDatabase = async () => {
       -- 1. VENDOR
       CREATE TABLE Vendor (
         vendor_id SERIAL PRIMARY KEY,
-        owner_id INT NULL, 
-        company_name VARCHAR(100) NOT NULL,
-        service_type VARCHAR(50) NOT NULL, 
-        contact_name VARCHAR(100),
-        phone VARCHAR(15),
-        address TEXT
+        owner_id INT REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
+        vendor_name VARCHAR(100) NOT NULL,
+        vendor_category VARCHAR(50),
+        contact_person VARCHAR(100),
+        phone VARCHAR(20),
+        address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       -- 2. USER_ACCOUNT
@@ -214,33 +215,33 @@ const initializeDatabase = async () => {
     console.log("4. Creating Views and Indexes...");
     await client.query(`
       CREATE VIEW v_vehicle_expense_ledger AS
-      SELECT 
-          vehicle_id, 
-          'fuel' AS category, 
-          total_cost AS amount, 
-          refuel_time AS expense_date, 
-          fuel_id AS reference_id 
+      SELECT
+          vehicle_id,
+          'fuel' AS category,
+          total_cost AS amount,
+          refuel_time AS expense_date,
+          fuel_id AS reference_id
       FROM Fuel_Log
       UNION ALL
-      SELECT 
-          vehicle_id, 
-          'maintenance' AS category, 
-          cost AS amount, 
-          service_date::timestamptz AS expense_date, 
-          maintenance_id AS reference_id 
+      SELECT
+          vehicle_id,
+          'maintenance' AS category,
+          cost AS amount,
+          service_date::timestamptz AS expense_date,
+          maintenance_id AS reference_id
       FROM Maintenance
       UNION ALL
-      SELECT 
+      SELECT
           t.vehicle_id,
-          'incident' AS category, 
-          i.damage_cost AS amount, 
-          i.incident_date AS expense_date, 
-          i.incident_id AS reference_id 
+          'incident' AS category,
+          i.damage_cost AS amount,
+          i.incident_date AS expense_date,
+          i.incident_id AS reference_id
       FROM Incident i
       JOIN Trip t ON i.trip_id = t.trip_id;
 
       CREATE VIEW v_vehicle_cost_summary AS
-      SELECT 
+      SELECT
           v.vehicle_id,
           v.owner_id,
           v.registration_no,

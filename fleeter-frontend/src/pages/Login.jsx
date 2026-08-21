@@ -33,11 +33,9 @@ function Login() {
         localStorage.setItem("userId", data.user_id);
 
         // 2. Route the user based on their role
-        if (
-          data.role === "owner" ||
-          data.role === "admin" ||
-          data.role === "manager"
-        ) {
+        if (data.role === "admin") {
+          navigate("/admin-dashboard");
+        } else if (data.role === "owner" || data.role === "manager") {
           navigate("/owner-dashboard");
         } else if (data.role === "driver") {
           navigate("/driver-portal");
