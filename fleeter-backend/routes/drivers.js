@@ -9,18 +9,30 @@ router.get("/", authMiddleware, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT
-        driver_id,
-        full_name,
-        license_no,
-        license_type,
-        license_expiry,
-        phone,
-        address,
-        status,
-        joined_date,
-        created_at
-      FROM Driver
-      ORDER BY driver_id DESC
+        d.driver_id,
+        d.user_id,
+        d.owner_id,
+        d.full_name,
+        d.phone,
+        d.status,
+        d.joined_date,
+        d.created_at,
+        u.username,
+        u.email,
+        document.document_type,
+        document.document_no,
+        document.issue_date AS document_issue_date,
+        document.expiry_date AS document_expiry_date
+      FROM Driver d
+      LEFT JOIN User_Account u ON u.user_id = d.user_id
+      LEFT JOIN LATERAL (
+        SELECT document_type, document_no, issue_date, expiry_date
+        FROM Driver_Document
+        WHERE driver_id = d.driver_id
+        ORDER BY expiry_date DESC, document_id DESC
+        LIMIT 1
+      ) document ON TRUE
+      ORDER BY d.driver_id ASC
     `);
 
     res.json(result.rows);
@@ -42,18 +54,30 @@ router.get("/:driverId", authMiddleware, async (req, res) => {
     const result = await pool.query(
       `
         SELECT
-          driver_id,
-          full_name,
-          license_no,
-          license_type,
-          license_expiry,
-          phone,
-          address,
-          status,
-          joined_date,
-          created_at
-        FROM Driver
-        WHERE driver_id = $1
+          d.driver_id,
+          d.user_id,
+          d.owner_id,
+          d.full_name,
+          d.phone,
+          d.status,
+          d.joined_date,
+          d.created_at,
+          u.username,
+          u.email,
+          document.document_type,
+          document.document_no,
+          document.issue_date AS document_issue_date,
+          document.expiry_date AS document_expiry_date
+        FROM Driver d
+        LEFT JOIN User_Account u ON u.user_id = d.user_id
+        LEFT JOIN LATERAL (
+          SELECT document_type, document_no, issue_date, expiry_date
+          FROM Driver_Document
+          WHERE driver_id = d.driver_id
+          ORDER BY expiry_date DESC, document_id DESC
+          LIMIT 1
+        ) document ON TRUE
+        WHERE d.driver_id = $1
       `,
       [driverId]
     );

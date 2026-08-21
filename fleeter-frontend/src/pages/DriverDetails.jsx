@@ -216,7 +216,7 @@ function DriverDetails({ driverId, onBack }) {
       <main style={{ padding: "30px", maxWidth: "1200px", margin: "0 auto" }}>
         {/* Back button */}
         <button
-          onClick={() => navigate("/dashboard/drivers")}
+          onClick={() => navigate(-1)}
           style={{
             background: "none",
             border: "none",
@@ -227,7 +227,7 @@ function DriverDetails({ driverId, onBack }) {
             marginBottom: "20px",
           }}
         >
-          ← Back to Drivers
+          ← Back
         </button>
 
         {/* Driver identity card */}
@@ -330,19 +330,24 @@ function DriverDetails({ driverId, onBack }) {
 
             <div>
               <div style={labelStyle}>Phone</div>
-              <div style={valueStyle}>{driver.phone}</div>
+              <div style={valueStyle}>{driver.phone || "Not provided"}</div>
             </div>
 
             <div>
-              <div style={labelStyle}>Address</div>
+              <div style={labelStyle}>Username</div>
               <div style={valueStyle}>
-                {driver.address || "Not provided"}
+                {driver.username || "Not linked"}
               </div>
             </div>
 
             <div>
+              <div style={labelStyle}>Email</div>
+              <div style={valueStyle}>{driver.email || "Not provided"}</div>
+            </div>
+
+            <div>
               <div style={labelStyle}>Joined Date</div>
-              <div style={valueStyle}>{driver.joined_date}</div>
+              <div style={valueStyle}>{driver.joined_date || "Not provided"}</div>
             </div>
           </div>
         </div>
@@ -367,18 +372,25 @@ function DriverDetails({ driverId, onBack }) {
             }}
           >
             <div>
-              <div style={labelStyle}>License Number</div>
-              <div style={valueStyle}>{driver.license_no}</div>
+              <div style={labelStyle}>Document Number</div>
+              <div style={valueStyle}>{driver.document_no || "Not provided"}</div>
             </div>
 
             <div>
-              <div style={labelStyle}>License Type</div>
-              <div style={valueStyle}>{driver.license_type}</div>
+              <div style={labelStyle}>Document Type</div>
+              <div style={valueStyle}>
+                {driver.document_type?.replaceAll("_", " ") || "Not provided"}
+              </div>
             </div>
 
             <div>
-              <div style={labelStyle}>License Expiry</div>
-              <div style={valueStyle}>{driver.license_expiry}</div>
+              <div style={labelStyle}>Issue Date</div>
+              <div style={valueStyle}>{driver.document_issue_date || "Not provided"}</div>
+            </div>
+
+            <div>
+              <div style={labelStyle}>Expiry Date</div>
+              <div style={valueStyle}>{driver.document_expiry_date || "Not provided"}</div>
             </div>
           </div>
         </div>

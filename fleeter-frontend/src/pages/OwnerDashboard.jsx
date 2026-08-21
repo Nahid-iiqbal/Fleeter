@@ -443,6 +443,9 @@ function OwnerDashboard() {
                 onVehicleClick={(vehicleId) =>
                   navigate(`/dashboard/vehicles/${vehicleId}`)
                 }
+                onDriverClick={(driverId) =>
+                  navigate(`/dashboard/drivers/${driverId}`)
+                }
               />
             )
           )}

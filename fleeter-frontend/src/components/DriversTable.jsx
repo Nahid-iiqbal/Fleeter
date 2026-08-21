@@ -70,7 +70,8 @@ function DriversTable({
             <tr>
               <th style={tableHeaderStyle}>ID</th>
               <th style={tableHeaderStyle}>Name</th>
-              <th style={tableHeaderStyle}>License</th>
+              <th style={tableHeaderStyle}>License Document</th>
+              <th style={tableHeaderStyle}>Account</th>
               <th style={tableHeaderStyle}>Phone</th>
               <th style={tableHeaderStyle}>Status</th>
               <th style={tableHeaderStyle}>Joined</th>
@@ -102,11 +103,25 @@ function DriversTable({
                 </td>
 
                 <td style={tableCellStyle}>
-                  {driver.license_no}
-                  <br />
-                  <small>
-                    Type: {driver.license_type}
-                  </small>
+                  {driver.document_no || "Not provided"}
+                  {driver.document_type && (
+                    <>
+                      <br />
+                      <small>
+                        Type: {driver.document_type.replaceAll("_", " ")}
+                      </small>
+                    </>
+                  )}
+                </td>
+
+                <td style={tableCellStyle}>
+                  {driver.username || driver.email || "Not linked"}
+                  {driver.email && driver.username && (
+                    <>
+                      <br />
+                      <small>{driver.email}</small>
+                    </>
+                  )}
                 </td>
 
                 <td style={tableCellStyle}>

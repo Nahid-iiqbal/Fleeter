@@ -17,6 +17,7 @@ function VehiclesTable({
   vehiclesLoading,
   onRefresh,
   onVehicleClick,
+  onDriverClick,
 }) {
   return (
     <div
@@ -74,7 +75,8 @@ function VehiclesTable({
               <th style={tableHeaderStyle}>Type</th>
               <th style={tableHeaderStyle}>Fuel</th>
               <th style={tableHeaderStyle}>Driver</th>
-              <th style={tableHeaderStyle}>Status</th>
+              <th style={tableHeaderStyle}>Condition</th>
+              <th style={tableHeaderStyle}>Availability</th>
             </tr>
           </thead>
 
@@ -121,11 +123,32 @@ function VehiclesTable({
                 </td>
 
                 <td style={tableCellStyle}>
-                  {vehicle.current_driver_name || "Unassigned"}
+                  {vehicle.current_driver_id ? (
+                    <button
+                      onClick={() => onDriverClick(vehicle.current_driver_id)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        color: "#3498db",
+                        cursor: "pointer",
+                        fontSize: "inherit",
+                        fontWeight: "600",
+                      }}
+                    >
+                      {vehicle.current_driver_name}
+                    </button>
+                  ) : (
+                    "Unassigned"
+                  )}
                 </td>
 
                 <td style={tableCellStyle}>
-                  {vehicle.status}
+                  {vehicle.condition_status}
+                </td>
+
+                <td style={tableCellStyle}>
+                  {vehicle.availability_status}
                 </td>
               </tr>
             ))}
