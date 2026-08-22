@@ -16,19 +16,28 @@ const initializeDatabase = async () => {
 
     console.log("3. Creating Enterprise Tables...");
     await client.query(`
-      -- 1. VENDOR
-      CREATE TABLE Vendor (
-        vendor_id SERIAL PRIMARY KEY,
-        owner_id INT REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
-        vendor_name VARCHAR(100) NOT NULL,
-        vendor_category VARCHAR(50),
-        contact_person VARCHAR(100),
-        phone VARCHAR(20),
-        address TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+      -- 0. DROP EXISTING VIEWS AND TABLES
+      DROP VIEW IF EXISTS v_vehicle_cost_summary CASCADE;
+      DROP VIEW IF EXISTS v_vehicle_expense_ledger CASCADE;
 
-      -- 2. USER_ACCOUNT
+      DROP TABLE IF EXISTS telemetry_y2026m08 CASCADE;
+      DROP TABLE IF EXISTS Vehicle_Telemetry CASCADE;
+      DROP TABLE IF EXISTS Vehicle_Document CASCADE;
+      DROP TABLE IF EXISTS Driver_Document CASCADE;
+      DROP TABLE IF EXISTS Incident CASCADE;
+      DROP TABLE IF EXISTS Fuel_Log CASCADE;
+      DROP TABLE IF EXISTS Maintenance CASCADE;
+      DROP TABLE IF EXISTS Trip CASCADE;
+      DROP TABLE IF EXISTS Route CASCADE;
+      DROP TABLE IF EXISTS Vehicle CASCADE;
+      DROP TABLE IF EXISTS Driver CASCADE;
+      DROP TABLE IF EXISTS Manager_Profile CASCADE;
+      DROP TABLE IF EXISTS Vendor CASCADE;
+      DROP TABLE IF EXISTS Owner_Profile CASCADE;
+      DROP TABLE IF EXISTS User_Account CASCADE;
+
+
+      -- 1. USER_ACCOUNT
       CREATE TABLE User_Account (
         user_id SERIAL PRIMARY KEY,
         username VARCHAR(50) UNIQUE NOT NULL,
@@ -40,14 +49,14 @@ const initializeDatabase = async () => {
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
 
-      -- 3. OWNER_PROFILE
+      -- 2. OWNER_PROFILE
       CREATE TABLE Owner_Profile (
         owner_id SERIAL PRIMARY KEY,
         user_id INT UNIQUE NOT NULL REFERENCES User_Account(user_id) ON DELETE CASCADE,
         company_name VARCHAR(100)
       );
 
-      -- 4. MANAGER_PROFILE
+      -- 3. MANAGER_PROFILE
       CREATE TABLE Manager_Profile (
         manager_id SERIAL PRIMARY KEY,
         user_id INT NOT NULL REFERENCES User_Account(user_id) ON DELETE CASCADE,
@@ -60,7 +69,7 @@ const initializeDatabase = async () => {
         UNIQUE (owner_id, employee_id)
       );
 
-      -- 5. DRIVER
+      -- 4. DRIVER
       CREATE TABLE Driver (
           driver_id   SERIAL PRIMARY KEY,
           user_id     INT NULL,
@@ -75,7 +84,7 @@ const initializeDatabase = async () => {
           UNIQUE (user_id) -- CHANGED: Ensures one user account = one driver profile globally
       );
 
-      -- 6. VEHICLE
+      -- 5. VEHICLE
       CREATE TABLE Vehicle (
         vehicle_id SERIAL PRIMARY KEY,
         owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
@@ -91,7 +100,7 @@ const initializeDatabase = async () => {
         availability_status VARCHAR(20) DEFAULT 'available' CHECK (availability_status IN ('available', 'dispatched'))
       );
 
-      -- 7. ROUTE
+      -- 6. ROUTE
       CREATE TABLE Route (
         route_id SERIAL PRIMARY KEY,
         owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
@@ -103,7 +112,7 @@ const initializeDatabase = async () => {
         is_active BOOLEAN DEFAULT TRUE
       );
 
-      -- 8. TRIP
+      -- 7. TRIP
       CREATE TABLE Trip (
         trip_id SERIAL PRIMARY KEY,
         owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
@@ -123,6 +132,18 @@ const initializeDatabase = async () => {
         CHECK (arrival_time IS NULL OR arrival_time >= departure_time),
         CHECK (end_odometer IS NULL OR end_odometer >= start_odometer),
         CHECK ((route_id IS NOT NULL) OR (origin_address IS NOT NULL AND destination_address IS NOT NULL))
+      );
+
+      -- 8. VENDOR
+      CREATE TABLE Vendor (
+        vendor_id SERIAL PRIMARY KEY,
+        owner_id INT REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
+        vendor_name VARCHAR(100) NOT NULL,
+        vendor_category VARCHAR(50),
+        contact_person VARCHAR(100),
+        phone VARCHAR(20),
+        address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
 
       -- 9. MAINTENANCE
