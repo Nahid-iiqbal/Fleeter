@@ -5,40 +5,61 @@ const { verifyTokenAndRole } = require('../middleware/auth');
 // 1. Get Live Locations for Owner Dashboard
 router.get('/live', verifyTokenAndRole(['owner', 'admin']), async (req, res) => {
   try {
+    // DISTINCT ON ensures we only get one row per vehicle_id
+    // ORDER BY ping_time DESC guarantees that row is the most recent one
     const queryText = `
-      SELECT l.vehicle_id, v.registration_no, v.type, l.latitude, l.longitude, l.speed_kmh, l.status, l.last_updated
-      FROM Live_Tracking_Status l
-      JOIN Vehicle v ON l.vehicle_id = v.vehicle_id;
+      SELECT DISTINCT ON (t.vehicle_id)
+        t.vehicle_id,
+        v.registration_no,
+        ST_Y(t.geom::geometry) AS latitude,
+        ST_X(t.geom::geometry) AS longitude,
+        t.speed_kmh,
+        t.ping_time AS last_updated
+      FROM Vehicle_Telemetry t
+      JOIN Vehicle v ON t.vehicle_id = v.vehicle_id
+      ORDER BY t.vehicle_id, t.ping_time DESC;
     `;
     const { rows } = await db.query(queryText);
     res.json(rows);
   } catch (err) {
+    console.error("Live Tracking Fetch Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // 2. Post Location Ping from Driver App
 router.post('/ping', verifyTokenAndRole(['driver']), async (req, res) => {
-  const { vehicle_id, latitude, longitude, speed_kmh } = req.body;
+  const {
+    vehicle_id,
+    trip_id,
+    latitude,
+    longitude,
+    speed_kmh,
+    altitude,
+    battery_level
+  } = req.body;
 
   try {
-    // Save to historical telemetry
+    // Save directly to historical telemetry using PostGIS syntax
     await db.query(
-      `INSERT INTO Vehicle_Telemetry (vehicle_id, latitude, longitude, speed_kmh) VALUES ($1, $2, $3, $4)`,
-      [vehicle_id, latitude, longitude, speed_kmh]
-    );
-
-    // Upsert into Live Tracking Status
-    await db.query(
-      `INSERT INTO Live_Tracking_Status (vehicle_id, latitude, longitude, speed_kmh, status, last_updated)
-       VALUES ($1, $2, $3, $4, 'moving', NOW())
-       ON CONFLICT (vehicle_id) DO UPDATE 
-       SET latitude = $2, longitude = $3, speed_kmh = $4, status = 'moving', last_updated = NOW()`,
-      [vehicle_id, latitude, longitude, speed_kmh]
+      `INSERT INTO Vehicle_Telemetry
+        (vehicle_id, trip_id, geom, speed_kmh, altitude, battery_level, ping_time)
+       VALUES
+        ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6, $7, NOW())`,
+      [
+        vehicle_id,
+        trip_id || null,
+        longitude, // Longitude must be first for ST_MakePoint
+        latitude,
+        speed_kmh || 0.00,
+        altitude || null,
+        battery_level || null
+      ]
     );
 
     res.json({ message: 'Ping recorded successfully' });
   } catch (err) {
+    console.error("Telemetry Ping Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

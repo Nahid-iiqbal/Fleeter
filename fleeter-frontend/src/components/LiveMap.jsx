@@ -1,43 +1,111 @@
-import React, { useEffect, useState } from 'react';
-import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import api from "../utils/api";
 
-export default function LiveMap() {
-  const [vehicles, setVehicles] = useState([]);
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
+  iconUrl: require("leaflet/dist/images/marker-icon.png"),
+  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+});
 
-  const fetchLocations = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/tracking/live`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setVehicles(res.data);
-    } catch (err) {
-      console.error('Failed to fetch live vehicle locations', err);
-    }
-  };
+const LocateControl = () => {
+  const map = useMap();
 
   useEffect(() => {
+    const control = L.control({ position: "topright" });
+
+    control.onAdd = () => {
+      const container = L.DomUtil.create("div", "leaflet-bar leaflet-control");
+      const button = L.DomUtil.create("a", "", container);
+
+      button.href = "#";
+      button.title = "Show my location";
+      button.innerHTML = "🎯";
+      Object.assign(button.style, {
+        width: "34px",
+        height: "34px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: "16px",
+        backgroundColor: "white",
+        cursor: "pointer",
+      });
+
+
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.disableScrollPropagation(container);
+
+      L.DomEvent.on(button, "click", (e) => {
+        L.DomEvent.stop(e);
+        map.locate({ setView: true, maxZoom: 16, enableHighAccuracy: true });
+      });
+
+      return container;
+    };
+
+    control.addTo(map);
+    return () => control.remove();
+  }, [map]);
+
+  return null;
+};
+
+const LiveMap = () => {
+  const [vehicles, setVehicles] = useState([]);
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const response = await api.get("/tracking/live");
+        setVehicles(response.data);
+      } catch (error) {
+        console.error("Failed to fetch live locations:", error);
+      }
+    };
     fetchLocations();
-    const interval = setInterval(fetchLocations, 10000); // Polling every 10 seconds
+    const interval = setInterval(fetchLocations, 5000);
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <APIProvider apiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ''}>
-      <Map
-        style={{ width: '100%', height: 'calc(100vh - 80px)' }}
-        defaultCenter={{ lat: 23.7276, lng: 90.3929 }} // Default view (Dhaka)
-        defaultZoom={12}
+    <div
+      style={{
+        height: "600px",
+        width: "100%",
+        borderRadius: "8px",
+        overflow: "hidden",
+      }}
+    >
+      <MapContainer
+        center={[23.8103, 90.4125]}
+        zoom={12}
+        style={{ height: "100%", width: "100%" }}
       >
-        {vehicles.map((v) => (
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+        <LocateControl />
+
+        {vehicles.map((vehicle) => (
           <Marker
-            key={v.vehicle_id}
-            position={{ lat: parseFloat(v.latitude), lng: parseFloat(v.longitude) }}
-            title={`${v.registration_no} -${v.speed_kmh} km/h`}
-          />
+            key={vehicle.vehicle_id}
+            position={[vehicle.latitude, vehicle.longitude]}
+          >
+            <Popup>
+              <strong>{vehicle.registration_no}</strong>
+              <br />
+              Speed: {vehicle.speed_kmh} km/h
+              <br />
+              Last Ping: {new Date(vehicle.last_updated).toLocaleTimeString()}
+            </Popup>
+          </Marker>
         ))}
-      </Map>
-    </APIProvider>
+      </MapContainer>
+    </div>
   );
-}
+};
+
+export default LiveMap;

@@ -1,5 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import LocateControl from "../components/LocateControl";
+// Fix for Leaflet's default marker icons in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
+  iconUrl: require("leaflet/dist/images/marker-icon.png"),
+  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+});
 
 function DriverDashboard() {
   const navigate = useNavigate();
@@ -13,6 +24,59 @@ function DriverDashboard() {
     alerts: 0,
     driverProfileMissing: false,
   });
+  // --- TRIP ACTION HANDLER ---
+  const confirmCompleteTrip = async () => {
+    setCompleteTripMsg("Completing trip...");
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `http://localhost:5000/api/driver/trips/${activeTrip.trip_id}/complete`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (response.ok) {
+        // 1. Extract the updated trip data from the backend response
+        const responseData = await response.json();
+
+        setCompleteTripMsg("Trip completed successfully!");
+
+        setTimeout(() => {
+          setIsCompleteTripModalOpen(false);
+          setCompleteTripMsg("");
+
+          // 2. Update the local state with the exact arrival time from the database
+          setDriverStats((prev) => ({
+            ...prev,
+            trips: prev.trips.map((t) =>
+              t.trip_id === activeTrip.trip_id
+                ? {
+                    ...t,
+                    status: "completed",
+                    arrival_time: responseData.trip.arrival_time,
+                  }
+                : t,
+            ),
+          }));
+
+          setCurrentPosition(null);
+        }, 1500);
+      } else {
+        const errData = await response.json();
+        setCompleteTripMsg(`Failed: ${errData.error || "Server error"}`);
+      }
+    } catch (error) {
+      console.error("Network error while completing trip:", error);
+      setCompleteTripMsg("Network error. Please try again.");
+    }
+  };
+
+  // --- NEW: LIVE TRACKING STATE ---
+  const [currentPosition, setCurrentPosition] = useState(null);
 
   // --- ACCOUNT SETTINGS STATE ---
   const [accountForm, setAccountForm] = useState({
@@ -50,6 +114,9 @@ function DriverDashboard() {
     workshop: "",
   });
   const [maintenanceSubmitMsg, setMaintenanceSubmitMsg] = useState("");
+  // Add this near your other modal states
+  const [isCompleteTripModalOpen, setIsCompleteTripModalOpen] = useState(false);
+  const [completeTripMsg, setCompleteTripMsg] = useState("");
 
   // --- PROFILE/DOCUMENTS STATE ---
   const [driverDocs, setDriverDocs] = useState([]);
@@ -137,7 +204,6 @@ function DriverDashboard() {
 
         if (response.ok) {
           const data = await response.json();
-          // Safety check to ensure we only render arrays
           if (Array.isArray(data)) {
             setDriverDocs(data);
             const alertsCount = data.filter(
@@ -148,7 +214,7 @@ function DriverDashboard() {
             setDriverDocs([]);
           }
         } else {
-          setDriverDocs([]); // If 404 (no profile yet), just show empty list
+          setDriverDocs([]);
         }
       } catch (error) {
         console.error("Failed to load documents", error);
@@ -161,13 +227,130 @@ function DriverDashboard() {
     if (currentView === "profile") {
       fetchDocuments();
     }
-  }, [currentView]); // Notice driverProfileMissing is removed from dependencies
+  }, [currentView]);
+
+  // --- TRIP LOGIC HELPERS ---
+  const currentTrips = driverStats.trips.filter(
+    (t) => t.status === "in_progress",
+  );
+  const futureTrips = driverStats.trips.filter((t) => t.status === "scheduled");
+  const activeTrip = currentTrips.length > 0 ? currentTrips[0] : null;
+  const canAccessTripFeatures = activeTrip !== null;
+  const [isStartTripModalOpen, setIsStartTripModalOpen] = useState(false);
+  const [tripToStart, setTripToStart] = useState(null);
+  const [startTripMsg, setStartTripMsg] = useState("");
+
+  // --- START TRIP HANDLER ---
+  const confirmStartTrip = async () => {
+    if (!tripToStart) return;
+    setStartTripMsg("Starting trip...");
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `http://localhost:5000/api/driver/trips/${tripToStart.trip_id}/start`,
+        {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (response.ok) {
+        const responseData = await response.json();
+        setStartTripMsg("Trip started successfully!");
+
+        setTimeout(() => {
+          setIsStartTripModalOpen(false);
+          setStartTripMsg("");
+
+          // Update the local state with the exact departure time from the database
+          setDriverStats((prev) => ({
+            ...prev,
+            trips: prev.trips.map((t) =>
+              t.trip_id === tripToStart.trip_id
+                ? {
+                    ...t,
+                    status: "in_progress",
+                    departure_time: responseData.trip.departure_time,
+                  }
+                : t,
+            ),
+          }));
+
+          setTripToStart(null);
+        }, 1500);
+      } else {
+        const errData = await response.json();
+        setStartTripMsg(`Failed: ${errData.error || "Server error"}`);
+      }
+    } catch (error) {
+      console.error("Network error while starting trip:", error);
+      setStartTripMsg("Network error. Please try again.");
+    }
+  };
+
+  // --- NEW: LIVE TRACKING ENGINE ---
+  useEffect(() => {
+    let watchId;
+
+    if (activeTrip) {
+      if (!navigator.geolocation) {
+        console.warn("Geolocation is not supported by your browser");
+        return;
+      }
+
+      const token = localStorage.getItem("token");
+
+      watchId = navigator.geolocation.watchPosition(
+        async (position) => {
+          const { latitude, longitude, altitude, speed } = position.coords;
+
+          // Update the local map view
+          setCurrentPosition([latitude, longitude]);
+
+          // Fetch battery level if supported
+          let batteryLevel = null;
+          if ("getBattery" in navigator) {
+            const battery = await navigator.getBattery();
+            batteryLevel = Math.round(battery.level * 100);
+          }
+
+          // Post telemetry data to the backend
+          try {
+            await fetch("http://localhost:5000/api/tracking/ping", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                vehicle_id: activeTrip.vehicle_id,
+                trip_id: activeTrip.trip_id,
+                latitude,
+                longitude,
+                speed_kmh: speed ? (speed * 3.6).toFixed(2) : 0.0,
+                altitude: altitude ? altitude.toFixed(2) : null,
+                battery_level: batteryLevel,
+              }),
+            });
+          } catch (error) {
+            console.error("Failed to ping location:", error);
+          }
+        },
+        (error) => console.error("Error capturing GPS:", error),
+        { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 },
+      );
+    }
+
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [activeTrip]);
 
   // --- DELETE DOCUMENT ---
   const deleteDocument = async (documentId) => {
     if (!window.confirm("Are you sure you want to delete this document?"))
       return;
-
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
@@ -196,17 +379,10 @@ function DriverDashboard() {
     navigate("/login");
   };
 
-  // --- TRIP LOGIC ---
-  const currentTrips = driverStats.trips.filter(
-    (t) => t.status === "in_progress",
-  );
-  const futureTrips = driverStats.trips.filter((t) => t.status === "scheduled");
-  const activeTrip = currentTrips.length > 0 ? currentTrips[0] : null;
-  const canAccessTripFeatures = activeTrip !== null;
-
   // --- ACCOUNT HANDLER ---
   const handleAccountChange = (e) =>
     setAccountForm({ ...accountForm, [e.target.name]: e.target.value });
+
   const updateAccount = async (e) => {
     e.preventDefault();
     setAccountMsg("Updating...");
@@ -262,10 +438,8 @@ function DriverDashboard() {
           expiry_date: "",
         });
 
-        // Remove the missing profile flag so UI unlocks
         setDriverStats((prev) => ({ ...prev, driverProfileMissing: false }));
 
-        // Manually fetch the updated list from the database
         const docsResponse = await fetch(
           "http://localhost:5000/api/driver/documents",
           {
@@ -283,7 +457,6 @@ function DriverDashboard() {
             setDriverStats((prev) => ({ ...prev, alerts: alertsCount }));
           }
         }
-
         setTimeout(() => setDocSubmitMsg(""), 3000);
       } else {
         const errData = await response.json();
@@ -297,6 +470,7 @@ function DriverDashboard() {
   // --- FUEL HANDLER ---
   const handleFuelChange = (e) =>
     setFuelForm({ ...fuelForm, [e.target.name]: e.target.value });
+
   const submitFuelLog = async (e) => {
     e.preventDefault();
     setFuelSubmitMsg("Submitting...");
@@ -347,6 +521,7 @@ function DriverDashboard() {
   // --- INCIDENT HANDLER ---
   const handleIncidentChange = (e) =>
     setIncidentForm({ ...incidentForm, [e.target.name]: e.target.value });
+
   const submitIncidentLog = async (e) => {
     e.preventDefault();
     setIncidentSubmitMsg("Submitting...");
@@ -391,6 +566,7 @@ function DriverDashboard() {
   // --- MAINTENANCE HANDLER ---
   const handleMaintenanceChange = (e) =>
     setMaintenanceForm({ ...maintenanceForm, [e.target.name]: e.target.value });
+
   const submitMaintenanceRequest = async (e) => {
     e.preventDefault();
     setMaintenanceSubmitMsg("Submitting...");
@@ -435,6 +611,20 @@ function DriverDashboard() {
   if (loading)
     return <div style={styles.loadingScreen}>Loading your dashboard...</div>;
 
+  // --- TRIP LOGIC HELPERS ---
+  const pastTrips = driverStats.trips.filter((t) => t.status === "completed"); // Added past trips
+
+  // Helper to calculate total time
+  const calculateDuration = (start, end) => {
+    if (!start || !end) return "N/A";
+    const startTime = new Date(start);
+    const endTime = new Date(end);
+    const diffMs = endTime - startTime;
+    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMins = Math.round((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `${diffHrs}h ${diffMins}m`;
+  };
+
   return (
     <div style={styles.appContainer}>
       {/* ================= LEFT SIDEBAR ================= */}
@@ -454,6 +644,14 @@ function DriverDashboard() {
             style={tabButtonStyle(currentView === "dashboard")}
           >
             🏠 Dashboard
+          </button>
+
+          {/* NEW HISTORY BUTTON */}
+          <button
+            onClick={() => setCurrentView("history")}
+            style={tabButtonStyle(currentView === "history")}
+          >
+            🕒 Trip History
           </button>
 
           <div style={styles.navSectionTitleFlex}>
@@ -541,9 +739,58 @@ function DriverDashboard() {
                     <span style={styles.inProgressBadge}>IN PROGRESS</span>
                   </div>
                   <div style={styles.tripActionRow}>
-                    <button style={styles.completeTripBtn}>
+                    <button
+                      style={styles.completeTripBtn}
+                      onClick={() => setIsCompleteTripModalOpen(true)}
+                    >
                       Complete Trip
                     </button>
+                  </div>
+
+                  {/* --- NEW: MAP RENDER --- */}
+                  <div style={{ marginTop: "25px" }}>
+                    <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50" }}>
+                      Live GPS Tracking
+                    </h4>
+                    {currentPosition ? (
+                      <div
+                        style={{
+                          height: "350px",
+                          width: "100%",
+                          borderRadius: "8px",
+                          overflow: "hidden",
+                          border: "1px solid #bdc3c7",
+                        }}
+                      >
+                        <MapContainer
+                          center={currentPosition}
+                          zoom={16}
+                          style={{ height: "100%", width: "100%" }}
+                        >
+                          <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                          />
+                          <LocateControl position={currentPosition} />
+                          <Marker position={currentPosition}>
+                            <Popup>You are actively tracking.</Popup>
+                          </Marker>
+                        </MapContainer>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          padding: "20px",
+                          backgroundColor: "#fdf2e9",
+                          borderRadius: "8px",
+                          color: "#e67e22",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        📡 Acquiring GPS signal... Please ensure location
+                        permissions are enabled.
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -572,7 +819,15 @@ function DriverDashboard() {
                           {new Date(trip.departure_time).toLocaleString()}
                         </p>
                       </div>
-                      <button style={styles.startBtn}>Start</button>
+                      <button
+                        style={styles.startBtn}
+                        onClick={() => {
+                          setTripToStart(trip);
+                          setIsStartTripModalOpen(true);
+                        }}
+                      >
+                        Start
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -582,7 +837,177 @@ function DriverDashboard() {
             </section>
           </>
         )}
+        {/* START TRIP MODAL */}
+        {isStartTripModalOpen && tripToStart && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modalContainer}>
+              <h2 style={{ ...styles.modalTitle, color: "#3498db" }}>
+                Start Trip
+              </h2>
+              <p
+                style={{
+                  color: "#7f8c8d",
+                  fontSize: "15px",
+                  marginBottom: "20px",
+                }}
+              >
+                Are you ready to begin your trip to{" "}
+                <strong>{tripToStart.destination}</strong>? This will activate
+                live GPS tracking.
+              </p>
 
+              {startTripMsg && (
+                <p
+                  style={{
+                    color: startTripMsg.includes("success") ? "green" : "red",
+                    ...styles.submitMsg,
+                    marginBottom: "15px",
+                  }}
+                >
+                  {startTripMsg}
+                </p>
+              )}
+
+              <div style={styles.modalActionRow}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStartTripModalOpen(false);
+                    setTripToStart(null);
+                    setStartTripMsg("");
+                  }}
+                  style={styles.cancelBtn}
+                  disabled={startTripMsg === "Starting trip..."}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmStartTrip}
+                  style={{ ...styles.submitBtn, backgroundColor: "#3498db" }}
+                  disabled={startTripMsg === "Starting trip..."}
+                >
+                  Yes, Start Trip
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* COMPLETE TRIP MODAL */}
+        {isCompleteTripModalOpen && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modalContainer}>
+              <h2 style={{ ...styles.modalTitle, color: "#2ecc71" }}>
+                Complete Trip
+              </h2>
+              <p
+                style={{
+                  color: "#7f8c8d",
+                  fontSize: "15px",
+                  marginBottom: "20px",
+                }}
+              >
+                Are you sure you have arrived and want to complete this trip?
+                This will stop live tracking.
+              </p>
+
+              {completeTripMsg && (
+                <p
+                  style={{
+                    color: completeTripMsg.includes("success")
+                      ? "green"
+                      : "red",
+                    ...styles.submitMsg,
+                    marginBottom: "15px",
+                  }}
+                >
+                  {completeTripMsg}
+                </p>
+              )}
+
+              <div style={styles.modalActionRow}>
+                <button
+                  type="button"
+                  onClick={() => setIsCompleteTripModalOpen(false)}
+                  style={styles.cancelBtn}
+                  disabled={completeTripMsg === "Completing trip..."}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmCompleteTrip}
+                  style={{ ...styles.submitBtn, backgroundColor: "#2ecc71" }}
+                  disabled={completeTripMsg === "Completing trip..."}
+                >
+                  Yes, Complete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* --- HISTORY VIEW --- */}
+        {currentView === "history" && (
+          <section style={styles.dashboardSection}>
+            <h2 style={styles.sectionHeader}>Trip History</h2>
+            {pastTrips.length > 0 ? (
+              <div style={styles.futureTripsGrid}>
+                {pastTrips.map((trip) => (
+                  <div
+                    key={trip.trip_id}
+                    style={{
+                      ...styles.futureTripCard,
+                      borderLeft: "4px solid #95a5a6",
+                    }}
+                  >
+                    <div style={{ width: "100%" }}>
+                      <h4 style={styles.futureTripRoute}>
+                        {trip.origin} ➔ {trip.destination}
+                      </h4>
+                      <p
+                        style={styles.futureTripDetail}
+                        // style={{ marginBottom: "15px", color: "#7f8c8d" }}
+                      >
+                        Vehicle: {trip.registration_no}
+                      </p>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          backgroundColor: "#f8f9fa",
+                          padding: "10px",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        <div style={{ fontSize: "14px" }}>
+                          <strong>Started:</strong>
+                          <br />
+                          {new Date(trip.departure_time).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: "14px" }}>
+                          <strong>Ended:</strong>
+                          <br />
+                          {new Date(trip.arrival_time).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: "14px", color: "#2980b9" }}>
+                          <strong>Total Time:</strong>
+                          <br />
+                          {calculateDuration(
+                            trip.departure_time,
+                            trip.arrival_time,
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={styles.mutedText}>No completed trips found.</p>
+            )}
+          </section>
+        )}
         {/* --- PROFILE VIEW --- */}
         {currentView === "profile" && (
           <div style={styles.profileContainer}>

@@ -10,7 +10,7 @@ router.get("/trips", auth, async (req, res) => {
     // We added a LEFT JOIN for Owner_Profile to grab the company_name
     const userQuery = await pool.query(
       `
-      SELECT u.username, u.email, d.driver_id, d.full_name, op.company_name 
+      SELECT u.username, u.email, d.driver_id, d.full_name, op.company_name
       FROM User_Account u
       LEFT JOIN Driver d ON u.user_id = d.user_id
       LEFT JOIN Owner_Profile op ON d.owner_id = op.owner_id
@@ -30,16 +30,16 @@ router.get("/trips", auth, async (req, res) => {
     if (driverId) {
       const tripsQuery = await pool.query(
         `
-        SELECT 
-          t.trip_id, t.vehicle_id, t.status, 
-          COALESCE(r.origin, t.origin_address) AS origin, 
+        SELECT
+          t.trip_id, t.vehicle_id, t.status,
+          COALESCE(r.origin, t.origin_address) AS origin,
           COALESCE(r.destination, t.destination_address) AS destination,
-          v.registration_no, t.departure_time
+          v.registration_no, t.departure_time, t.arrival_time
         FROM Trip t
         LEFT JOIN Route r ON t.route_id = r.route_id
         JOIN Vehicle v ON t.vehicle_id = v.vehicle_id
-        WHERE t.driver_id = $1 AND t.status IN ('scheduled', 'in_progress')
-        ORDER BY t.departure_time ASC
+        WHERE t.driver_id = $1
+        ORDER BY t.departure_time DESC
       `,
         [driverId],
       );
@@ -57,6 +57,79 @@ router.get("/trips", auth, async (req, res) => {
   } catch (err) {
     console.error("Error fetching driver trips:", err);
     res.status(500).json({ error: "Failed to fetch driver data." });
+  }
+});
+
+// PUT /api/driver/trips/:tripId/start
+router.put("/trips/:tripId/start", auth, async (req, res) => {
+  const { tripId } = req.params;
+
+  try {
+    // Resolve the driver_id from the authenticated user_id
+    const driverQuery = await pool.query(
+      "SELECT driver_id FROM Driver WHERE user_id = $1",
+      [req.user.user_id]
+    );
+
+    if (driverQuery.rows.length === 0) {
+      return res.status(404).json({ error: "Driver profile not found." });
+    }
+
+    const driverId = driverQuery.rows[0].driver_id;
+
+    // Update the trip status to 'in_progress' and set the exact departure time
+    const result = await pool.query(
+      `UPDATE Trip
+       SET status = 'in_progress', departure_time = NOW()
+       WHERE trip_id = $1 AND driver_id = $2 AND status = 'scheduled' RETURNING *`,
+      [tripId, driverId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Trip not found, already started, or unauthorized." });
+    }
+
+    res.json({ message: "Trip started successfully", trip: result.rows[0] });
+  } catch (err) {
+    console.error("Error starting trip:", err);
+    res.status(500).json({ error: "Failed to start trip." });
+  }
+});
+
+
+// PUT /api/driver/trips/:tripId/complete
+router.put("/trips/:tripId/complete", auth, async (req, res) => {
+  const { tripId } = req.params;
+
+  try {
+    // First, resolve the driver_id from the authenticated user_id
+    const driverQuery = await pool.query(
+      "SELECT driver_id FROM Driver WHERE user_id = $1",
+      [req.user.user_id],
+    );
+
+    if (driverQuery.rows.length === 0) {
+      return res.status(404).json({ error: "Driver profile not found." });
+    }
+
+    const driverId = driverQuery.rows[0].driver_id;
+
+    // Update the trip status and record arrival time
+    const result = await pool.query(
+      `UPDATE Trip
+       SET status = 'completed', arrival_time = NOW()
+       WHERE trip_id = $1 AND driver_id = $2 RETURNING *`,
+      [tripId, driverId],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Trip not found or unauthorized." });
+    }
+
+    res.json({ message: "Trip completed successfully", trip: result.rows[0] });
+  } catch (err) {
+    console.error("Error completing trip:", err);
+    res.status(500).json({ error: "Failed to complete trip." });
   }
 });
 
@@ -212,8 +285,8 @@ router.post("/documents", auth, async (req, res) => {
 
       const newDriver = await pool.query(
         `
-        INSERT INTO Driver (user_id, full_name, joined_date) 
-        VALUES ($1, $2, CURRENT_DATE) 
+        INSERT INTO Driver (user_id, full_name, joined_date)
+        VALUES ($1, $2, CURRENT_DATE)
         RETURNING driver_id
       `,
         [req.user.user_id, userQuery.rows[0].username],
@@ -256,9 +329,9 @@ router.get("/documents", auth, async (req, res) => {
 
     const docsQuery = await pool.query(
       `
-      SELECT document_id, document_type, document_no, issue_date, expiry_date, alert_triggered 
-      FROM Driver_Document 
-      WHERE driver_id = $1 
+      SELECT document_id, document_type, document_no, issue_date, expiry_date, alert_triggered
+      FROM Driver_Document
+      WHERE driver_id = $1
       ORDER BY expiry_date ASC
     `,
       [driverId],
