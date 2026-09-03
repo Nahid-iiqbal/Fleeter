@@ -1,4 +1,3 @@
-// A reusable fetch wrapper that automatically attaches the JWT
 export const apiFetch = async (endpoint, options = {}) => {
   const token = localStorage.getItem("token");
 
@@ -13,14 +12,21 @@ export const apiFetch = async (endpoint, options = {}) => {
     headers,
   });
 
-  // Automatically handle 401 Unauthorized (e.g., token expired)
   if (response.status === 401) {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("userId");
     window.location.href = "/login";
-    throw new Error("Session expired. Please log in again.");
+    throw new Error("Session expired or invalid. Please log in again.");
   }
 
-  return response;
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      data.error || data.message || `HTTP Error: ${response.status}`,
+    );
+  }
+
+  return data;
 };

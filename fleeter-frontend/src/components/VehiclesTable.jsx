@@ -1,4 +1,6 @@
 import React from "react";
+import { apiFetch } from "../utils/api";
+
 
 const tableHeaderStyle = {
   textAlign: "left",
@@ -83,19 +85,13 @@ function VehiclesTable({
           <tbody>
             {vehicles.map((vehicle) => (
               <tr key={vehicle.vehicle_id}>
-                <td style={tableCellStyle}>
-                  {vehicle.vehicle_id}
-                </td>
+                <td style={tableCellStyle}>{vehicle.vehicle_id}</td>
 
-                <td style={tableCellStyle}>
-                  {vehicle.registration_no}
-                </td>
+                <td style={tableCellStyle}>{vehicle.registration_no}</td>
 
                 <td style={tableCellStyle}>
                   <button
-                    onClick={() =>
-                      onVehicleClick(vehicle.vehicle_id)
-                    }
+                    onClick={() => onVehicleClick(vehicle.vehicle_id)}
                     style={{
                       background: "none",
                       border: "none",
@@ -108,19 +104,13 @@ function VehiclesTable({
                   >
                     {vehicle.brand} {vehicle.model}
                     <br />
-                    <small>
-                      Year: {vehicle.year || "N/A"}
-                    </small>
+                    <small>Year: {vehicle.year || "N/A"}</small>
                   </button>
                 </td>
 
-                <td style={tableCellStyle}>
-                  {vehicle.type}
-                </td>
+                <td style={tableCellStyle}>{vehicle.type}</td>
 
-                <td style={tableCellStyle}>
-                  {vehicle.fuel_type}
-                </td>
+                <td style={tableCellStyle}>{vehicle.fuel_type}</td>
 
                 <td style={tableCellStyle}>
                   {vehicle.current_driver_id ? (
@@ -143,13 +133,9 @@ function VehiclesTable({
                   )}
                 </td>
 
-                <td style={tableCellStyle}>
-                  {vehicle.condition_status}
-                </td>
+                <td style={tableCellStyle}>{vehicle.condition_status}</td>
 
-                <td style={tableCellStyle}>
-                  {vehicle.availability_status}
-                </td>
+                <td style={tableCellStyle}>{vehicle.availability_status}</td>
               </tr>
             ))}
           </tbody>
@@ -160,4 +146,3 @@ function VehiclesTable({
 }
 
 export default VehiclesTable;
-

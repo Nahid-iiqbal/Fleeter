@@ -34,8 +34,8 @@ const initializeDatabase = async () => {
       DROP TABLE IF EXISTS Manager_Profile CASCADE;
       DROP TABLE IF EXISTS Vendor CASCADE;
       DROP TABLE IF EXISTS Owner_Profile CASCADE;
+      DROP TABLE IF EXISTS Token_Blacklist CASCADE;
       DROP TABLE IF EXISTS User_Account CASCADE;
-
 
       -- 1. USER_ACCOUNT
       CREATE TABLE User_Account (
@@ -47,6 +47,12 @@ const initializeDatabase = async () => {
         is_active BOOLEAN DEFAULT TRUE,
         last_login TIMESTAMPTZ NULL,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 1.5 TOKEN BLACKLIST (For server-side logout)
+      CREATE TABLE Token_Blacklist (
+        token VARCHAR(512) PRIMARY KEY,
+        expires_at TIMESTAMPTZ NOT NULL
       );
 
       -- 2. OWNER_PROFILE
@@ -81,10 +87,10 @@ const initializeDatabase = async () => {
           created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES User_Account(user_id) ON DELETE SET NULL,
           FOREIGN KEY (owner_id) REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
-          UNIQUE (user_id) -- CHANGED: Ensures one user account = one driver profile globally
+          UNIQUE (user_id)
       );
 
-      -- 5. VEHICLE
+      -- 5. VEHICLE (3NF Fix: Removed last_service_date)
       CREATE TABLE Vehicle (
         vehicle_id SERIAL PRIMARY KEY,
         owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
@@ -95,7 +101,6 @@ const initializeDatabase = async () => {
         year INTEGER,
         capacity INT,
         fuel_type VARCHAR(20),
-        last_service_date DATE,
         condition_status VARCHAR(20) DEFAULT 'active' CHECK (condition_status IN ('active', 'in_maintenance', 'retired', 'sold')),
         availability_status VARCHAR(20) DEFAULT 'available' CHECK (availability_status IN ('available', 'dispatched'))
       );
@@ -163,7 +168,7 @@ const initializeDatabase = async () => {
         logged_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL
       );
 
-      -- 10. FUEL_LOG
+      -- 10. FUEL_LOG (3NF Fix: Removed total_cost)
       CREATE TABLE Fuel_Log (
         fuel_id SERIAL PRIMARY KEY,
         vehicle_id INT NOT NULL REFERENCES Vehicle(vehicle_id) ON DELETE CASCADE,
@@ -171,7 +176,6 @@ const initializeDatabase = async () => {
         refuel_time TIMESTAMPTZ NOT NULL,
         liters NUMERIC(8,2) NOT NULL CHECK (liters > 0),
         cost_per_liter NUMERIC(6,2) NOT NULL CHECK (cost_per_liter >= 0),
-        total_cost NUMERIC(10,2) NOT NULL CHECK (total_cost >= 0),
         odometer_km INT,
         station_name VARCHAR(100),
         logged_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL
@@ -215,7 +219,7 @@ const initializeDatabase = async () => {
         CHECK (expiry_date >= issue_date)
       );
 
-      -- 14. VEHICLE_TELEMETRY (PostGIS enabled, Partitioned)
+      -- 14. VEHICLE_TELEMETRY
       CREATE TABLE Vehicle_Telemetry (
         telemetry_id BIGSERIAL,
         vehicle_id INT NOT NULL REFERENCES Vehicle(vehicle_id) ON DELETE CASCADE,
@@ -228,9 +232,11 @@ const initializeDatabase = async () => {
         PRIMARY KEY (telemetry_id, ping_time)
       ) PARTITION BY RANGE (ping_time);
 
-      -- Initial Partition for current month (August 2026)
       CREATE TABLE telemetry_y2026m08 PARTITION OF Vehicle_Telemetry
         FOR VALUES FROM ('2026-08-01 00:00:00+00') TO ('2026-09-01 00:00:00+00');
+
+      CREATE TABLE telemetry_y2026m09 PARTITION OF Vehicle_Telemetry
+        FOR VALUES FROM ('2026-09-01 00:00:00+00') TO ('2026-10-01 00:00:00+00');
     `);
 
     console.log("4. Creating Views and Indexes...");
@@ -239,7 +245,7 @@ const initializeDatabase = async () => {
       SELECT
           vehicle_id,
           'fuel' AS category,
-          total_cost AS amount,
+          (liters * cost_per_liter) AS amount,
           refuel_time AS expense_date,
           fuel_id AS reference_id
       FROM Fuel_Log

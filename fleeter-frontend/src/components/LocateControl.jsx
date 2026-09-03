@@ -2,17 +2,7 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 
-/**
- * Adds a "locate me" button to the map.
- *
- * If a `position` prop ([lat, lng]) is supplied, clicking the button just
- * flies to that already-known position instantly — no new geolocation
- * request is made. Ideal when the parent is already tracking position
- * via watchPosition (e.g. an active driver trip).
- *
- * If no `position` is supplied, it falls back to map.locate(), which
- * triggers a fresh browser geolocation lookup.
- */
+
 const LocateControl = ({ position }) => {
   const map = useMap();
   const positionRef = useRef(position);

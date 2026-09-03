@@ -4,6 +4,8 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import LocateControl from "../components/LocateControl";
+import { apiFetch } from "../utils/api"; // 1. Import the utility
+
 // Fix for Leaflet's default marker icons in React
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -24,58 +26,8 @@ function DriverDashboard() {
     alerts: 0,
     driverProfileMissing: false,
   });
-  // --- TRIP ACTION HANDLER ---
-  const confirmCompleteTrip = async () => {
-    setCompleteTripMsg("Completing trip...");
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `http://localhost:5000/api/driver/trips/${activeTrip.trip_id}/complete`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
 
-      if (response.ok) {
-        // 1. Extract the updated trip data from the backend response
-        const responseData = await response.json();
-
-        setCompleteTripMsg("Trip completed successfully!");
-
-        setTimeout(() => {
-          setIsCompleteTripModalOpen(false);
-          setCompleteTripMsg("");
-
-          // 2. Update the local state with the exact arrival time from the database
-          setDriverStats((prev) => ({
-            ...prev,
-            trips: prev.trips.map((t) =>
-              t.trip_id === activeTrip.trip_id
-                ? {
-                    ...t,
-                    status: "completed",
-                    arrival_time: responseData.trip.arrival_time,
-                  }
-                : t,
-            ),
-          }));
-
-          setCurrentPosition(null);
-        }, 1500);
-      } else {
-        const errData = await response.json();
-        setCompleteTripMsg(`Failed: ${errData.error || "Server error"}`);
-      }
-    } catch (error) {
-      console.error("Network error while completing trip:", error);
-      setCompleteTripMsg("Network error. Please try again.");
-    }
-  };
-
-  // --- NEW: LIVE TRACKING STATE ---
+  // --- LIVE TRACKING STATE ---
   const [currentPosition, setCurrentPosition] = useState(null);
 
   // --- ACCOUNT SETTINGS STATE ---
@@ -84,9 +36,10 @@ function DriverDashboard() {
     email: "",
     password: "",
   });
-  const [accountMsg, setAccountMsg] = useState("");
+  const [accountError, setAccountError] = useState("");
+  const [accountSuccess, setAccountSuccess] = useState("");
 
-  // --- MODAL STATES ---
+  // --- MODAL STATES (Separated Error & Success) ---
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [fuelForm, setFuelForm] = useState({
     liters: "",
@@ -94,7 +47,8 @@ function DriverDashboard() {
     stationName: "",
     odometer: "",
   });
-  const [fuelSubmitMsg, setFuelSubmitMsg] = useState("");
+  const [fuelError, setFuelError] = useState("");
+  const [fuelSuccess, setFuelSuccess] = useState("");
 
   const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
   const [incidentForm, setIncidentForm] = useState({
@@ -104,7 +58,8 @@ function DriverDashboard() {
     reportedTo: "",
   });
   const [incidentPhoto, setIncidentPhoto] = useState(null);
-  const [incidentSubmitMsg, setIncidentSubmitMsg] = useState("");
+  const [incidentError, setIncidentError] = useState("");
+  const [incidentSuccess, setIncidentSuccess] = useState("");
 
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [maintenanceForm, setMaintenanceForm] = useState({
@@ -113,10 +68,17 @@ function DriverDashboard() {
     odometer: "",
     workshop: "",
   });
-  const [maintenanceSubmitMsg, setMaintenanceSubmitMsg] = useState("");
-  // Add this near your other modal states
+  const [maintenanceError, setMaintenanceError] = useState("");
+  const [maintenanceSuccess, setMaintenanceSuccess] = useState("");
+
+  const [isStartTripModalOpen, setIsStartTripModalOpen] = useState(false);
+  const [tripToStart, setTripToStart] = useState(null);
+  const [startTripError, setStartTripError] = useState("");
+  const [startTripSuccess, setStartTripSuccess] = useState("");
+
   const [isCompleteTripModalOpen, setIsCompleteTripModalOpen] = useState(false);
-  const [completeTripMsg, setCompleteTripMsg] = useState("");
+  const [completeTripError, setCompleteTripError] = useState("");
+  const [completeTripSuccess, setCompleteTripSuccess] = useState("");
 
   // --- PROFILE/DOCUMENTS STATE ---
   const [driverDocs, setDriverDocs] = useState([]);
@@ -127,39 +89,14 @@ function DriverDashboard() {
     issue_date: "",
     expiry_date: "",
   });
-  const [docSubmitMsg, setDocSubmitMsg] = useState("");
+  const [docError, setDocError] = useState("");
+  const [docSuccess, setDocSuccess] = useState("");
 
   // --- INITIAL DATA FETCH ---
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/login");
-      return;
-    }
-
     const fetchDriverData = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/driver/trips", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (response.status === 401) {
-          localStorage.clear();
-          navigate("/login");
-          return;
-        }
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          setDriverStats({
-            name: "Error Loading Data",
-            trips: [],
-            alerts: 0,
-            driverProfileMissing: true,
-          });
-          return;
-        }
+        const data = await apiFetch("/api/driver/trips");
 
         setDriverStats({
           name: data.name || "Unknown",
@@ -187,34 +124,20 @@ function DriverDashboard() {
     };
 
     fetchDriverData();
-  }, [navigate]);
+  }, []);
 
   // --- FETCH DOCUMENTS ---
   useEffect(() => {
     const fetchDocuments = async () => {
       setDocsLoading(true);
       try {
-        const token = localStorage.getItem("token");
-        const response = await fetch(
-          "http://localhost:5000/api/driver/documents",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data)) {
-            setDriverDocs(data);
-            const alertsCount = data.filter(
-              (d) => d.alert_triggered || new Date(d.expiry_date) < new Date(),
-            ).length;
-            setDriverStats((prev) => ({ ...prev, alerts: alertsCount }));
-          } else {
-            setDriverDocs([]);
-          }
-        } else {
-          setDriverDocs([]);
+        const data = await apiFetch("/api/driver/documents");
+        if (Array.isArray(data)) {
+          setDriverDocs(data);
+          const alertsCount = data.filter(
+            (d) => d.alert_triggered || new Date(d.expiry_date) < new Date(),
+          ).length;
+          setDriverStats((prev) => ({ ...prev, alerts: alertsCount }));
         }
       } catch (error) {
         console.error("Failed to load documents", error);
@@ -224,9 +147,7 @@ function DriverDashboard() {
       }
     };
 
-    if (currentView === "profile") {
-      fetchDocuments();
-    }
+    if (currentView === "profile") fetchDocuments();
   }, [currentView]);
 
   // --- TRIP LOGIC HELPERS ---
@@ -234,95 +155,104 @@ function DriverDashboard() {
     (t) => t.status === "in_progress",
   );
   const futureTrips = driverStats.trips.filter((t) => t.status === "scheduled");
+  const pastTrips = driverStats.trips.filter((t) => t.status === "completed");
   const activeTrip = currentTrips.length > 0 ? currentTrips[0] : null;
   const canAccessTripFeatures = activeTrip !== null;
-  const [isStartTripModalOpen, setIsStartTripModalOpen] = useState(false);
-  const [tripToStart, setTripToStart] = useState(null);
-  const [startTripMsg, setStartTripMsg] = useState("");
+
+  const calculateDuration = (start, end) => {
+    if (!start || !end) return "N/A";
+    const diffMs = new Date(end) - new Date(start);
+    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMins = Math.round((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `${diffHrs}h ${diffMins}m`;
+  };
 
   // --- START TRIP HANDLER ---
   const confirmStartTrip = async () => {
     if (!tripToStart) return;
-    setStartTripMsg("Starting trip...");
+    setStartTripError("");
+    setStartTripSuccess("");
 
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `http://localhost:5000/api/driver/trips/${tripToStart.trip_id}/start`,
-        {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
-        },
+      const responseData = await apiFetch(
+        `/api/driver/trips/${tripToStart.trip_id}/start`,
+        { method: "PUT" },
       );
+      setStartTripSuccess("Trip started successfully!");
 
-      if (response.ok) {
-        const responseData = await response.json();
-        setStartTripMsg("Trip started successfully!");
-
-        setTimeout(() => {
-          setIsStartTripModalOpen(false);
-          setStartTripMsg("");
-
-          // Update the local state with the exact departure time from the database
-          setDriverStats((prev) => ({
-            ...prev,
-            trips: prev.trips.map((t) =>
-              t.trip_id === tripToStart.trip_id
-                ? {
-                    ...t,
-                    status: "in_progress",
-                    departure_time: responseData.trip.departure_time,
-                  }
-                : t,
-            ),
-          }));
-
-          setTripToStart(null);
-        }, 1500);
-      } else {
-        const errData = await response.json();
-        setStartTripMsg(`Failed: ${errData.error || "Server error"}`);
-      }
+      setTimeout(() => {
+        setIsStartTripModalOpen(false);
+        setStartTripSuccess("");
+        setDriverStats((prev) => ({
+          ...prev,
+          trips: prev.trips.map((t) =>
+            t.trip_id === tripToStart.trip_id
+              ? {
+                  ...t,
+                  status: "in_progress",
+                  departure_time: responseData.trip.departure_time,
+                }
+              : t,
+          ),
+        }));
+        setTripToStart(null);
+      }, 1500);
     } catch (error) {
-      console.error("Network error while starting trip:", error);
-      setStartTripMsg("Network error. Please try again.");
+      setStartTripError(error.message); // Displays 403 or 400 errors explicitly
     }
   };
 
-  // --- NEW: LIVE TRACKING ENGINE ---
+  // --- COMPLETE TRIP HANDLER ---
+  const confirmCompleteTrip = async () => {
+    setCompleteTripError("");
+    setCompleteTripSuccess("");
+    try {
+      const responseData = await apiFetch(
+        `/api/driver/trips/${activeTrip.trip_id}/complete`,
+        { method: "PUT" },
+      );
+      setCompleteTripSuccess("Trip completed successfully!");
+
+      setTimeout(() => {
+        setIsCompleteTripModalOpen(false);
+        setCompleteTripSuccess("");
+        setDriverStats((prev) => ({
+          ...prev,
+          trips: prev.trips.map((t) =>
+            t.trip_id === activeTrip.trip_id
+              ? {
+                  ...t,
+                  status: "completed",
+                  arrival_time: responseData.trip.arrival_time,
+                }
+              : t,
+          ),
+        }));
+        setCurrentPosition(null);
+      }, 1500);
+    } catch (error) {
+      setCompleteTripError(error.message);
+    }
+  };
+
+  // --- LIVE TRACKING ENGINE ---
   useEffect(() => {
     let watchId;
-
-    if (activeTrip) {
-      if (!navigator.geolocation) {
-        console.warn("Geolocation is not supported by your browser");
-        return;
-      }
-
-      const token = localStorage.getItem("token");
-
+    if (activeTrip && navigator.geolocation) {
       watchId = navigator.geolocation.watchPosition(
         async (position) => {
           const { latitude, longitude, altitude, speed } = position.coords;
-
-          // Update the local map view
           setCurrentPosition([latitude, longitude]);
 
-          // Fetch battery level if supported
           let batteryLevel = null;
           if ("getBattery" in navigator) {
             const battery = await navigator.getBattery();
             batteryLevel = Math.round(battery.level * 100);
           }
 
-          // Post telemetry data to the backend
           try {
-            await fetch("http://localhost:5000/api/tracking/ping", {
+            await apiFetch("/api/tracking/ping", {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
               body: JSON.stringify({
                 vehicle_id: activeTrip.vehicle_id,
                 trip_id: activeTrip.trip_id,
@@ -334,14 +264,13 @@ function DriverDashboard() {
               }),
             });
           } catch (error) {
-            console.error("Failed to ping location:", error);
+            // Silently fail pings so we don't spam the user with errors while driving
           }
         },
         (error) => console.error("Error capturing GPS:", error),
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 },
       );
     }
-
     return () => {
       if (watchId) navigator.geolocation.clearWatch(watchId);
     };
@@ -352,31 +281,26 @@ function DriverDashboard() {
     if (!window.confirm("Are you sure you want to delete this document?"))
       return;
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        `http://localhost:5000/api/driver/documents/${documentId}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      if (response.ok) {
-        setDriverDocs(
-          driverDocs.filter((doc) => doc.document_id !== documentId),
-        );
-      } else {
-        alert("Failed to delete document.");
-      }
+      await apiFetch(`/api/driver/documents/${documentId}`, {
+        method: "DELETE",
+      });
+      setDriverDocs(driverDocs.filter((doc) => doc.document_id !== documentId));
     } catch (error) {
-      console.error("Network error while deleting:", error);
-      alert("Network error.");
+      alert(`Failed to delete: ${error.message}`);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
+  // --- LOGOUT HANDLER ---
+  const handleLogout = async () => {
+    try {
+      // Genuinely invalidate token on the server
+      await apiFetch("/api/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Logout notification failed", err);
+    } finally {
+      localStorage.clear();
+      navigate("/login");
+    }
   };
 
   // --- ACCOUNT HANDLER ---
@@ -385,26 +309,17 @@ function DriverDashboard() {
 
   const updateAccount = async (e) => {
     e.preventDefault();
-    setAccountMsg("Updating...");
+    setAccountError("");
+    setAccountSuccess("");
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/driver/account", {
+      await apiFetch("/api/driver/account", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(accountForm),
       });
-      const result = await response.json();
-      if (response.ok) {
-        setAccountMsg("Account updated successfully!");
-        setTimeout(() => setAccountMsg(""), 3000);
-      } else {
-        setAccountMsg(result.error || "Failed to update account.");
-      }
+      setAccountSuccess("Account updated successfully!");
+      setTimeout(() => setAccountSuccess(""), 3000);
     } catch (error) {
-      setAccountMsg("Network error.");
+      setAccountError(error.message);
     }
   };
 
@@ -414,56 +329,29 @@ function DriverDashboard() {
 
   const submitDocument = async (e) => {
     e.preventDefault();
-    setDocSubmitMsg("Submitting...");
+    setDocError("");
+    setDocSuccess("");
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        "http://localhost:5000/api/driver/documents",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(newDocForm),
-        },
-      );
+      await apiFetch("/api/driver/documents", {
+        method: "POST",
+        body: JSON.stringify(newDocForm),
+      });
 
-      if (response.ok) {
-        setDocSubmitMsg("Document added successfully! Refreshing...");
-        setNewDocForm({
-          document_type: "license",
-          document_no: "",
-          issue_date: "",
-          expiry_date: "",
-        });
+      setDocSuccess("Document added successfully! Refreshing...");
+      setNewDocForm({
+        document_type: "license",
+        document_no: "",
+        issue_date: "",
+        expiry_date: "",
+      });
+      setDriverStats((prev) => ({ ...prev, driverProfileMissing: false }));
 
-        setDriverStats((prev) => ({ ...prev, driverProfileMissing: false }));
-
-        const docsResponse = await fetch(
-          "http://localhost:5000/api/driver/documents",
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-
-        if (docsResponse.ok) {
-          const updatedDocs = await docsResponse.json();
-          if (Array.isArray(updatedDocs)) {
-            setDriverDocs(updatedDocs);
-            const alertsCount = updatedDocs.filter(
-              (d) => d.alert_triggered || new Date(d.expiry_date) < new Date(),
-            ).length;
-            setDriverStats((prev) => ({ ...prev, alerts: alertsCount }));
-          }
-        }
-        setTimeout(() => setDocSubmitMsg(""), 3000);
-      } else {
-        const errData = await response.json();
-        setDocSubmitMsg(`Failed to add: ${errData.error || "Server error"}`);
-      }
+      // Refresh docs
+      const updatedDocs = await apiFetch("/api/driver/documents");
+      setDriverDocs(updatedDocs);
+      setTimeout(() => setDocSuccess(""), 3000);
     } catch (error) {
-      setDocSubmitMsg("Network error.");
+      setDocError(error.message);
     }
   };
 
@@ -473,48 +361,39 @@ function DriverDashboard() {
 
   const submitFuelLog = async (e) => {
     e.preventDefault();
-    setFuelSubmitMsg("Submitting...");
+    setFuelError("");
+    setFuelSuccess("");
     try {
-      const token = localStorage.getItem("token");
       const liters = parseFloat(fuelForm.liters);
       const totalCost = parseFloat(fuelForm.totalCost);
       const costPerLiter = (totalCost / liters).toFixed(2);
 
-      const response = await fetch(
-        "http://localhost:5000/api/driver/log-fuel",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            vehicle_id: activeTrip?.vehicle_id,
-            trip_id: activeTrip?.trip_id,
-            liters: liters,
-            total_cost: totalCost,
-            cost_per_liter: costPerLiter,
-            odometer_km: parseInt(fuelForm.odometer),
-            station_name: fuelForm.stationName,
-          }),
-        },
-      );
+      await apiFetch("/api/driver/log-fuel", {
+        method: "POST",
+        body: JSON.stringify({
+          vehicle_id: activeTrip?.vehicle_id,
+          trip_id: activeTrip?.trip_id,
+          liters,
+          total_cost: totalCost,
+          cost_per_liter: costPerLiter,
+          odometer_km: parseInt(fuelForm.odometer),
+          station_name: fuelForm.stationName,
+        }),
+      });
 
-      if (response.ok) {
-        setFuelSubmitMsg("Fuel logged successfully!");
-        setTimeout(() => {
-          setIsFuelModalOpen(false);
-          setFuelSubmitMsg("");
-          setFuelForm({
-            liters: "",
-            totalCost: "",
-            stationName: "",
-            odometer: "",
-          });
-        }, 1500);
-      } else setFuelSubmitMsg("Failed to log fuel. Try again.");
+      setFuelSuccess("Fuel logged successfully!");
+      setTimeout(() => {
+        setIsFuelModalOpen(false);
+        setFuelSuccess("");
+        setFuelForm({
+          liters: "",
+          totalCost: "",
+          stationName: "",
+          odometer: "",
+        });
+      }, 1500);
     } catch (error) {
-      setFuelSubmitMsg("Network error.");
+      setFuelError(error.message);
     }
   };
 
@@ -524,9 +403,9 @@ function DriverDashboard() {
 
   const submitIncidentLog = async (e) => {
     e.preventDefault();
-    setIncidentSubmitMsg("Submitting...");
+    setIncidentError("");
+    setIncidentSuccess("");
     try {
-      const token = localStorage.getItem("token");
       const formData = new FormData();
       formData.append("trip_id", activeTrip?.trip_id);
       formData.append("type", incidentForm.type);
@@ -535,6 +414,9 @@ function DriverDashboard() {
       formData.append("reported_to", incidentForm.reportedTo);
       if (incidentPhoto) formData.append("photo", incidentPhoto);
 
+      // NOTE: We use raw fetch here because apiFetch forces Content-Type: application/json
+      // FormData requires the browser to automatically set the Content-Type with a boundary.
+      const token = localStorage.getItem("token");
       const response = await fetch(
         "http://localhost:5000/api/driver/log-incident",
         {
@@ -544,22 +426,24 @@ function DriverDashboard() {
         },
       );
 
-      if (response.ok) {
-        setIncidentSubmitMsg("Incident reported successfully.");
-        setTimeout(() => {
-          setIsIncidentModalOpen(false);
-          setIncidentSubmitMsg("");
-          setIncidentForm({
-            type: "accident",
-            severity: "minor",
-            description: "",
-            reportedTo: "",
-          });
-          setIncidentPhoto(null);
-        }, 1500);
-      } else setIncidentSubmitMsg("Failed to report incident. Try again.");
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(data.error || "Failed to report incident");
+
+      setIncidentSuccess("Incident reported successfully.");
+      setTimeout(() => {
+        setIsIncidentModalOpen(false);
+        setIncidentSuccess("");
+        setIncidentForm({
+          type: "accident",
+          severity: "minor",
+          description: "",
+          reportedTo: "",
+        });
+        setIncidentPhoto(null);
+      }, 1500);
     } catch (error) {
-      setIncidentSubmitMsg("Network error.");
+      setIncidentError(error.message);
     }
   };
 
@@ -569,61 +453,38 @@ function DriverDashboard() {
 
   const submitMaintenanceRequest = async (e) => {
     e.preventDefault();
-    setMaintenanceSubmitMsg("Submitting...");
+    setMaintenanceError("");
+    setMaintenanceSuccess("");
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        "http://localhost:5000/api/driver/request-maintenance",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            vehicle_id: activeTrip?.vehicle_id,
-            service_type: maintenanceForm.serviceType,
-            description: maintenanceForm.description,
-            odometer_km: parseInt(maintenanceForm.odometer),
-            workshop: maintenanceForm.workshop,
-          }),
-        },
-      );
+      await apiFetch("/api/driver/request-maintenance", {
+        method: "POST",
+        body: JSON.stringify({
+          vehicle_id: activeTrip?.vehicle_id,
+          service_type: maintenanceForm.serviceType,
+          description: maintenanceForm.description,
+          odometer_km: parseInt(maintenanceForm.odometer),
+          workshop: maintenanceForm.workshop,
+        }),
+      });
 
-      if (response.ok) {
-        setMaintenanceSubmitMsg("Maintenance requested successfully.");
-        setTimeout(() => {
-          setIsMaintenanceModalOpen(false);
-          setMaintenanceSubmitMsg("");
-          setMaintenanceForm({
-            serviceType: "repair",
-            description: "",
-            odometer: "",
-            workshop: "",
-          });
-        }, 1500);
-      } else setMaintenanceSubmitMsg("Failed to submit request.");
+      setMaintenanceSuccess("Maintenance requested successfully.");
+      setTimeout(() => {
+        setIsMaintenanceModalOpen(false);
+        setMaintenanceSuccess("");
+        setMaintenanceForm({
+          serviceType: "repair",
+          description: "",
+          odometer: "",
+          workshop: "",
+        });
+      }, 1500);
     } catch (error) {
-      setMaintenanceSubmitMsg("Network error.");
+      setMaintenanceError(error.message);
     }
   };
 
   if (loading)
     return <div style={styles.loadingScreen}>Loading your dashboard...</div>;
-
-  // --- TRIP LOGIC HELPERS ---
-  const pastTrips = driverStats.trips.filter((t) => t.status === "completed"); // Added past trips
-
-  // Helper to calculate total time
-  const calculateDuration = (start, end) => {
-    if (!start || !end) return "N/A";
-    const startTime = new Date(start);
-    const endTime = new Date(end);
-    const diffMs = endTime - startTime;
-    const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMins = Math.round((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    return `${diffHrs}h ${diffMins}m`;
-  };
 
   return (
     <div style={styles.appContainer}>
@@ -645,8 +506,6 @@ function DriverDashboard() {
           >
             🏠 Dashboard
           </button>
-
-          {/* NEW HISTORY BUTTON */}
           <button
             onClick={() => setCurrentView("history")}
             style={tabButtonStyle(currentView === "history")}
@@ -747,7 +606,7 @@ function DriverDashboard() {
                     </button>
                   </div>
 
-                  {/* --- NEW: MAP RENDER --- */}
+                  {/* MAP RENDER */}
                   <div style={{ marginTop: "25px" }}>
                     <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50" }}>
                       Live GPS Tracking
@@ -767,10 +626,7 @@ function DriverDashboard() {
                           zoom={16}
                           style={{ height: "100%", width: "100%" }}
                         >
-                          <TileLayer
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                          />
+                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                           <LocateControl position={currentPosition} />
                           <Marker position={currentPosition}>
                             <Popup>You are actively tracking.</Popup>
@@ -837,115 +693,7 @@ function DriverDashboard() {
             </section>
           </>
         )}
-        {/* START TRIP MODAL */}
-        {isStartTripModalOpen && tripToStart && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <h2 style={{ ...styles.modalTitle, color: "#3498db" }}>
-                Start Trip
-              </h2>
-              <p
-                style={{
-                  color: "#7f8c8d",
-                  fontSize: "15px",
-                  marginBottom: "20px",
-                }}
-              >
-                Are you ready to begin your trip to{" "}
-                <strong>{tripToStart.destination}</strong>? This will activate
-                live GPS tracking.
-              </p>
 
-              {startTripMsg && (
-                <p
-                  style={{
-                    color: startTripMsg.includes("success") ? "green" : "red",
-                    ...styles.submitMsg,
-                    marginBottom: "15px",
-                  }}
-                >
-                  {startTripMsg}
-                </p>
-              )}
-
-              <div style={styles.modalActionRow}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsStartTripModalOpen(false);
-                    setTripToStart(null);
-                    setStartTripMsg("");
-                  }}
-                  style={styles.cancelBtn}
-                  disabled={startTripMsg === "Starting trip..."}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmStartTrip}
-                  style={{ ...styles.submitBtn, backgroundColor: "#3498db" }}
-                  disabled={startTripMsg === "Starting trip..."}
-                >
-                  Yes, Start Trip
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* COMPLETE TRIP MODAL */}
-        {isCompleteTripModalOpen && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <h2 style={{ ...styles.modalTitle, color: "#2ecc71" }}>
-                Complete Trip
-              </h2>
-              <p
-                style={{
-                  color: "#7f8c8d",
-                  fontSize: "15px",
-                  marginBottom: "20px",
-                }}
-              >
-                Are you sure you have arrived and want to complete this trip?
-                This will stop live tracking.
-              </p>
-
-              {completeTripMsg && (
-                <p
-                  style={{
-                    color: completeTripMsg.includes("success")
-                      ? "green"
-                      : "red",
-                    ...styles.submitMsg,
-                    marginBottom: "15px",
-                  }}
-                >
-                  {completeTripMsg}
-                </p>
-              )}
-
-              <div style={styles.modalActionRow}>
-                <button
-                  type="button"
-                  onClick={() => setIsCompleteTripModalOpen(false)}
-                  style={styles.cancelBtn}
-                  disabled={completeTripMsg === "Completing trip..."}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmCompleteTrip}
-                  style={{ ...styles.submitBtn, backgroundColor: "#2ecc71" }}
-                  disabled={completeTripMsg === "Completing trip..."}
-                >
-                  Yes, Complete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
         {/* --- HISTORY VIEW --- */}
         {currentView === "history" && (
           <section style={styles.dashboardSection}>
@@ -964,13 +712,9 @@ function DriverDashboard() {
                       <h4 style={styles.futureTripRoute}>
                         {trip.origin} ➔ {trip.destination}
                       </h4>
-                      <p
-                        style={styles.futureTripDetail}
-                        // style={{ marginBottom: "15px", color: "#7f8c8d" }}
-                      >
+                      <p style={styles.futureTripDetail}>
                         Vehicle: {trip.registration_no}
                       </p>
-
                       <div
                         style={{
                           display: "flex",
@@ -978,6 +722,7 @@ function DriverDashboard() {
                           backgroundColor: "#f8f9fa",
                           padding: "10px",
                           borderRadius: "6px",
+                          marginTop: "10px",
                         }}
                       >
                         <div style={{ fontSize: "14px" }}>
@@ -1008,6 +753,7 @@ function DriverDashboard() {
             )}
           </section>
         )}
+
         {/* --- PROFILE VIEW --- */}
         {currentView === "profile" && (
           <div style={styles.profileContainer}>
@@ -1075,8 +821,15 @@ function DriverDashboard() {
             </section>
 
             <div style={styles.formsColumn}>
+              {/* Account Form */}
               <section style={styles.card}>
                 <h3 style={styles.cardHeader}>Account Settings</h3>
+                {accountError && (
+                  <div style={styles.errorBanner}>{accountError}</div>
+                )}
+                {accountSuccess && (
+                  <div style={styles.successBanner}>{accountSuccess}</div>
+                )}
                 <form onSubmit={updateAccount} style={styles.form}>
                   <div>
                     <label style={styles.label}>Username</label>
@@ -1111,27 +864,21 @@ function DriverDashboard() {
                       placeholder="••••••••"
                     />
                   </div>
-                  {accountMsg && (
-                    <p
-                      style={{
-                        color: accountMsg.includes("success") ? "green" : "red",
-                        margin: 0,
-                        fontSize: "14px",
-                      }}
-                    >
-                      {accountMsg}
-                    </p>
-                  )}
                   <button type="submit" style={styles.primaryBtn}>
                     Save Credentials
                   </button>
                 </form>
               </section>
 
+              {/* Document Upload Form */}
               <section style={styles.card}>
                 <h3 style={{ ...styles.cardHeader, color: "#8e44ad" }}>
                   + Add New Document
                 </h3>
+                {docError && <div style={styles.errorBanner}>{docError}</div>}
+                {docSuccess && (
+                  <div style={styles.successBanner}>{docSuccess}</div>
+                )}
                 <form onSubmit={submitDocument} style={styles.form}>
                   <div>
                     <label style={styles.label}>Document Type</label>
@@ -1183,19 +930,6 @@ function DriverDashboard() {
                       style={styles.input}
                     />
                   </div>
-                  {docSubmitMsg && (
-                    <p
-                      style={{
-                        color: docSubmitMsg.includes("success")
-                          ? "green"
-                          : "red",
-                        margin: 0,
-                        fontSize: "14px",
-                      }}
-                    >
-                      {docSubmitMsg}
-                    </p>
-                  )}
                   <button
                     type="submit"
                     style={{ ...styles.primaryBtn, backgroundColor: "#8e44ad" }}
@@ -1211,11 +945,102 @@ function DriverDashboard() {
 
       {/* ================= MODALS ================= */}
 
+      {/* START TRIP MODAL */}
+      {isStartTripModalOpen && tripToStart && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContainer}>
+            <h2 style={{ ...styles.modalTitle, color: "#3498db" }}>
+              Start Trip
+            </h2>
+            <p
+              style={{
+                color: "#7f8c8d",
+                fontSize: "15px",
+                marginBottom: "20px",
+              }}
+            >
+              Are you ready to begin your trip to{" "}
+              <strong>{tripToStart.destination}</strong>? This will activate
+              live GPS tracking.
+            </p>
+            {startTripError && (
+              <div style={styles.errorBanner}>{startTripError}</div>
+            )}
+            {startTripSuccess && (
+              <div style={styles.successBanner}>{startTripSuccess}</div>
+            )}
+            <div style={styles.modalActionRow}>
+              <button
+                type="button"
+                onClick={() => setIsStartTripModalOpen(false)}
+                style={styles.cancelBtn}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmStartTrip}
+                style={{ ...styles.submitBtn, backgroundColor: "#3498db" }}
+              >
+                Yes, Start Trip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* COMPLETE TRIP MODAL */}
+      {isCompleteTripModalOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContainer}>
+            <h2 style={{ ...styles.modalTitle, color: "#2ecc71" }}>
+              Complete Trip
+            </h2>
+            <p
+              style={{
+                color: "#7f8c8d",
+                fontSize: "15px",
+                marginBottom: "20px",
+              }}
+            >
+              Are you sure you have arrived and want to complete this trip? This
+              will stop live tracking.
+            </p>
+            {completeTripError && (
+              <div style={styles.errorBanner}>{completeTripError}</div>
+            )}
+            {completeTripSuccess && (
+              <div style={styles.successBanner}>{completeTripSuccess}</div>
+            )}
+            <div style={styles.modalActionRow}>
+              <button
+                type="button"
+                onClick={() => setIsCompleteTripModalOpen(false)}
+                style={styles.cancelBtn}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmCompleteTrip}
+                style={{ ...styles.submitBtn, backgroundColor: "#2ecc71" }}
+              >
+                Yes, Complete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* FUEL MODAL */}
       {isFuelModalOpen && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContainer}>
             <h2 style={styles.modalTitle}>Log Fuel Purchase</h2>
+            {fuelError && <div style={styles.errorBanner}>{fuelError}</div>}
+            {fuelSuccess && (
+              <div style={styles.successBanner}>{fuelSuccess}</div>
+            )}
             <form onSubmit={submitFuelLog} style={styles.form}>
               <div>
                 <label style={styles.label}>Station Name</label>
@@ -1226,7 +1051,6 @@ function DriverDashboard() {
                   onChange={handleFuelChange}
                   required
                   style={styles.input}
-                  placeholder="e.g. Shell"
                 />
               </div>
               <div style={{ display: "flex", gap: "10px" }}>
@@ -1266,16 +1090,6 @@ function DriverDashboard() {
                   style={styles.input}
                 />
               </div>
-              {fuelSubmitMsg && (
-                <p
-                  style={{
-                    color: fuelSubmitMsg.includes("success") ? "green" : "red",
-                    ...styles.submitMsg,
-                  }}
-                >
-                  {fuelSubmitMsg}
-                </p>
-              )}
               <div style={styles.modalActionRow}>
                 <button
                   type="button"
@@ -1300,6 +1114,12 @@ function DriverDashboard() {
             <h2 style={{ ...styles.modalTitle, color: "#c0392b" }}>
               Report Incident
             </h2>
+            {incidentError && (
+              <div style={styles.errorBanner}>{incidentError}</div>
+            )}
+            {incidentSuccess && (
+              <div style={styles.successBanner}>{incidentSuccess}</div>
+            )}
             <form onSubmit={submitIncidentLog} style={styles.form}>
               <div style={{ display: "flex", gap: "10px" }}>
                 <div style={{ flex: 1 }}>
@@ -1364,18 +1184,6 @@ function DriverDashboard() {
                   style={styles.input}
                 />
               </div>
-              {incidentSubmitMsg && (
-                <p
-                  style={{
-                    color: incidentSubmitMsg.includes("success")
-                      ? "green"
-                      : "red",
-                    ...styles.submitMsg,
-                  }}
-                >
-                  {incidentSubmitMsg}
-                </p>
-              )}
               <div style={styles.modalActionRow}>
                 <button
                   type="button"
@@ -1403,6 +1211,12 @@ function DriverDashboard() {
             <h2 style={{ ...styles.modalTitle, color: "#e67e22" }}>
               Request Maintenance
             </h2>
+            {maintenanceError && (
+              <div style={styles.errorBanner}>{maintenanceError}</div>
+            )}
+            {maintenanceSuccess && (
+              <div style={styles.successBanner}>{maintenanceSuccess}</div>
+            )}
             <form onSubmit={submitMaintenanceRequest} style={styles.form}>
               <div style={{ display: "flex", gap: "10px" }}>
                 <div style={{ flex: 1 }}>
@@ -1453,18 +1267,6 @@ function DriverDashboard() {
                   style={styles.input}
                 />
               </div>
-              {maintenanceSubmitMsg && (
-                <p
-                  style={{
-                    color: maintenanceSubmitMsg.includes("success")
-                      ? "green"
-                      : "red",
-                    ...styles.submitMsg,
-                  }}
-                >
-                  {maintenanceSubmitMsg}
-                </p>
-              )}
               <div style={styles.modalActionRow}>
                 <button
                   type="button"
@@ -1534,6 +1336,24 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
+  },
+  errorBanner: {
+    backgroundColor: "#ffe6e6",
+    color: "#cc0000",
+    padding: "10px",
+    borderRadius: "4px",
+    border: "1px solid #cc0000",
+    marginBottom: "15px",
+    fontSize: "14px",
+  },
+  successBanner: {
+    backgroundColor: "#e8f8f5",
+    color: "#27ae60",
+    padding: "10px",
+    borderRadius: "4px",
+    border: "1px solid #27ae60",
+    marginBottom: "15px",
+    fontSize: "14px",
   },
 
   // Sidebar
@@ -1726,7 +1546,7 @@ const styles = {
     borderRadius: "12px",
     boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
   },
-  cardHeader: { marginTop: 0, color: "#2c3e50" },
+  cardHeader: { marginTop: 0, color: "#2c3e50", marginBottom: "15px" },
 
   // General Forms & Modals
   form: { display: "flex", flexDirection: "column", gap: "15px" },
@@ -1786,7 +1606,7 @@ const styles = {
     maxHeight: "90vh",
     overflowY: "auto",
   },
-  modalTitle: { marginTop: 0, color: "#2c3e50" },
+  modalTitle: { marginTop: 0, color: "#2c3e50", marginBottom: "15px" },
   modalActionRow: { display: "flex", gap: "10px", marginTop: "10px" },
   cancelBtn: {
     flex: 1,
@@ -1808,7 +1628,6 @@ const styles = {
     cursor: "pointer",
     backgroundColor: "#3498db",
   },
-  submitMsg: { margin: "5px 0 0 0", fontSize: "14px" },
 };
 
 export default DriverDashboard;

@@ -15,6 +15,7 @@ const tableCellStyle = {
 function DriversTable({
   drivers,
   driversLoading,
+  error,
   onRefresh,
   onDriverClick,
 }) {
@@ -54,10 +55,26 @@ function DriversTable({
         </button>
       </div>
 
-      {/* Loading */}
+      {/* Visible Error Feedback Box */}
+      {error && (
+        <div
+          style={{
+            backgroundColor: "#ffe6e6",
+            color: "#cc0000",
+            border: "1px solid #cc0000",
+            padding: "10px",
+            marginBottom: "20px",
+            borderRadius: "4px",
+          }}
+        >
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      {/* Loading & Empty States */}
       {driversLoading ? (
         <p>Loading drivers...</p>
-      ) : drivers.length === 0 ? (
+      ) : drivers.length === 0 && !error ? (
         <p>No drivers found.</p>
       ) : (
         <table
@@ -81,9 +98,7 @@ function DriversTable({
           <tbody>
             {drivers.map((driver) => (
               <tr key={driver.driver_id}>
-                <td style={tableCellStyle}>
-                  {driver.driver_id}
-                </td>
+                <td style={tableCellStyle}>{driver.driver_id}</td>
 
                 <td style={tableCellStyle}>
                   <button
@@ -124,17 +139,11 @@ function DriversTable({
                   )}
                 </td>
 
-                <td style={tableCellStyle}>
-                  {driver.phone}
-                </td>
+                <td style={tableCellStyle}>{driver.phone}</td>
 
-                <td style={tableCellStyle}>
-                  {driver.status}
-                </td>
+                <td style={tableCellStyle}>{driver.status}</td>
 
-                <td style={tableCellStyle}>
-                  {driver.joined_date}
-                </td>
+                <td style={tableCellStyle}>{driver.joined_date}</td>
               </tr>
             ))}
           </tbody>
@@ -145,4 +154,3 @@ function DriversTable({
 }
 
 export default DriversTable;
-

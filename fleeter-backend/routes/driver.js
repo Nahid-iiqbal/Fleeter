@@ -1,13 +1,34 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
-const auth = require("../middleware/authMiddleware");
+const { verifyToken, authorizeRole } = require("../middleware/authMiddleware");
 const bcrypt = require("bcrypt");
 
-// GET /api/driver/trips
-router.get("/trips", auth, async (req, res) => {
+// Middleware to resolve driver_id for the authenticated user
+// This prevents us from having to run this query in every single route
+const attachDriverId = async (req, res, next) => {
   try {
-    // We added a LEFT JOIN for Owner_Profile to grab the company_name
+    const driverQuery = await pool.query(
+      "SELECT driver_id FROM Driver WHERE user_id = $1",
+      [req.user.user_id],
+    );
+    if (driverQuery.rows.length > 0) {
+      req.driver_id = driverQuery.rows[0].driver_id;
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to authenticate driver profile." });
+  }
+};
+
+// Apply auth, role verification, and driver ID resolution to all routes in this file
+router.use(verifyToken);
+router.use(authorizeRole("driver"));
+router.use(attachDriverId);
+
+// GET /api/driver/trips
+router.get("/trips", async (req, res) => {
+  try {
     const userQuery = await pool.query(
       `
       SELECT u.username, u.email, d.driver_id, d.full_name, op.company_name
@@ -24,10 +45,9 @@ router.get("/trips", auth, async (req, res) => {
     }
 
     const user = userQuery.rows[0];
-    const driverId = user.driver_id;
     let trips = [];
 
-    if (driverId) {
+    if (req.driver_id) {
       const tripsQuery = await pool.query(
         `
         SELECT
@@ -41,7 +61,7 @@ router.get("/trips", auth, async (req, res) => {
         WHERE t.driver_id = $1
         ORDER BY t.departure_time DESC
       `,
-        [driverId],
+        [req.driver_id],
       );
       trips = tripsQuery.rows;
     }
@@ -50,8 +70,8 @@ router.get("/trips", auth, async (req, res) => {
       name: user.full_name || user.username,
       username: user.username,
       email: user.email,
-      companyName: user.company_name || "Unassigned", // Pass the company name to React
-      driverProfileMissing: !driverId,
+      companyName: user.company_name || "Unassigned",
+      driverProfileMissing: !req.driver_id,
       trips: trips,
     });
   } catch (err) {
@@ -61,32 +81,25 @@ router.get("/trips", auth, async (req, res) => {
 });
 
 // PUT /api/driver/trips/:tripId/start
-router.put("/trips/:tripId/start", auth, async (req, res) => {
+router.put("/trips/:tripId/start", async (req, res) => {
   const { tripId } = req.params;
 
+  if (!req.driver_id)
+    return res.status(404).json({ error: "Driver profile not found." });
+
   try {
-    // Resolve the driver_id from the authenticated user_id
-    const driverQuery = await pool.query(
-      "SELECT driver_id FROM Driver WHERE user_id = $1",
-      [req.user.user_id]
-    );
-
-    if (driverQuery.rows.length === 0) {
-      return res.status(404).json({ error: "Driver profile not found." });
-    }
-
-    const driverId = driverQuery.rows[0].driver_id;
-
-    // Update the trip status to 'in_progress' and set the exact departure time
     const result = await pool.query(
       `UPDATE Trip
        SET status = 'in_progress', departure_time = NOW()
        WHERE trip_id = $1 AND driver_id = $2 AND status = 'scheduled' RETURNING *`,
-      [tripId, driverId]
+      [tripId, req.driver_id],
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Trip not found, already started, or unauthorized." });
+      return res.status(403).json({
+        error:
+          "Forbidden: Trip not found, already started, or you are not assigned to it.",
+      });
     }
 
     res.json({ message: "Trip started successfully", trip: result.rows[0] });
@@ -96,34 +109,25 @@ router.put("/trips/:tripId/start", auth, async (req, res) => {
   }
 });
 
-
 // PUT /api/driver/trips/:tripId/complete
-router.put("/trips/:tripId/complete", auth, async (req, res) => {
+router.put("/trips/:tripId/complete", async (req, res) => {
   const { tripId } = req.params;
 
+  if (!req.driver_id)
+    return res.status(404).json({ error: "Driver profile not found." });
+
   try {
-    // First, resolve the driver_id from the authenticated user_id
-    const driverQuery = await pool.query(
-      "SELECT driver_id FROM Driver WHERE user_id = $1",
-      [req.user.user_id],
-    );
-
-    if (driverQuery.rows.length === 0) {
-      return res.status(404).json({ error: "Driver profile not found." });
-    }
-
-    const driverId = driverQuery.rows[0].driver_id;
-
-    // Update the trip status and record arrival time
     const result = await pool.query(
       `UPDATE Trip
        SET status = 'completed', arrival_time = NOW()
        WHERE trip_id = $1 AND driver_id = $2 RETURNING *`,
-      [tripId, driverId],
+      [tripId, req.driver_id],
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Trip not found or unauthorized." });
+      return res.status(403).json({
+        error: "Forbidden: Trip not found or you are not assigned to it.",
+      });
     }
 
     res.json({ message: "Trip completed successfully", trip: result.rows[0] });
@@ -133,9 +137,15 @@ router.put("/trips/:tripId/complete", auth, async (req, res) => {
   }
 });
 
-// PUT /api/driver/account (New route for credential updates)
-router.put("/account", auth, async (req, res) => {
+// PUT /api/driver/account
+router.put("/account", async (req, res) => {
   const { username, email, password } = req.body;
+
+  // Input Validation
+  if (!username || !email) {
+    return res.status(400).json({ error: "Username and email are required." });
+  }
+
   try {
     if (password) {
       const salt = await bcrypt.genSalt(10);
@@ -154,37 +164,57 @@ router.put("/account", auth, async (req, res) => {
   } catch (error) {
     if (error.code === "23505") {
       return res
-        .status(400)
+        .status(409)
         .json({ error: "Username or email is already taken." });
     }
     console.error("Error updating account:", error);
     res.status(500).json({ error: "Failed to update account." });
   }
 });
+
 // POST /api/driver/log-fuel
-router.post("/log-fuel", auth, async (req, res) => {
+router.post("/log-fuel", async (req, res) => {
   const {
     vehicle_id,
     trip_id,
     liters,
     cost_per_liter,
-    total_cost,
     odometer_km,
     station_name,
   } = req.body;
+
+  // Input Validation
+  if (!vehicle_id || !liters || !cost_per_liter) {
+    return res
+      .status(400)
+      .json({ error: "Vehicle, liters, and cost per liter are required." });
+  }
+  if (!req.driver_id)
+    return res.status(403).json({ error: "Driver profile missing." });
+
   try {
+    // Cross-user access block: Ensure the trip actually belongs to this driver
+    if (trip_id) {
+      const tripCheck = await pool.query(
+        "SELECT 1 FROM Trip WHERE trip_id = $1 AND driver_id = $2",
+        [trip_id, req.driver_id],
+      );
+      if (tripCheck.rowCount === 0) {
+        return res
+          .status(403)
+          .json({ error: "Forbidden: You are not assigned to this trip." });
+      }
+    }
+
     await pool.query(
-      `
-      INSERT INTO Fuel_Log (vehicle_id, trip_id, logged_by, refuel_time, liters, cost_per_liter, total_cost, odometer_km, station_name)
-      VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8)
-    `,
+      `INSERT INTO Fuel_Log (vehicle_id, trip_id, logged_by, refuel_time, liters, cost_per_liter, odometer_km, station_name)
+       VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7)`,
       [
         vehicle_id,
         trip_id,
         req.user.user_id,
         liters,
         cost_per_liter,
-        total_cost,
         odometer_km,
         station_name,
       ],
@@ -198,21 +228,33 @@ router.post("/log-fuel", auth, async (req, res) => {
 });
 
 // POST /api/driver/log-incident
-router.post("/log-incident", auth, async (req, res) => {
+router.post("/log-incident", async (req, res) => {
   const { trip_id, type, severity, description, reported_to } = req.body;
 
-  if (!trip_id) {
+  // Input Validation
+  if (!trip_id || !type || !severity) {
     return res
       .status(400)
-      .json({ error: "An active trip is required to report an incident." });
+      .json({ error: "Trip ID, type, and severity are required." });
   }
+  if (!req.driver_id)
+    return res.status(403).json({ error: "Driver profile missing." });
 
   try {
+    // Cross-user access block: Ensure the trip actually belongs to this driver
+    const tripCheck = await pool.query(
+      "SELECT 1 FROM Trip WHERE trip_id = $1 AND driver_id = $2",
+      [trip_id, req.driver_id],
+    );
+    if (tripCheck.rowCount === 0) {
+      return res
+        .status(403)
+        .json({ error: "Forbidden: You are not assigned to this trip." });
+    }
+
     await pool.query(
-      `
-      INSERT INTO Incident (trip_id, incident_date, type, description, severity, reported_to, logged_by)
-      VALUES ($1, NOW(), $2, $3, $4, $5, $6)
-    `,
+      `INSERT INTO Incident (trip_id, incident_date, type, description, severity, reported_to, logged_by)
+       VALUES ($1, NOW(), $2, $3, $4, $5, $6)`,
       [trip_id, type, description, severity, reported_to, req.user.user_id],
     );
 
@@ -224,22 +266,21 @@ router.post("/log-incident", auth, async (req, res) => {
 });
 
 // POST /api/driver/request-maintenance
-router.post("/request-maintenance", auth, async (req, res) => {
+router.post("/request-maintenance", async (req, res) => {
   const { vehicle_id, service_type, description, odometer_km, workshop } =
     req.body;
 
-  if (!vehicle_id) {
+  // Input Validation
+  if (!vehicle_id || !service_type) {
     return res
       .status(400)
-      .json({ error: "An active vehicle is required to request maintenance." });
+      .json({ error: "Vehicle and service type are required." });
   }
 
   try {
     await pool.query(
-      `
-      INSERT INTO Maintenance (vehicle_id, service_date, service_type, description, cost, workshop, odometer_km, logged_by)
-      VALUES ($1, CURRENT_DATE, $2, $3, 0.00, $4, $5, $6)
-    `,
+      `INSERT INTO Maintenance (vehicle_id, service_date, service_type, description, cost, workshop, odometer_km, logged_by)
+       VALUES ($1, CURRENT_DATE, $2, $3, 0.00, $4, $5, $6)`,
       [
         vehicle_id,
         service_type,
@@ -263,46 +304,32 @@ router.post("/request-maintenance", auth, async (req, res) => {
 // DOCUMENT ROUTES
 // ==========================================
 
-// 1. POST /api/driver/documents (Upload a new document)
-router.post("/documents", auth, async (req, res) => {
+// 1. POST /api/driver/documents
+router.post("/documents", async (req, res) => {
   const { document_type, document_no, issue_date, expiry_date } = req.body;
 
+  if (!document_type || !document_no || !issue_date || !expiry_date) {
+    return res.status(400).json({ error: "All document fields are required." });
+  }
+
   try {
-    let driverId;
+    let driverId = req.driver_id;
 
-    // Check if the driver profile exists
-    const driverQuery = await pool.query(
-      "SELECT driver_id FROM Driver WHERE user_id = $1",
-      [req.user.user_id],
-    );
-
-    if (driverQuery.rows.length === 0) {
-      // Auto-create an unassigned driver profile if missing
+    if (!driverId) {
       const userQuery = await pool.query(
         "SELECT username FROM User_Account WHERE user_id = $1",
         [req.user.user_id],
       );
-
       const newDriver = await pool.query(
-        `
-        INSERT INTO Driver (user_id, full_name, joined_date)
-        VALUES ($1, $2, CURRENT_DATE)
-        RETURNING driver_id
-      `,
+        `INSERT INTO Driver (user_id, full_name, joined_date) VALUES ($1, $2, CURRENT_DATE) RETURNING driver_id`,
         [req.user.user_id, userQuery.rows[0].username],
       );
-
       driverId = newDriver.rows[0].driver_id;
-    } else {
-      driverId = driverQuery.rows[0].driver_id;
     }
 
-    // Insert the document
     await pool.query(
-      `
-      INSERT INTO Driver_Document (driver_id, document_type, document_no, issue_date, expiry_date)
-      VALUES ($1, $2, $3, $4, $5)
-    `,
+      `INSERT INTO Driver_Document (driver_id, document_type, document_no, issue_date, expiry_date)
+       VALUES ($1, $2, $3, $4, $5)`,
       [driverId, document_type, document_no, issue_date, expiry_date],
     );
 
@@ -313,30 +340,16 @@ router.post("/documents", auth, async (req, res) => {
   }
 });
 
-// 2. GET /api/driver/documents (View documents)
-router.get("/documents", auth, async (req, res) => {
+// 2. GET /api/driver/documents
+router.get("/documents", async (req, res) => {
+  if (!req.driver_id) return res.json([]);
+
   try {
-    const driverQuery = await pool.query(
-      "SELECT driver_id FROM Driver WHERE user_id = $1",
-      [req.user.user_id],
-    );
-
-    if (driverQuery.rows.length === 0) {
-      return res.json([]);
-    }
-
-    const driverId = driverQuery.rows[0].driver_id;
-
     const docsQuery = await pool.query(
-      `
-      SELECT document_id, document_type, document_no, issue_date, expiry_date, alert_triggered
-      FROM Driver_Document
-      WHERE driver_id = $1
-      ORDER BY expiry_date ASC
-    `,
-      [driverId],
+      `SELECT document_id, document_type, document_no, issue_date, expiry_date, alert_triggered
+       FROM Driver_Document WHERE driver_id = $1 ORDER BY expiry_date ASC`,
+      [req.driver_id],
     );
-
     res.json(docsQuery.rows);
   } catch (error) {
     console.error("Error fetching driver documents:", error);
@@ -344,31 +357,22 @@ router.get("/documents", auth, async (req, res) => {
   }
 });
 
-// 3. DELETE /api/driver/documents/:id (Delete a document)
-router.delete("/documents/:id", auth, async (req, res) => {
+// 3. DELETE /api/driver/documents/:id
+router.delete("/documents/:id", async (req, res) => {
+  const documentId = req.params.id;
+  if (!req.driver_id)
+    return res.status(404).json({ error: "Driver profile not found." });
+
   try {
-    const documentId = req.params.id;
-
-    const driverQuery = await pool.query(
-      "SELECT driver_id FROM Driver WHERE user_id = $1",
-      [req.user.user_id],
-    );
-
-    if (driverQuery.rows.length === 0) {
-      return res.status(404).json({ error: "Driver profile not found." });
-    }
-
-    const driverId = driverQuery.rows[0].driver_id;
-
     const deleteResult = await pool.query(
       "DELETE FROM Driver_Document WHERE document_id = $1 AND driver_id = $2 RETURNING *",
-      [documentId, driverId],
+      [documentId, req.driver_id],
     );
 
     if (deleteResult.rowCount === 0) {
       return res
-        .status(404)
-        .json({ error: "Document not found or unauthorized." });
+        .status(403)
+        .json({ error: "Forbidden: Document not found or you do not own it." });
     }
 
     res.json({ message: "Document deleted successfully" });

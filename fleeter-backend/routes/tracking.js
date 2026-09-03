@@ -1,66 +1,63 @@
-const router = require('express').Router();
-const db = require('../config/db');
-const { verifyTokenAndRole } = require('../middleware/auth');
+const express = require("express");
+const router = express.Router();
+const pool = require("../config/db");
+const { verifyToken, authorizeRole } = require("../middleware/authMiddleware");
 
-// 1. Get Live Locations for Owner Dashboard
-router.get('/live', verifyTokenAndRole(['owner', 'admin']), async (req, res) => {
-  try {
-    // DISTINCT ON ensures we only get one row per vehicle_id
-    // ORDER BY ping_time DESC guarantees that row is the most recent one
-    const queryText = `
-      SELECT DISTINCT ON (t.vehicle_id)
-        t.vehicle_id,
-        v.registration_no,
-        ST_Y(t.geom::geometry) AS latitude,
-        ST_X(t.geom::geometry) AS longitude,
-        t.speed_kmh,
-        t.ping_time AS last_updated
-      FROM Vehicle_Telemetry t
-      JOIN Vehicle v ON t.vehicle_id = v.vehicle_id
-      ORDER BY t.vehicle_id, t.ping_time DESC;
-    `;
-    const { rows } = await db.query(queryText);
-    res.json(rows);
-  } catch (err) {
-    console.error("Live Tracking Fetch Error:", err);
-    res.status(500).json({ error: err.message });
+router.use(verifyToken);
+
+// POST /api/tracking/ping (Driver sends their live location)
+router.post("/ping", authorizeRole("driver"), async (req, res) => {
+  const { vehicle_id, trip_id, longitude, latitude, speed_kmh, battery_level } =
+    req.body;
+
+  if (!vehicle_id || longitude == null || latitude == null) {
+    return res
+      .status(400)
+      .json({ message: "Vehicle ID, longitude, and latitude are required." });
   }
-});
-
-// 2. Post Location Ping from Driver App
-router.post('/ping', verifyTokenAndRole(['driver']), async (req, res) => {
-  const {
-    vehicle_id,
-    trip_id,
-    latitude,
-    longitude,
-    speed_kmh,
-    altitude,
-    battery_level
-  } = req.body;
 
   try {
-    // Save directly to historical telemetry using PostGIS syntax
-    await db.query(
-      `INSERT INTO Vehicle_Telemetry
-        (vehicle_id, trip_id, geom, speed_kmh, altitude, battery_level, ping_time)
-       VALUES
-        ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6, $7, NOW())`,
+    // Secure PostGIS insertion using ST_SetSRID and ST_MakePoint
+    await pool.query(
+      `
+            INSERT INTO Vehicle_Telemetry (vehicle_id, trip_id, geom, speed_kmh, battery_level, ping_time)
+            VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6, NOW())
+        `,
       [
         vehicle_id,
         trip_id || null,
-        longitude, // Longitude must be first for ST_MakePoint
+        longitude,
         latitude,
-        speed_kmh || 0.00,
-        altitude || null,
-        battery_level || null
-      ]
+        speed_kmh || 0,
+        battery_level || null,
+      ],
     );
 
-    res.json({ message: 'Ping recorded successfully' });
-  } catch (err) {
-    console.error("Telemetry Ping Error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(201).json({ message: "Location ping recorded." });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to record telemetry." });
+  }
+});
+
+// GET /api/tracking/fleet (Owners/Managers view their live fleet)
+router.get("/fleet", authorizeRole("owner", "manager"), async (req, res) => {
+  try {
+    // Fetch the latest ping for all vehicles owned by this user
+    const query = `
+            SELECT DISTINCT ON (vt.vehicle_id)
+                vt.vehicle_id, v.registration_no,
+                ST_X(vt.geom) as longitude, ST_Y(vt.geom) as latitude,
+                vt.speed_kmh, vt.ping_time
+            FROM Vehicle_Telemetry vt
+            JOIN Vehicle v ON vt.vehicle_id = v.vehicle_id
+            WHERE v.owner_id = (SELECT owner_id FROM Owner_Profile WHERE user_id = $1 UNION SELECT owner_id FROM Manager_Profile WHERE user_id = $1)
+            ORDER BY vt.vehicle_id, vt.ping_time DESC;
+        `;
+
+    const result = await pool.query(query, [req.user.user_id]);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch fleet locations." });
   }
 });
 

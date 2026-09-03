@@ -2,8 +2,8 @@ const router = require("express").Router();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
+const { verifyToken } = require('../middleware/authMiddleware');
 
-// POST /api/fleeter/auth/login
 // POST /api/fleeter/auth/login
 router.post("/login", async (req, res) => {
   // Use 'identifier' to represent either the email or the username
@@ -104,6 +104,26 @@ router.post("/register", async (req, res) => {
   } catch (err) {
     console.error("Registration error:", err.message);
     res.status(500).json({ error: "Server error during registration" });
+  }
+});
+
+router.post("/logout", verifyToken, async (req, res) => {
+  try {
+    const token = req.token;
+
+    const expiresAt = new Date(req.user.exp * 1000);
+
+    await pool.query(
+      "INSERT INTO Token_Blacklist (token, expires_at) VALUES ($1, $2)",
+      [token, expiresAt],
+    );
+    pool
+      .query("DELETE FROM Token_Blacklist WHERE expires_at < CURRENT_TIMESTAMP")
+      .catch((err) => console.error("Token cleanup error:", err));
+    res.status(200).json({ message: "Successfully logged out." });
+  } catch (error) {
+    console.error("Logout error:", error);
+    res.status(500).json({ message: "Server error during logout." });
   }
 });
 

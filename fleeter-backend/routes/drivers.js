@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
-const auth = require("../middleware/authMiddleware");
+const { verifyToken } = require("../middleware/authMiddleware");
 const bcrypt = require("bcrypt");
 
 // GET /api/driver/trips
-router.get("/trips", auth, async (req, res) => {
+router.get("/trips", verifyToken, async (req, res) => {
   try {
     // We added a LEFT JOIN for Owner_Profile to grab the company_name
     const userQuery = await pool.query(
@@ -65,14 +65,14 @@ router.get("/trips", auth, async (req, res) => {
 // ==========================================
 
 // PUT /api/driver/trips/:tripId/complete
-router.put("/trips/:tripId/complete", auth, async (req, res) => {
+router.put("/trips/:tripId/complete", verifyToken, async (req, res) => {
   const { tripId } = req.params;
 
   try {
     // First, resolve the driver_id from the authenticated user_id
     const driverQuery = await pool.query(
       "SELECT driver_id FROM Driver WHERE user_id = $1",
-      [req.user.user_id]
+      [req.user.user_id],
     );
 
     if (driverQuery.rows.length === 0) {
@@ -86,7 +86,7 @@ router.put("/trips/:tripId/complete", auth, async (req, res) => {
       `UPDATE Trip
        SET status = 'completed', arrival_time = NOW()
        WHERE trip_id = $1 AND driver_id = $2 RETURNING *`,
-      [tripId, driverId]
+      [tripId, driverId],
     );
 
     if (result.rowCount === 0) {
@@ -101,7 +101,7 @@ router.put("/trips/:tripId/complete", auth, async (req, res) => {
 });
 
 // PUT /api/driver/account (New route for credential updates)
-router.put("/account", auth, async (req, res) => {
+router.put("/account", verifyToken, async (req, res) => {
   const { username, email, password } = req.body;
   try {
     if (password) {
@@ -130,7 +130,7 @@ router.put("/account", auth, async (req, res) => {
 });
 
 // POST /api/driver/log-fuel
-router.post("/log-fuel", auth, async (req, res) => {
+router.post("/log-fuel", verifyToken, async (req, res) => {
   const {
     vehicle_id,
     trip_id,
@@ -140,12 +140,38 @@ router.post("/log-fuel", auth, async (req, res) => {
     odometer_km,
     station_name,
   } = req.body;
+
+  // 1. Strict Input Validation (400 Bad Request)
+  if (!vehicle_id || !liters || !cost_per_liter || !total_cost) {
+    return res.status(400).json({ error: "Missing required fuel log fields." });
+  }
+
   try {
+    // Resolve driver ID
+    const driverQuery = await pool.query(
+      "SELECT driver_id FROM Driver WHERE user_id = $1",
+      [req.user.user_id],
+    );
+    if (driverQuery.rows.length === 0)
+      return res.status(404).json({ error: "Driver profile not found." });
+    const driverId = driverQuery.rows[0].driver_id;
+
+    // 2. Object-Level Ownership Check (403 Forbidden)
+    if (trip_id) {
+      const tripCheck = await pool.query(
+        "SELECT 1 FROM Trip WHERE trip_id = $1 AND driver_id = $2",
+        [trip_id, driverId],
+      );
+      if (tripCheck.rowCount === 0) {
+        return res
+          .status(403)
+          .json({ error: "Forbidden: You are not assigned to this trip." });
+      }
+    }
+
     await pool.query(
-      `
-      INSERT INTO Fuel_Log (vehicle_id, trip_id, logged_by, refuel_time, liters, cost_per_liter, total_cost, odometer_km, station_name)
-      VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8)
-    `,
+      `INSERT INTO Fuel_Log (vehicle_id, trip_id, logged_by, refuel_time, liters, cost_per_liter, total_cost, odometer_km, station_name)
+       VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7, $8)`,
       [
         vehicle_id,
         trip_id,
@@ -166,21 +192,43 @@ router.post("/log-fuel", auth, async (req, res) => {
 });
 
 // POST /api/driver/log-incident
-router.post("/log-incident", auth, async (req, res) => {
+router.post("/log-incident", verifyToken, async (req, res) => {
   const { trip_id, type, severity, description, reported_to } = req.body;
 
-  if (!trip_id) {
+  // 1. Strict Input Validation
+  if (!trip_id || !type || !severity) {
     return res
       .status(400)
-      .json({ error: "An active trip is required to report an incident." });
+      .json({ error: "Trip ID, incident type, and severity are required." });
   }
 
   try {
+    // Resolve driver ID
+    const driverQuery = await pool.query(
+      "SELECT driver_id FROM Driver WHERE user_id = $1",
+      [req.user.user_id],
+    );
+    if (driverQuery.rows.length === 0)
+      return res.status(404).json({ error: "Driver profile not found." });
+    const driverId = driverQuery.rows[0].driver_id;
+
+    // 2. Object-Level Ownership Check
+    const tripCheck = await pool.query(
+      "SELECT 1 FROM Trip WHERE trip_id = $1 AND driver_id = $2",
+      [trip_id, driverId],
+    );
+    if (tripCheck.rowCount === 0) {
+      return res
+        .status(403)
+        .json({
+          error:
+            "Forbidden: You cannot report an incident for another driver's trip.",
+        });
+    }
+
     await pool.query(
-      `
-      INSERT INTO Incident (trip_id, incident_date, type, description, severity, reported_to, logged_by)
-      VALUES ($1, NOW(), $2, $3, $4, $5, $6)
-    `,
+      `INSERT INTO Incident (trip_id, incident_date, type, description, severity, reported_to, logged_by)
+       VALUES ($1, NOW(), $2, $3, $4, $5, $6)`,
       [trip_id, type, description, severity, reported_to, req.user.user_id],
     );
 
@@ -192,7 +240,7 @@ router.post("/log-incident", auth, async (req, res) => {
 });
 
 // POST /api/driver/request-maintenance
-router.post("/request-maintenance", auth, async (req, res) => {
+router.post("/request-maintenance", verifyToken, async (req, res) => {
   const { vehicle_id, service_type, description, odometer_km, workshop } =
     req.body;
 
@@ -232,7 +280,7 @@ router.post("/request-maintenance", auth, async (req, res) => {
 // ==========================================
 
 // 1. POST /api/driver/documents (Upload a new document)
-router.post("/documents", auth, async (req, res) => {
+router.post("/documents", verifyToken, async (req, res) => {
   const { document_type, document_no, issue_date, expiry_date } = req.body;
 
   try {
@@ -282,7 +330,7 @@ router.post("/documents", auth, async (req, res) => {
 });
 
 // 2. GET /api/driver/documents (View documents)
-router.get("/documents", auth, async (req, res) => {
+router.get("/documents", verifyToken, async (req, res) => {
   try {
     const driverQuery = await pool.query(
       "SELECT driver_id FROM Driver WHERE user_id = $1",
@@ -313,7 +361,7 @@ router.get("/documents", auth, async (req, res) => {
 });
 
 // 3. DELETE /api/driver/documents/:id (Delete a document)
-router.delete("/documents/:id", auth, async (req, res) => {
+router.delete("/documents/:id", verifyToken, async (req, res) => {
   try {
     const documentId = req.params.id;
 

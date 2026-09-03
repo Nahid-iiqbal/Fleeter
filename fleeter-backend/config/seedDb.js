@@ -12,10 +12,10 @@ const seedDatabase = async () => {
 
     // TRUNCATE CASCADE handles all foreign key dependencies automatically
     await client.query(`
-      TRUNCATE TABLE 
-        User_Account, Owner_Profile, Manager_Profile, Driver, 
-        Vehicle, Route, Trip, Maintenance, Fuel_Log, Incident, 
-        Driver_Document, Vehicle_Document, Vehicle_Telemetry 
+      TRUNCATE TABLE
+        User_Account, Token_Blacklist, Owner_Profile, Manager_Profile, Driver,
+        Vehicle, Route, Trip, Maintenance, Fuel_Log, Incident,
+        Driver_Document, Vehicle_Document, Vehicle_Telemetry
       CASCADE;
     `);
 
@@ -28,7 +28,7 @@ const seedDatabase = async () => {
     // Admin
     await client.query(
       `
-      INSERT INTO User_Account (username, email, password_hash, role) 
+      INSERT INTO User_Account (username, email, password_hash, role)
       VALUES ('admin_super', 'admin@fleeter.com', $1, 'admin');
     `,
       [defaultPassword],
@@ -37,7 +37,7 @@ const seedDatabase = async () => {
     // Owner
     const ownerUserRes = await client.query(
       `
-      INSERT INTO User_Account (username, email, password_hash, role) 
+      INSERT INTO User_Account (username, email, password_hash, role)
       VALUES ('apex_boss', 'owner@fleeter.com', $1, 'owner') RETURNING user_id;
     `,
       [defaultPassword],
@@ -47,7 +47,7 @@ const seedDatabase = async () => {
     // Manager / Dispatcher
     const managerUserRes = await client.query(
       `
-      INSERT INTO User_Account (username, email, password_hash, role) 
+      INSERT INTO User_Account (username, email, password_hash, role)
       VALUES ('apex_dispatch', 'manager@fleeter.com', $1, 'manager') RETURNING user_id;
     `,
       [defaultPassword],
@@ -57,15 +57,16 @@ const seedDatabase = async () => {
     // Drivers
     const driver1UserRes = await client.query(
       `
-      INSERT INTO User_Account (username, email, password_hash, role) 
+      INSERT INTO User_Account (username, email, password_hash, role)
       VALUES ('marcus_w', 'driver1@fleeter.com', $1, 'driver') RETURNING user_id;
     `,
       [defaultPassword],
     );
+    const driver1UserId = driver1UserRes.rows[0].user_id;
 
     const driver2UserRes = await client.query(
       `
-      INSERT INTO User_Account (username, email, password_hash, role) 
+      INSERT INTO User_Account (username, email, password_hash, role)
       VALUES ('leo_h', 'driver2@fleeter.com', $1, 'driver') RETURNING user_id;
     `,
       [defaultPassword],
@@ -98,7 +99,7 @@ const seedDatabase = async () => {
       INSERT INTO Driver (user_id, owner_id, full_name, phone, joined_date)
       VALUES ($1, $2, 'Marcus Wright', '555-0101', '2025-01-15') RETURNING driver_id;
     `,
-      [driver1UserRes.rows[0].user_id, ownerId],
+      [driver1UserId, ownerId],
     );
     const driver1Id = driver1Res.rows[0].driver_id;
 
@@ -115,7 +116,7 @@ const seedDatabase = async () => {
     await client.query(
       `
       INSERT INTO Driver_Document (driver_id, document_type, document_no, issue_date, expiry_date)
-      VALUES 
+      VALUES
       ($1, 'driving_license', 'DL-987654321', '2023-01-01', '2028-12-31'),
       ($2, 'driving_license', 'DL-123456789', '2024-05-15', '2029-05-15');
     `,
@@ -162,10 +163,10 @@ const seedDatabase = async () => {
     console.log("8. Seeding Financials (Fuel Log)...");
     await client.query(
       `
-      INSERT INTO Fuel_Log (vehicle_id, trip_id, refuel_time, liters, cost_per_liter, total_cost, odometer_km, station_name, logged_by)
-      VALUES ($1, $2, CURRENT_TIMESTAMP, 50.00, 1.50, 75.00, 12500, 'Highway Shell', $3);
+      INSERT INTO Fuel_Log (vehicle_id, trip_id, refuel_time, liters, cost_per_liter, odometer_km, station_name, logged_by)
+      VALUES ($1, $2, CURRENT_TIMESTAMP, 50.00, 1.50, 12500, 'Highway Shell', $3);
     `,
-      [vehicle1Id, tripId, driver1Id],
+      [vehicle1Id, tripId, driver1UserId], // Fixed: Passes user_id instead of driver_id
     );
 
     await client.query("COMMIT");

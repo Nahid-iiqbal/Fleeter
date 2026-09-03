@@ -1,11 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const pool = require("../config/db"); // Adjust path if your db.js is elsewhere
-const auth = require("../middleware/authMiddleware");
-
+const pool = require("../config/db");
+const { verifyToken } = require("../middleware/authMiddleware");
 // GET /api/dashboard/stats
 // Protected by the 'auth' middleware
-router.get("/stats", auth, async (req, res) => {
+router.get("/stats", verifyToken, async (req, res) => {
   try {
     // We use Promise.all to run these queries at the exact same time for speed
     const [vehicles, drivers, incidents] = await Promise.all([
