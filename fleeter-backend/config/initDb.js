@@ -32,6 +32,7 @@ const initializeDatabase = async () => {
       DROP TABLE IF EXISTS Vehicle CASCADE;
       DROP TABLE IF EXISTS Driver CASCADE;
       DROP TABLE IF EXISTS Manager_Profile CASCADE;
+      DROP TABLE IF EXISTS Company_Request CASCADE;
       DROP TABLE IF EXISTS Vendor CASCADE;
       DROP TABLE IF EXISTS Owner_Profile CASCADE;
       DROP TABLE IF EXISTS Token_Blacklist CASCADE;
@@ -66,13 +67,27 @@ const initializeDatabase = async () => {
       CREATE TABLE Manager_Profile (
         manager_id SERIAL PRIMARY KEY,
         user_id INT NOT NULL REFERENCES User_Account(user_id) ON DELETE CASCADE,
-        owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
+        owner_id INT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
         full_name VARCHAR(100) NOT NULL,
         employee_id VARCHAR(50),
         phone VARCHAR(15),
         department VARCHAR(50),
         UNIQUE (user_id, owner_id),
         UNIQUE (owner_id, employee_id)
+      );
+
+      -- 3.5 COMPANY_REQUEST
+      CREATE TABLE Company_Request (
+        request_id SERIAL PRIMARY KEY,
+        requester_user_id INT NOT NULL REFERENCES User_Account(user_id) ON DELETE CASCADE,
+        owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
+        requested_role VARCHAR(20) NOT NULL CHECK (requested_role IN ('manager', 'driver')),
+        message TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+        decided_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL,
+        decided_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (requester_user_id, owner_id, status)
       );
 
       -- 4. DRIVER
@@ -287,6 +302,7 @@ const initializeDatabase = async () => {
       CREATE INDEX idx_incident_trip       ON Incident(trip_id);
       CREATE INDEX idx_telemetry_trip      ON Vehicle_Telemetry(trip_id, ping_time DESC);
       CREATE INDEX idx_telemetry_geom      ON Vehicle_Telemetry USING GIST (geom);
+      CREATE INDEX idx_company_request_owner_status ON Company_Request(owner_id, status);
     `);
 
     await client.query("COMMIT");

@@ -90,11 +90,22 @@ router.post("/register", async (req, res) => {
       [username, email, passwordHash, role || "driver"],
     );
 
-    // 4. (Optional but Recommended) Auto-create Owner_Profile if role is owner
-    if (role === "owner") {
+    const registeredRole = role || "driver";
+
+    if (registeredRole === "owner") {
       await db.query("INSERT INTO Owner_Profile (user_id) VALUES ($1)", [
         newUser.rows[0].user_id,
       ]);
+    } else if (registeredRole === "manager") {
+      await db.query(
+        "INSERT INTO Manager_Profile (user_id, full_name) VALUES ($1, $2)",
+        [newUser.rows[0].user_id, username],
+      );
+    } else if (registeredRole === "driver") {
+      await db.query(
+        "INSERT INTO Driver (user_id, full_name, joined_date) VALUES ($1, $2, CURRENT_DATE)",
+        [newUser.rows[0].user_id, username],
+      );
     }
 
     res.status(201).json({

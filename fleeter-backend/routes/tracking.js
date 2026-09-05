@@ -46,11 +46,23 @@ router.get("/fleet", authorizeRole("owner", "manager"), async (req, res) => {
     const query = `
             SELECT DISTINCT ON (vt.vehicle_id)
                 vt.vehicle_id, v.registration_no,
+                assignment.driver_id, assignment.driver_name,
                 ST_X(vt.geom) as longitude, ST_Y(vt.geom) as latitude,
                 vt.speed_kmh, vt.ping_time
             FROM Vehicle_Telemetry vt
             JOIN Vehicle v ON vt.vehicle_id = v.vehicle_id
-            WHERE v.owner_id = (SELECT owner_id FROM Owner_Profile WHERE user_id = $1 UNION SELECT owner_id FROM Manager_Profile WHERE user_id = $1)
+            LEFT JOIN LATERAL (
+              SELECT t.driver_id, d.full_name AS driver_name
+              FROM Trip t
+              JOIN Driver d ON d.driver_id = t.driver_id
+              WHERE t.vehicle_id = v.vehicle_id AND t.status = 'in_progress'
+              ORDER BY t.departure_time DESC, t.trip_id DESC
+              LIMIT 1
+            ) assignment ON TRUE
+            WHERE v.owner_id = COALESCE(
+              (SELECT owner_id FROM Owner_Profile WHERE user_id = $1),
+              (SELECT owner_id FROM Manager_Profile WHERE user_id = $1)
+            )
             ORDER BY vt.vehicle_id, vt.ping_time DESC;
         `;
 

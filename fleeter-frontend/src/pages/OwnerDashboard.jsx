@@ -8,6 +8,9 @@ import VehicleDetails from "./VehicleDetails";
 // import tables to show the list
 import DriversTable from "../components/DriversTable";
 import VehiclesTable from "../components/VehiclesTable";
+import CompanyRequests from "../components/CompanyRequests";
+import LiveMap from "../components/LiveMap";
+import { apiFetch } from "../utils/api";
 
 // Table styles (Header and cell)
 const tableHeaderStyle = {
@@ -21,11 +24,16 @@ const tableCellStyle = {
   padding: "12px",
   borderBottom: "1px solid #eee",
 };
-
 function OwnerDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const activeTab = location.pathname.split("/")[2] || "overview";
+  const requestedTab = location.pathname.split("/")[2];
+  const activeTab =
+    !requestedTab || requestedTab === "owner-dashboard"
+      ? "overview"
+      : requestedTab;
+  const userRole = localStorage.getItem("role");
+  const [companyContext, setCompanyContext] = useState(null);
 
   // Profile page for drivers
   const driverProfileMatch = location.pathname.match(
@@ -51,6 +59,7 @@ function OwnerDashboard() {
   const [drivers, setDrivers] = useState([]);
   const [driversLoaded, setDriversLoaded] = useState(false); // checks if already loaded
   const [driversLoading, setDriversLoading] = useState(false); // can be used for loading screen later
+  const [driversError, setDriversError] = useState("");
 
   // Same thing for Vehicles data
   const [vehicles, setVehicles] = useState([]);
@@ -70,6 +79,7 @@ function OwnerDashboard() {
 
     try {
       setDriversLoading(true);
+      setDriversError("");
 
       const response = await fetch("http://localhost:5000/api/drivers", {
         method: "GET",
@@ -86,7 +96,8 @@ function OwnerDashboard() {
       }
 
       if (!response.ok) {
-        throw new Error("Failed to fetch drivers");
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || data.error || "Failed to fetch drivers");
       }
 
       const data = await response.json();
@@ -94,11 +105,11 @@ function OwnerDashboard() {
       console.log("DRIVERS API RESPONSE:", data);
 
       setDrivers(data);
-
       // Mark as successfully loaded
       setDriversLoaded(true);
     } catch (error) {
       console.error("Error loading drivers:", error);
+      setDriversError(error.message || "Failed to fetch drivers");
     } finally {
       setDriversLoading(false);
     }
@@ -156,6 +167,17 @@ function OwnerDashboard() {
       navigate("/login");
       return;
     }
+
+    const fetchCompanyContext = async () => {
+      try {
+        const context = await apiFetch("/api/company/context");
+        setCompanyContext(context);
+      } catch (error) {
+        console.error("Error loading company context:", error);
+      }
+    };
+
+    fetchCompanyContext();
 
     // 3. Create an async function to fetch the secure data
     const fetchDashboardData = async () => {
@@ -233,8 +255,24 @@ function OwnerDashboard() {
     navigate("/login");
   };
 
-  if (loading)
+  if (loading || !companyContext)
     return <div style={{ padding: "20px" }}>Loading your dashboard...</div>;
+
+  if (!companyContext.hasCompany) {
+    return (
+      <div style={styles.requestOnlyShell}>
+        <header style={styles.requestOnlyHeader}>
+          <strong>Fleeter OS</strong>
+          <span>Company: No company selected</span>
+        </header>
+        <main style={styles.requestOnlyContent}>
+          <h1>Join a company</h1>
+          <p>You need an approved company membership before dashboard access is enabled.</p>
+          <CompanyRequests joinOnly />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -263,7 +301,10 @@ function OwnerDashboard() {
             borderBottom: "1px solid #34495e",
           }}
         >
-          Fleeter OS
+          <div>Fleeter OS</div>
+          <div style={styles.companyIndicator}>
+            Company: {companyContext.companyName || "Unnamed company"}
+          </div>
         </div>
         <nav style={{ flex: 1, padding: "20px 0" }}>
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
@@ -359,7 +400,7 @@ function OwnerDashboard() {
             Command Center
           </h1>
           <div style={{ color: "#7f8c8d" }}>
-            Logged in as: <strong>Owner</strong>
+            Logged in as: <strong>{userRole}</strong>
           </div>
         </header>
 
@@ -409,23 +450,7 @@ function OwnerDashboard() {
           )}
 
           {/* LIVE MAP TAB CONTENT */}
-          {activeTab === "map" && (
-            <div
-              style={{
-                backgroundColor: "white",
-                padding: "20px",
-                borderRadius: "8px",
-                minHeight: "600px",
-                border: "1px solid #e0e0e0",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                color: "#95a5a6",
-              }}
-            >
-              Interactive Leaflet/Google Map Component
-            </div>
-          )}
+          {activeTab === "map" && <LiveMap />}
 
 
           {/* VEHICLES TAB CONTENT */}
@@ -462,12 +487,17 @@ function OwnerDashboard() {
               <DriversTable
                 drivers={drivers}
                 driversLoading={driversLoading}
+                error={driversError}
                 onRefresh={fetchDrivers}
                 onDriverClick={(driverId) =>
                   navigate(`/dashboard/drivers/${driverId}`)
                 }
               />
             )
+          )}
+
+          {activeTab === "recruit" && (
+            <CompanyRequests showJoinRequest={!companyContext.hasCompany} />
           )}
 
         </div>
@@ -507,3 +537,28 @@ function MetricCard({ title, value, color }) {
 }
 
 export default OwnerDashboard;
+
+const styles = {
+  requestOnlyShell: {
+    minHeight: "100vh",
+    backgroundColor: "#f4f7f6",
+    fontFamily: "sans-serif",
+  },
+  requestOnlyHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "20px 30px",
+    backgroundColor: "#2c3e50",
+    color: "white",
+  },
+  requestOnlyContent: {
+    maxWidth: "900px",
+    margin: "0 auto",
+    padding: "40px 20px",
+  },
+  companyIndicator: {
+    marginTop: "8px",
+    fontSize: "13px",
+    color: "#d5e8f7",
+  },
+};

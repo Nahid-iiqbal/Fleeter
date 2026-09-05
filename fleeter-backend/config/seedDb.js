@@ -14,6 +14,7 @@ const seedDatabase = async () => {
     await client.query(`
       TRUNCATE TABLE
         User_Account, Token_Blacklist, Owner_Profile, Manager_Profile, Driver,
+        Company_Request,
         Vehicle, Route, Trip, Maintenance, Fuel_Log, Incident,
         Driver_Document, Vehicle_Document, Vehicle_Telemetry
       CASCADE;

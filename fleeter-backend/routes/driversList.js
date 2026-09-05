@@ -37,7 +37,7 @@ router.get("/", verifyToken, async (req, res) => {
            (SELECT owner_id FROM Owner_Profile WHERE user_id = $2),
            (SELECT owner_id FROM Manager_Profile WHERE user_id = $2)
          )
-      ORDER BY d.driver_id DESC
+      ORDER BY d.driver_id ASC
     `,
       [req.user.role, req.user.user_id],
     );

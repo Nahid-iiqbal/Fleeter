@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import LocateControl from "../components/LocateControl";
 import { apiFetch } from "../utils/api"; // 1. Import the utility
+import CompanyRequests from "../components/CompanyRequests";
 
 // Fix for Leaflet's default marker icons in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -25,6 +26,7 @@ function DriverDashboard() {
     trips: [],
     alerts: 0,
     driverProfileMissing: false,
+    hasCompany: false,
   });
 
   // --- LIVE TRACKING STATE ---
@@ -104,6 +106,7 @@ function DriverDashboard() {
           trips: data.trips || [],
           alerts: 0,
           driverProfileMissing: data.driverProfileMissing,
+          hasCompany: Boolean(data.companyName && data.companyName !== "Unassigned"),
         });
 
         setAccountForm({
@@ -117,6 +120,7 @@ function DriverDashboard() {
           trips: [],
           alerts: 0,
           driverProfileMissing: true,
+          hasCompany: false,
         });
       } finally {
         setLoading(false);
@@ -188,10 +192,10 @@ function DriverDashboard() {
           trips: prev.trips.map((t) =>
             t.trip_id === tripToStart.trip_id
               ? {
-                  ...t,
-                  status: "in_progress",
-                  departure_time: responseData.trip.departure_time,
-                }
+                ...t,
+                status: "in_progress",
+                departure_time: responseData.trip.departure_time,
+              }
               : t,
           ),
         }));
@@ -221,10 +225,10 @@ function DriverDashboard() {
           trips: prev.trips.map((t) =>
             t.trip_id === activeTrip.trip_id
               ? {
-                  ...t,
-                  status: "completed",
-                  arrival_time: responseData.trip.arrival_time,
-                }
+                ...t,
+                status: "completed",
+                arrival_time: responseData.trip.arrival_time,
+              }
               : t,
           ),
         }));
@@ -485,6 +489,32 @@ function DriverDashboard() {
 
   if (loading)
     return <div style={styles.loadingScreen}>Loading your dashboard...</div>;
+
+  if (!driverStats.hasCompany) {
+    return (
+      <div style={styles.appContainer}>
+        <aside style={styles.sidebar}>
+          <div style={styles.sidebarHeader}>
+            <h1 style={styles.sidebarTitle}>Fleeter OS</h1>
+            <p style={styles.sidebarSubtitle}>Welcome, {driverStats.name}</p>
+            <p style={styles.sidebarCompany}>Company: No company selected</p>
+          </div>
+          <div style={styles.logoutContainer}>
+            <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
+          </div>
+        </aside>
+        <main style={styles.mainContent}>
+          <section style={styles.dashboardSection}>
+            <h2 style={styles.sectionHeader}>Join a company</h2>
+            <p style={styles.mutedText}>
+              Your driver dashboard will be available after a company approves your request.
+            </p>
+            <CompanyRequests joinOnly />
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.appContainer}>

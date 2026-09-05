@@ -38,7 +38,10 @@ router.get("/", verifyToken, async (req, res) => {
         ORDER BY t.departure_time DESC, t.trip_id DESC
         LIMIT 1
       ) assignment ON TRUE
-      WHERE v.owner_id = (SELECT owner_id FROM Owner_Profile WHERE user_id = $1)
+      WHERE v.owner_id = COALESCE(
+        (SELECT owner_id FROM Owner_Profile WHERE user_id = $1),
+        (SELECT owner_id FROM Manager_Profile WHERE user_id = $1)
+      )
       ORDER BY v.vehicle_id ASC
     `,
       [userId],
@@ -88,7 +91,10 @@ router.get("/:vehicleId", verifyToken, async (req, res) => {
         LIMIT 1
       ) assignment ON TRUE
       WHERE v.vehicle_id = $1
-        AND v.owner_id = (SELECT owner_id FROM Owner_Profile WHERE user_id = $2)
+        AND v.owner_id = COALESCE(
+          (SELECT owner_id FROM Owner_Profile WHERE user_id = $2),
+          (SELECT owner_id FROM Manager_Profile WHERE user_id = $2)
+        )
       `,
       [vehicleId, userId],
     );

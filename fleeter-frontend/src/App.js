@@ -39,7 +39,7 @@ function App() {
         <Route
           path="/owner-dashboard"
           element={
-            <ProtectedRoute allowedRoles={["owner", "admin"]}>
+            <ProtectedRoute allowedRoles={["owner", "manager", "admin"]}>
               <OwnerDashboard />
             </ProtectedRoute>
           }
@@ -49,7 +49,7 @@ function App() {
         <Route
           path="/dashboard/*"
           element={
-            <ProtectedRoute allowedRoles={["owner", "admin"]}>
+            <ProtectedRoute allowedRoles={["owner", "manager", "admin"]}>
               <OwnerDashboard />
             </ProtectedRoute>
           }
