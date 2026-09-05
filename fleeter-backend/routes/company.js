@@ -84,35 +84,62 @@ router.post(
   "/requests",
   authorizeRole("manager", "driver"),
   async (req, res) => {
-    const { owner_id, message } = req.body;
+    const { owner_id, owner_ids, message } = req.body;
     const requestedRole = req.user.role;
+    const ownerIds = Array.isArray(owner_ids)
+      ? owner_ids.map(Number).filter(Number.isInteger)
+      : owner_id
+        ? [Number(owner_id)]
+        : [];
 
-    if (!owner_id) {
-      return res.status(400).json({ message: "A company is required." });
+    if (ownerIds.length !== 1) {
+      return res.status(400).json({ message: "Choose exactly one company per request." });
     }
 
+    const uniqueOwnerIds = [...new Set(ownerIds)];
+    const client = await pool.connect();
     try {
-      const result = await pool.query(
+      await client.query("BEGIN");
+      const companies = await client.query(
+        "SELECT owner_id FROM Owner_Profile WHERE owner_id = ANY($1::int[])",
+        [uniqueOwnerIds],
+      );
+      if (companies.rowCount !== uniqueOwnerIds.length) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "One or more companies were not found." });
+      }
+
+      const existing = await client.query(
+        `
+          SELECT request_id FROM Company_Request
+          WHERE requester_user_id = $1 AND status = 'pending'
+        `,
+        [req.user.user_id],
+      );
+      if (existing.rowCount > 0) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({ message: "Cancel your current pending request before requesting another company." });
+      }
+
+      const result = await client.query(
         `
           INSERT INTO Company_Request (requester_user_id, owner_id, requested_role, message)
-          SELECT $1, $2, $3, $4
-          WHERE EXISTS (SELECT 1 FROM Owner_Profile WHERE owner_id = $2)
-          RETURNING *
+          SELECT $1, company.owner_id, $3, $4
+          FROM Owner_Profile company
+          WHERE company.owner_id = $2
+          RETURNING request_id, owner_id, requested_role, message, status, created_at
         `,
-        [req.user.user_id, owner_id, requestedRole, message || null],
+        [req.user.user_id, uniqueOwnerIds[0], requestedRole, message || null],
       );
 
-      if (result.rowCount === 0) {
-        return res.status(404).json({ message: "Company not found." });
-      }
-
-      res.status(201).json(result.rows[0]);
+      await client.query("COMMIT");
+      res.status(201).json({ requests: result.rows });
     } catch (error) {
-      if (error.code === "23505") {
-        return res.status(409).json({ message: "You already have a request for this company." });
-      }
+      await client.query("ROLLBACK");
       console.error("Error creating company request:", error);
       res.status(500).json({ message: "Failed to create company request." });
+    } finally {
+      client.release();
     }
   },
 );
@@ -122,9 +149,11 @@ router.get("/requests/mine", async (req, res) => {
   try {
     const result = await pool.query(
       `
-        SELECT r.*, o.company_name
+         SELECT r.*, o.company_name,
+           owner.username AS owner_username, owner.email AS owner_email
         FROM Company_Request r
         JOIN Owner_Profile o ON o.owner_id = r.owner_id
+         JOIN User_Account owner ON owner.user_id = o.user_id
         WHERE r.requester_user_id = $1
         ORDER BY r.created_at DESC
       `,
@@ -136,6 +165,33 @@ router.get("/requests/mine", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch requests." });
   }
 });
+
+// DELETE /api/company/requests/:requestId - cancel an own pending request
+router.delete(
+  "/requests/:requestId",
+  authorizeRole("manager", "driver"),
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `
+          DELETE FROM Company_Request
+          WHERE request_id = $1
+            AND requester_user_id = $2
+            AND status = 'pending'
+          RETURNING request_id
+        `,
+        [req.params.requestId, req.user.user_id],
+      );
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Pending request not found." });
+      }
+      res.json({ message: "Request cancelled." });
+    } catch (error) {
+      console.error("Error cancelling company request:", error);
+      res.status(500).json({ message: "Failed to cancel request." });
+    }
+  },
+);
 
 // GET /api/company/requests/pending - requests awaiting this user's decision
 router.get(
@@ -150,11 +206,15 @@ router.get(
 
       const result = await pool.query(
         `
-          SELECT r.request_id, r.requester_user_id, r.requested_role,
-                 r.message, r.created_at, u.username, u.email,
-                 COALESCE(d.full_name, m.full_name) AS full_name
+             SELECT r.request_id, r.requester_user_id, r.requested_role,
+               r.message, r.created_at, u.username, u.email,
+               COALESCE(d.full_name, m.full_name) AS full_name,
+               COALESCE(d.phone, m.phone) AS phone,
+               m.employee_id, m.department,
+               o.company_name
           FROM Company_Request r
           JOIN User_Account u ON u.user_id = r.requester_user_id
+             JOIN Owner_Profile o ON o.owner_id = r.owner_id
           LEFT JOIN Driver d ON d.user_id = u.user_id
           LEFT JOIN Manager_Profile m ON m.user_id = u.user_id
           WHERE r.owner_id = $1

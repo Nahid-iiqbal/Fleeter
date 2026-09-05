@@ -492,25 +492,23 @@ function DriverDashboard() {
 
   if (!driverStats.hasCompany) {
     return (
-      <div style={styles.appContainer}>
-        <aside style={styles.sidebar}>
-          <div style={styles.sidebarHeader}>
-            <h1 style={styles.sidebarTitle}>Fleeter OS</h1>
-            <p style={styles.sidebarSubtitle}>Welcome, {driverStats.name}</p>
-            <p style={styles.sidebarCompany}>Company: No company selected</p>
+      <div style={requestOnlyShellStyle}>
+        <header style={requestOnlyHeaderStyle}>
+          <div>
+            <strong style={requestOnlyBrandStyle}>Fleeter OS</strong>
+            <span style={requestOnlyWelcomeStyle}>Welcome, {driverStats.name}</span>
           </div>
-          <div style={styles.logoutContainer}>
-            <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
-          </div>
-        </aside>
-        <main style={styles.mainContent}>
-          <section style={styles.dashboardSection}>
-            <h2 style={styles.sectionHeader}>Join a company</h2>
-            <p style={styles.mutedText}>
+          <button onClick={handleLogout} style={requestOnlyLogoutStyle}>Logout</button>
+        </header>
+        <main style={requestOnlyContentStyle}>
+          <div style={requestOnlyIntroStyle}>
+            <span style={requestOnlyEyebrowStyle}>Driver account setup</span>
+            <h1 style={{ margin: "8px 0 6px", color: "#1f2937" }}>Join a company</h1>
+            <p style={{ margin: 0, color: "#64748b" }}>
               Your driver dashboard will be available after a company approves your request.
             </p>
-            <CompanyRequests joinOnly />
-          </section>
+          </div>
+          <CompanyRequests joinOnly />
         </main>
       </div>
     );
@@ -1344,6 +1342,31 @@ const actionTabStyle = (isEnabled, activeColor) => ({
   fontSize: "15px",
   opacity: isEnabled ? 1 : 0.4,
 });
+
+const requestOnlyShellStyle = {
+  minHeight: "100vh",
+  backgroundColor: "#f4f7f6",
+  fontFamily: "sans-serif",
+};
+
+const requestOnlyHeaderStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: "20px",
+  padding: "18px clamp(20px, 5vw, 64px)",
+  backgroundColor: "#2c3e50",
+  color: "white",
+  boxShadow: "0 2px 10px rgba(15, 23, 42, 0.12)",
+};
+
+const requestOnlyBrandStyle = { display: "block", fontSize: "21px", letterSpacing: "0.2px" };
+const requestOnlyWelcomeStyle = { display: "block", marginTop: "4px", color: "#cbd5e1", fontSize: "13px" };
+const requestOnlyLogoutStyle = { padding: "8px 14px", border: "1px solid #64748b", borderRadius: "5px", backgroundColor: "transparent", color: "white", cursor: "pointer", fontWeight: 600 };
+
+const requestOnlyContentStyle = { width: "min(100% - 40px, 1040px)", margin: "0 auto", padding: "clamp(28px, 5vw, 56px) 0 48px" };
+const requestOnlyIntroStyle = { marginBottom: "24px" };
+const requestOnlyEyebrowStyle = { color: "#2e86de", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" };
 
 // --- CENTRALIZED STATIC STYLES ---
 const styles = {

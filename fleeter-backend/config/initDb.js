@@ -86,9 +86,12 @@ const initializeDatabase = async () => {
         status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
         decided_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL,
         decided_at TIMESTAMPTZ,
-        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (requester_user_id, owner_id, status)
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE UNIQUE INDEX idx_company_request_one_pending
+        ON Company_Request(requester_user_id, status)
+        WHERE status = 'pending';
 
       -- 4. DRIVER
       CREATE TABLE Driver (

@@ -19,9 +19,16 @@ const migrate = async () => {
         status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
         decided_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL,
         decided_at TIMESTAMPTZ,
-        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (requester_user_id, owner_id, status)
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
+    `);
+    await client.query(
+      "ALTER TABLE Company_Request DROP CONSTRAINT IF EXISTS company_request_requester_user_id_owner_id_status_key",
+    );
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_company_request_one_pending
+        ON Company_Request(requester_user_id, status)
+        WHERE status = 'pending'
     `);
     await client.query(
       "CREATE INDEX IF NOT EXISTS idx_company_request_owner_status ON Company_Request(owner_id, status)",
