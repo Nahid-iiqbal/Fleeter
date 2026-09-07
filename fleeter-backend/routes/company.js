@@ -59,6 +59,58 @@ const getCompanyId = async (userId) => {
   return result.rows[0]?.owner_id || null;
 };
 
+// GET /api/company/managers - managers belonging to the current owner's company
+router.get("/managers", authorizeRole("owner"), async (req, res) => {
+  try {
+    const companyId = await getCompanyId(req.user.user_id);
+    if (!companyId) {
+      return res.json([]);
+    }
+
+    const result = await pool.query(
+      `
+        SELECT m.manager_id, m.full_name, m.employee_id, m.phone,
+          m.department, u.username, u.email, u.is_active, u.created_at
+        FROM Manager_Profile m
+        JOIN User_Account u ON u.user_id = m.user_id
+        WHERE m.owner_id = $1
+        ORDER BY m.manager_id ASC, m.full_name ASC
+      `,
+      [companyId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching managers:", error);
+    res.status(500).json({ message: "Failed to fetch managers." });
+  }
+});
+
+// GET /api/company/managers/:managerId - one manager in the owner's company
+router.get("/managers/:managerId", authorizeRole("owner"), async (req, res) => {
+  try {
+    const companyId = await getCompanyId(req.user.user_id);
+    const result = await pool.query(
+      `
+        SELECT m.manager_id, m.full_name, m.employee_id, m.phone,
+          m.department, u.username, u.email, u.is_active, u.created_at
+        FROM Manager_Profile m
+        JOIN User_Account u ON u.user_id = m.user_id
+        WHERE m.manager_id = $1 AND m.owner_id = $2
+      `,
+      [req.params.managerId, companyId],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Manager not found or unauthorized." });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error("Error fetching manager:", error);
+    res.status(500).json({ message: "Failed to fetch manager." });
+  }
+});
+
 // GET /api/company/companies - companies available to join
 router.get("/companies", async (req, res) => {
   try {

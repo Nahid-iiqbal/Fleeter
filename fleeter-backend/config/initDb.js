@@ -100,7 +100,7 @@ const initializeDatabase = async () => {
           owner_id    INT NULL,
           full_name   VARCHAR(100) NOT NULL,
           phone       VARCHAR(15),
-          status      VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'on_leave', 'suspended', 'terminated')),
+          status      VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'dispatched', 'on_leave', 'suspended', 'terminated')),
           joined_date DATE NOT NULL,
           created_at  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES User_Account(user_id) ON DELETE SET NULL,
@@ -119,8 +119,7 @@ const initializeDatabase = async () => {
         year INTEGER,
         capacity INT,
         fuel_type VARCHAR(20),
-        condition_status VARCHAR(20) DEFAULT 'active' CHECK (condition_status IN ('active', 'in_maintenance', 'retired', 'sold')),
-        availability_status VARCHAR(20) DEFAULT 'available' CHECK (availability_status IN ('available', 'dispatched'))
+        status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'dispatched', 'in_maintenance', 'retired', 'sold'))
       );
 
       -- 6. ROUTE

@@ -4,10 +4,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 // import driver and vehicle details for the details page
 import DriverDetails from "./DriverDetails";
 import VehicleDetails from "./VehicleDetails";
+import ManagerDetails from "./ManagerDetails";
 
 // import tables to show the list
 import DriversTable from "../components/DriversTable";
 import VehiclesTable from "../components/VehiclesTable";
+import ManagersTable from "../components/ManagersTable";
 import CompanyRequests from "../components/CompanyRequests";
 import LiveMap from "../components/LiveMap";
 import { apiFetch } from "../utils/api";
@@ -53,6 +55,13 @@ function OwnerDashboard() {
     ? vehicleProfileMatch[1]
     : null;
 
+  const managerProfileMatch = location.pathname.match(
+    /^\/dashboard\/managers\/(\d+)$/,
+  );
+  const selectedManagerId = managerProfileMatch
+    ? managerProfileMatch[1]
+    : null;
+
   const [loading, setLoading] = useState(true);
 
   // Var for fetching Drivers data
@@ -65,6 +74,12 @@ function OwnerDashboard() {
   const [vehicles, setVehicles] = useState([]);
   const [vehiclesLoaded, setVehiclesLoaded] = useState(false);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
+
+  // Managers are loaded only when the owner opens the Managers tab.
+  const [managers, setManagers] = useState([]);
+  const [managersLoaded, setManagersLoaded] = useState(false);
+  const [managersLoading, setManagersLoading] = useState(false);
+  const [managersError, setManagersError] = useState("");
 
   // We will eventually fetch real data here
   const [stats, setStats] = useState({
@@ -158,6 +173,21 @@ function OwnerDashboard() {
     }
   }, [navigate]);
 
+  const fetchManagers = useCallback(async () => {
+    try {
+      setManagersLoading(true);
+      setManagersError("");
+      const data = await apiFetch("/api/company/managers");
+      setManagers(data);
+      setManagersLoaded(true);
+    } catch (error) {
+      console.error("Error loading managers:", error);
+      setManagersError(error.message || "Failed to fetch managers");
+    } finally {
+      setManagersLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     // 1. Grab the token from local storage
     const token = localStorage.getItem("token");
@@ -249,6 +279,14 @@ function OwnerDashboard() {
 
     fetchVehicles();
   }, [activeTab, vehiclesLoaded, fetchVehicles]);
+
+  useEffect(() => {
+    if (activeTab !== "managers" || userRole !== "owner" || managersLoaded) {
+      return;
+    }
+
+    fetchManagers();
+  }, [activeTab, managersLoaded, fetchManagers, userRole]);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -352,6 +390,19 @@ function OwnerDashboard() {
             >
               Drivers
             </li>
+            {userRole === "owner" && (
+              <li
+                onClick={() => navigate("/dashboard/managers")}
+                style={{
+                  padding: "15px 20px",
+                  cursor: "pointer",
+                  backgroundColor:
+                    activeTab === "managers" ? "#34495e" : "transparent",
+                }}
+              >
+                Managers
+              </li>
+            )}
             <li
               onClick={() => navigate("/dashboard/recruit")}
               style={{
@@ -491,6 +542,25 @@ function OwnerDashboard() {
                 onRefresh={fetchDrivers}
                 onDriverClick={(driverId) =>
                   navigate(`/dashboard/drivers/${driverId}`)
+                }
+              />
+            )
+          )}
+
+          {activeTab === "managers" && userRole === "owner" && (
+            selectedManagerId ? (
+              <ManagerDetails
+                managerId={selectedManagerId}
+                onBack={() => navigate("/dashboard/managers")}
+              />
+            ) : (
+              <ManagersTable
+                managers={managers}
+                managersLoading={managersLoading}
+                error={managersError}
+                onRefresh={fetchManagers}
+                onManagerClick={(managerId) =>
+                  navigate(`/dashboard/managers/${managerId}`)
                 }
               />
             )

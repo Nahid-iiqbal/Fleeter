@@ -1,5 +1,4 @@
-import React from "react";
-import { apiFetch } from "../utils/api";
+import React, { useState } from "react";
 
 
 const tableHeaderStyle = {
@@ -21,6 +20,25 @@ function VehiclesTable({
   onVehicleClick,
   onDriverClick,
 }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredVehicles = vehicles.filter((vehicle) =>
+    [
+      vehicle.vehicle_id,
+      vehicle.registration_no,
+      vehicle.brand,
+      vehicle.model,
+      vehicle.type,
+      vehicle.fuel_type,
+      vehicle.current_driver_name,
+      vehicle.status,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedSearch),
+  );
+
   return (
     <div
       style={{
@@ -40,6 +58,15 @@ function VehiclesTable({
         }}
       >
         <h2 style={{ margin: 0 }}>Fleet Inventory</h2>
+
+        <input
+          type="search"
+          placeholder="Search vehicles"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          aria-label="Search vehicles"
+          style={{ padding: "8px 10px", border: "1px solid #ccc", borderRadius: "5px", flex: 1, margin: "0 16px" }}
+        />
 
         <button
           onClick={onRefresh}
@@ -62,6 +89,8 @@ function VehiclesTable({
         <p>Loading vehicles...</p>
       ) : vehicles.length === 0 ? (
         <p>No vehicles found.</p>
+      ) : filteredVehicles.length === 0 ? (
+        <p>No vehicles match your search.</p>
       ) : (
         <table
           style={{
@@ -77,13 +106,12 @@ function VehiclesTable({
               <th style={tableHeaderStyle}>Type</th>
               <th style={tableHeaderStyle}>Fuel</th>
               <th style={tableHeaderStyle}>Driver</th>
-              <th style={tableHeaderStyle}>Condition</th>
-              <th style={tableHeaderStyle}>Availability</th>
+              <th style={tableHeaderStyle}>Status</th>
             </tr>
           </thead>
 
           <tbody>
-            {vehicles.map((vehicle) => (
+            {filteredVehicles.map((vehicle) => (
               <tr key={vehicle.vehicle_id}>
                 <td style={tableCellStyle}>{vehicle.vehicle_id}</td>
 
@@ -133,9 +161,7 @@ function VehiclesTable({
                   )}
                 </td>
 
-                <td style={tableCellStyle}>{vehicle.condition_status}</td>
-
-                <td style={tableCellStyle}>{vehicle.availability_status}</td>
+                <td style={tableCellStyle}>{vehicle.status}</td>
               </tr>
             ))}
           </tbody>

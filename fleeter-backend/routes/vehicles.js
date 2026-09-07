@@ -24,8 +24,7 @@ router.get("/", verifyToken, async (req, res) => {
         v.capacity,
         v.fuel_type,
         (SELECT MAX(service_date) FROM Maintenance m WHERE m.vehicle_id = v.vehicle_id) AS last_service_date,
-        v.condition_status,
-        v.availability_status,
+        v.status AS status,
         assignment.driver_id AS current_driver_id,
         assignment.driver_name AS current_driver_name
       FROM Vehicle v
@@ -76,8 +75,7 @@ router.get("/:vehicleId", verifyToken, async (req, res) => {
         v.capacity,
         v.fuel_type,
         (SELECT MAX(service_date) FROM Maintenance m WHERE m.vehicle_id = v.vehicle_id) AS last_service_date,
-        v.condition_status,
-        v.availability_status,
+        v.status AS status,
         assignment.driver_id AS current_driver_id,
         assignment.driver_name
       FROM Vehicle v

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 const tableHeaderStyle = {
   textAlign: "left",
@@ -19,6 +19,26 @@ function DriversTable({
   onRefresh,
   onDriverClick,
 }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredDrivers = drivers.filter((driver) =>
+    [
+      driver.driver_id,
+      driver.full_name,
+      driver.document_no,
+      driver.document_type,
+      driver.username,
+      driver.email,
+      driver.phone,
+      driver.status,
+      driver.joined_date,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedSearch),
+  );
+
   return (
     <div
       style={{
@@ -38,6 +58,15 @@ function DriversTable({
         }}
       >
         <h2 style={{ margin: 0 }}>Driver Management</h2>
+
+        <input
+          type="search"
+          placeholder="Search drivers"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          aria-label="Search drivers"
+          style={{ padding: "8px 10px", border: "1px solid #ccc", borderRadius: "5px", flex: 1, margin: "0 16px" }}
+        />
 
         <button
           onClick={onRefresh}
@@ -76,6 +105,8 @@ function DriversTable({
         <p>Loading drivers...</p>
       ) : drivers.length === 0 && !error ? (
         <p>No drivers found.</p>
+      ) : filteredDrivers.length === 0 ? (
+        <p>No drivers match your search.</p>
       ) : (
         <table
           style={{
@@ -96,7 +127,7 @@ function DriversTable({
           </thead>
 
           <tbody>
-            {drivers.map((driver) => (
+            {filteredDrivers.map((driver) => (
               <tr key={driver.driver_id}>
                 <td style={tableCellStyle}>{driver.driver_id}</td>
 
