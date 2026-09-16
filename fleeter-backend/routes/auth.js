@@ -4,8 +4,20 @@ const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 const { verifyToken } = require('../middleware/authMiddleware');
 
+
+const rateLimit = require("express-rate-limit");
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per IP per window
+  message: { error: "Too many attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+
 // POST /api/fleeter/auth/login
-router.post("/login", async (req, res) => {
+router.post("/login", authLimiter, async (req, res) => {
   // Use 'identifier' to represent either the email or the username
   const { identifier, password } = req.body;
 
@@ -28,6 +40,9 @@ router.post("/login", async (req, res) => {
 
     const user = userQuery.rows[0];
 
+    if (!user.is_active) {
+      return res.status(403).json({ error: "This account has been deactivated." });
+    }
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
       return res.status(400).json({ error: "Invalid credentials" });
@@ -40,13 +55,14 @@ router.post("/login", async (req, res) => {
     );
 
     // 4. Sign JWT Token
+    if (!process.env.JWT_SECRET) {
+      console.error("FATAL: JWT_SECRET is not set.");
+      return res.status(500).json({ error: "Server misconfiguration." });
+    }
+
     const token = jwt.sign(
-      {
-        user_id: user.user_id,
-        role: user.role,
-        username: user.username,
-      },
-      process.env.JWT_SECRET || "fallback_secret",
+      { user_id: user.user_id, role: user.role, username: user.username },
+      process.env.JWT_SECRET,
       { expiresIn: "12h" },
     );
 
@@ -64,9 +80,11 @@ router.post("/login", async (req, res) => {
 });
 
 // POST /api/fleeter/auth/register
-router.post("/register", async (req, res) => {
+router.post("/register", authLimiter, async (req, res) => {
   const { username, email, password, role } = req.body;
 
+  const ALLOWED_USER_ROLES = ["driver", "owner", "manager"];
+  const registeredRole = ALLOWED_USER_ROLES.includes(role) ? role : "driver";
   try {
     // 1. Check if the user (email or username) already exists
     const userExists = await db.query(
@@ -89,8 +107,6 @@ router.post("/register", async (req, res) => {
       "INSERT INTO User_Account (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id, username, email, role",
       [username, email, passwordHash, role || "driver"],
     );
-
-    const registeredRole = role || "driver";
 
     if (registeredRole === "owner") {
       await db.query("INSERT INTO Owner_Profile (user_id) VALUES ($1)", [
@@ -121,16 +137,16 @@ router.post("/register", async (req, res) => {
 router.post("/logout", verifyToken, async (req, res) => {
   try {
     const token = req.token;
-
     const expiresAt = new Date(req.user.exp * 1000);
 
-    await pool.query(
+    await db.query(
       "INSERT INTO Token_Blacklist (token, expires_at) VALUES ($1, $2)",
-      [token, expiresAt],
+      [token, expiresAt]
     );
-    pool
-      .query("DELETE FROM Token_Blacklist WHERE expires_at < CURRENT_TIMESTAMP")
+
+    db.query("DELETE FROM Token_Blacklist WHERE expires_at < CURRENT_TIMESTAMP")
       .catch((err) => console.error("Token cleanup error:", err));
+
     res.status(200).json({ message: "Successfully logged out." });
   } catch (error) {
     console.error("Logout error:", error);

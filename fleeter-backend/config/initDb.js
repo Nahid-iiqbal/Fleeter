@@ -119,7 +119,10 @@ const initializeDatabase = async () => {
         year INTEGER,
         capacity INT,
         fuel_type VARCHAR(20),
-        status VARCHAR(20) DEFAULT 'available' CHECK (status IN ('available', 'dispatched', 'in_maintenance', 'retired', 'sold'))
+        condition_status VARCHAR(20) DEFAULT 'good'
+          CHECK (condition_status IN ('good', 'needs_service', 'in_maintenance', 'retired')),
+        availability_status VARCHAR(20) DEFAULT 'available'
+          CHECK (availability_status IN ('available', 'dispatched', 'reserved', 'unavailable'))
       );
 
       -- 6. ROUTE

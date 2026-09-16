@@ -81,31 +81,54 @@ router.get("/trips", async (req, res) => {
 });
 
 // PUT /api/driver/trips/:tripId/start
+// PUT /api/driver/trips/:tripId/start
 router.put("/trips/:tripId/start", async (req, res) => {
   const { tripId } = req.params;
 
   if (!req.driver_id)
     return res.status(404).json({ error: "Driver profile not found." });
 
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    const activeCheck = await client.query(
+      `SELECT trip_id FROM Trip
+       WHERE driver_id = $1 AND status = 'in_progress'
+       FOR UPDATE`,
+      [req.driver_id],
+    );
+
+    if (activeCheck.rowCount > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: "You already have an active trip in progress. Complete it before starting another.",
+      });
+    }
+
+    const result = await client.query(
       `UPDATE Trip
        SET status = 'in_progress', departure_time = NOW()
-       WHERE trip_id = $1 AND driver_id = $2 AND status = 'scheduled' RETURNING *`,
+       WHERE trip_id = $1 AND driver_id = $2 AND status = 'scheduled'
+       RETURNING *`,
       [tripId, req.driver_id],
     );
 
     if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
       return res.status(403).json({
-        error:
-          "Forbidden: Trip not found, already started, or you are not assigned to it.",
+        error: "Forbidden: Trip not found, already started, or you are not assigned to it.",
       });
     }
 
+    await client.query("COMMIT");
     res.json({ message: "Trip started successfully", trip: result.rows[0] });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("Error starting trip:", err);
     res.status(500).json({ error: "Failed to start trip." });
+  } finally {
+    client.release();
   }
 });
 
@@ -196,13 +219,13 @@ router.post("/log-fuel", async (req, res) => {
     // Cross-user access block: Ensure the trip actually belongs to this driver
     if (trip_id) {
       const tripCheck = await pool.query(
-        "SELECT 1 FROM Trip WHERE trip_id = $1 AND driver_id = $2",
-        [trip_id, req.driver_id],
+        "SELECT 1 FROM Trip WHERE trip_id = $1 AND driver_id = $2 AND vehicle_id = $3",
+        [trip_id, req.driver_id, vehicle_id],
       );
       if (tripCheck.rowCount === 0) {
         return res
           .status(403)
-          .json({ error: "Forbidden: You are not assigned to this trip." });
+          .json({ error: "Forbidden: This vehicle isn't assigned to that trip." });
       }
     }
 
@@ -267,36 +290,34 @@ router.post("/log-incident", async (req, res) => {
 
 // POST /api/driver/request-maintenance
 router.post("/request-maintenance", async (req, res) => {
-  const { vehicle_id, service_type, description, odometer_km, workshop } =
-    req.body;
 
-  // Input Validation
+  if (!req.driver_id) return res.status(403).json({ error: "Driver profile missing." });
+  const { vehicle_id, service_type, description, odometer_km, workshop } = req.body;
   if (!vehicle_id || !service_type) {
-    return res
-      .status(400)
-      .json({ error: "Vehicle and service type are required." });
+    return res.status(400).json({ error: "Vehicle and service type are required." });
   }
 
   try {
+    const vehicleCheck = await pool.query(
+      `SELECT 1 FROM Vehicle v
+       JOIN Driver d ON d.owner_id = v.owner_id
+       WHERE v.vehicle_id = $1 AND d.driver_id = $2`,
+      [vehicle_id, req.driver_id],
+    );
+    if (vehicleCheck.rowCount === 0) {
+      return res.status(403).json({ error: "Forbidden: Vehicle not found." });
+    }
+
     await pool.query(
       `INSERT INTO Maintenance (vehicle_id, service_date, service_type, description, cost, workshop, odometer_km, logged_by)
        VALUES ($1, CURRENT_DATE, $2, $3, 0.00, $4, $5, $6)`,
-      [
-        vehicle_id,
-        service_type,
-        description,
-        workshop,
-        odometer_km,
-        req.user.user_id,
-      ],
+      [vehicle_id, service_type, description, workshop, odometer_km, req.user.user_id],
     );
 
     res.status(201).json({ message: "Maintenance requested successfully" });
   } catch (error) {
     console.error("Error inserting maintenance record:", error);
-    res
-      .status(500)
-      .json({ error: "Database error while requesting maintenance." });
+    res.status(500).json({ error: "Database error while requesting maintenance." });
   }
 });
 

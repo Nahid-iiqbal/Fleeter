@@ -106,7 +106,8 @@ function VehicleDetails({ vehicleId, onBack }) {
   }
 
   const statusColors = {
-    active: "#2ecc71",
+    good: "#2ecc71",
+    needs_service: "#f1c40f",
     in_maintenance: "#e67e22",
     retired: "#95a5a6",
   };
@@ -218,9 +219,7 @@ function VehicleDetails({ vehicleId, onBack }) {
               }}
             />
 
-            {vehicle.condition_status
-              ? vehicle.condition_status.replace("_", " ")
-              : "Unknown"}
+            {vehicle.condition_status ? vehicle.condition_status.replace("_", " ") : "Unknown"}
           </div>
         </div>
       </div>
@@ -370,23 +369,8 @@ function VehicleDetails({ vehicleId, onBack }) {
             }
           />
 
-          <InfoItem
-            label="Condition Status"
-            value={
-              vehicle.condition_status
-                ? vehicle.condition_status.replace("_", " ")
-                : null
-            }
-          />
-
-          <InfoItem
-            label="Availability Status"
-            value={
-              vehicle.availability_status
-                ? vehicle.availability_status.replace("_", " ")
-                : null
-            }
-          />
+          <InfoItem label="Condition Status" value={vehicle.condition_status?.replace("_", " ")} />
+          <InfoItem label="Availability Status" value={vehicle.availability_status?.replace("_", " ")} />
         </div>
       </div>
     </div>

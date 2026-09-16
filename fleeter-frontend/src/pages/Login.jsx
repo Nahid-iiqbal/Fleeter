@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { apiFetch } from "../utils/api";
+
 
 function Login() {
   const [formData, setFormData] = useState({
@@ -18,36 +20,22 @@ function Login() {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const data = await apiFetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.role);
+      localStorage.setItem("userId", data.user_id);
 
-      if (response.ok) {
-        // 1. Save the token and user details to localStorage
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("role", data.role);
-        localStorage.setItem("userId", data.user_id);
+      if (data.role === "admin") navigate("/admin-dashboard");
+      else if (data.role === "owner" || data.role === "manager") navigate("/owner-dashboard");
+      else if (data.role === "driver") navigate("/driver-portal");
 
-        // 2. Route the user based on their role
-        if (data.role === "admin") {
-          navigate("/admin-dashboard");
-        } else if (data.role === "owner" || data.role === "manager") {
-          navigate("/owner-dashboard");
-        } else if (data.role === "driver") {
-          navigate("/driver-portal");
-        } else {
-          setError("Unrecognized user role.");
-        }
-      } else {
-        setError(data.error || "Login failed");
-      }
     } catch (err) {
       console.error("Login request failed", err);
-      setError("Network error. Is the backend running?");
+      setError(err.message || "Network error. Is the backend running?");
     }
   };
 
