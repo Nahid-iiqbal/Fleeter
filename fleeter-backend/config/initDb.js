@@ -148,14 +148,11 @@ const initializeDatabase = async () => {
         destination_address VARCHAR(255),
         departure_time TIMESTAMPTZ NOT NULL,
         arrival_time TIMESTAMPTZ,
-        start_odometer INT NOT NULL,
-        end_odometer INT,
         status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'in_progress', 'completed', 'cancelled')),
-        cargo_or_passengers TEXT,
+        cargo_type VARCHAR(20) CHECK (cargo_type IN ('cargo', 'passengers')),
         notes TEXT,
         dispatched_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL,
         CHECK (arrival_time IS NULL OR arrival_time >= departure_time),
-        CHECK (end_odometer IS NULL OR end_odometer >= start_odometer),
         CHECK ((route_id IS NOT NULL) OR (origin_address IS NOT NULL AND destination_address IS NOT NULL))
       );
 

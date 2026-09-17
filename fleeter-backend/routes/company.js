@@ -59,6 +59,193 @@ const getCompanyId = async (userId) => {
   return result.rows[0]?.owner_id || null;
 };
 
+// GET /api/company/routes - active routes belonging to the current company
+router.get("/routes", authorizeRole("owner", "manager"), async (req, res) => {
+  try {
+    const companyId = await getCompanyId(req.user.user_id);
+    if (!companyId) {
+      return res.json([]);
+    }
+
+    const result = await pool.query(
+      `
+        SELECT route_id, route_name, origin, destination, distance_km, est_mins
+        FROM Route
+        WHERE owner_id = $1 AND is_active = TRUE
+        ORDER BY route_name ASC, route_id ASC
+      `,
+      [companyId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching company routes:", error);
+    res.status(500).json({ message: "Failed to fetch routes." });
+  }
+});
+
+// POST /api/company/trips - assign a scheduled trip to a company driver
+router.post("/trips", authorizeRole("owner", "manager"), async (req, res) => {
+  const {
+    driver_id,
+    vehicle_id,
+    route_id,
+    origin_address,
+    destination_address,
+    route_name,
+    custom_route,
+    departure_time,
+    cargo_type,
+    notes,
+  } = req.body;
+
+  const driverId = Number(driver_id);
+  const vehicleId = Number(vehicle_id);
+  const routeId = route_id ? Number(route_id) : null;
+
+  if (!Number.isInteger(driverId) || !Number.isInteger(vehicleId)) {
+    return res.status(400).json({ message: "Driver and vehicle are required." });
+  }
+  if (!departure_time) {
+    return res.status(400).json({ message: "Departure time is required." });
+  }
+  if (cargo_type && !["cargo", "passengers"].includes(cargo_type)) {
+    return res.status(400).json({ message: "Cargo type must be cargo or passengers." });
+  }
+  if (custom_route && (!origin_address?.trim() || !destination_address?.trim())) {
+    return res.status(400).json({ message: "Origin and destination are required for a custom route." });
+  }
+  if (custom_route && !route_name?.trim()) {
+    return res.status(400).json({ message: "Route name is required for a custom route." });
+  }
+  if (custom_route && route_name.trim().length > 100) {
+    return res.status(400).json({ message: "Route name must be 100 characters or fewer." });
+  }
+  if (custom_route && (origin_address.trim().length > 100 || destination_address.trim().length > 100)) {
+    return res.status(400).json({ message: "Origin and destination must be 100 characters or fewer." });
+  }
+  if (!custom_route && !routeId) {
+    return res.status(400).json({ message: "Select an existing route or add a custom route." });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const companyId = await getCompanyId(req.user.user_id);
+    if (!companyId) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ message: "Company membership is required." });
+    }
+
+    const driverResult = await client.query(
+      "SELECT driver_id FROM Driver WHERE driver_id = $1 AND owner_id = $2 FOR UPDATE",
+      [driverId, companyId],
+    );
+    const vehicleResult = await client.query(
+      "SELECT vehicle_id FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2 FOR UPDATE",
+      [vehicleId, companyId],
+    );
+    if (!driverResult.rowCount || !vehicleResult.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "Driver or vehicle not found in your company." });
+    }
+
+    let assignedRouteId = routeId;
+    let tripOrigin = null;
+    let tripDestination = null;
+
+    if (custom_route) {
+      const routeResult = await client.query(
+        `
+          INSERT INTO Route (owner_id, route_name, origin, destination)
+          VALUES ($1, $2, $3, $4)
+          RETURNING route_id
+        `,
+        [
+          companyId,
+          route_name.trim(),
+          origin_address.trim(),
+          destination_address.trim(),
+        ],
+      );
+      assignedRouteId = routeResult.rows[0].route_id;
+    } else {
+      const routeResult = await client.query(
+        "SELECT route_id FROM Route WHERE route_id = $1 AND owner_id = $2 AND is_active = TRUE",
+        [routeId, companyId],
+      );
+      if (!routeResult.rowCount) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Selected route was not found in your company." });
+      }
+    }
+
+    const tripResult = await client.query(
+      `
+        INSERT INTO Trip (
+          owner_id, vehicle_id, driver_id, route_id, origin_address,
+          destination_address, departure_time, cargo_type, notes, dispatched_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING trip_id, status, departure_time
+      `,
+      [
+        companyId,
+        vehicleId,
+        driverId,
+        assignedRouteId,
+        tripOrigin,
+        tripDestination,
+        departure_time,
+        cargo_type || null,
+        notes?.trim() || null,
+        req.user.user_id,
+      ],
+    );
+
+    await client.query("UPDATE Driver SET status = 'dispatched' WHERE driver_id = $1", [driverId]);
+    await client.query("UPDATE Vehicle SET availability_status = 'dispatched' WHERE vehicle_id = $1", [vehicleId]);
+    await client.query("COMMIT");
+    res.status(201).json({ message: "Trip assigned successfully.", trip: tripResult.rows[0] });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("Error assigning trip:", error);
+    res.status(500).json({ message: "Failed to assign trip." });
+  } finally {
+    client.release();
+  }
+});
+
+// GET /api/company/trips - trips belonging to the current company
+router.get("/trips", authorizeRole("owner", "manager"), async (req, res) => {
+  try {
+    const companyId = await getCompanyId(req.user.user_id);
+    if (!companyId) return res.json([]);
+
+    const result = await pool.query(
+      `
+        SELECT t.trip_id, t.status, t.departure_time, t.arrival_time,
+          t.cargo_type, t.notes, d.driver_id, d.full_name AS driver_name,
+          v.vehicle_id, v.registration_no,
+          COALESCE(r.origin, t.origin_address) AS origin,
+          COALESCE(r.destination, t.destination_address) AS destination,
+          r.route_name
+        FROM Trip t
+        JOIN Driver d ON d.driver_id = t.driver_id
+        JOIN Vehicle v ON v.vehicle_id = t.vehicle_id
+        LEFT JOIN Route r ON r.route_id = t.route_id
+        WHERE t.owner_id = $1
+        ORDER BY CASE t.status WHEN 'in_progress' THEN 1 WHEN 'scheduled' THEN 2 WHEN 'completed' THEN 3 ELSE 4 END,
+          t.departure_time DESC
+      `,
+      [companyId],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching company trips:", error);
+    res.status(500).json({ message: "Failed to fetch trips." });
+  }
+});
+
 // GET /api/company/managers - managers belonging to the current owner's company
 router.get("/managers", authorizeRole("owner"), async (req, res) => {
   try {

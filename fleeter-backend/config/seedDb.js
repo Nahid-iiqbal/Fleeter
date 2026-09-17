@@ -154,8 +154,8 @@ const seedDatabase = async () => {
 
     const tripRes = await client.query(
       `
-      INSERT INTO Trip (owner_id, vehicle_id, driver_id, route_id, departure_time, start_odometer, status, dispatched_by)
-      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, 12500, 'in_progress', $5) RETURNING trip_id;
+      INSERT INTO Trip (owner_id, vehicle_id, driver_id, route_id, departure_time, status, cargo_type, dispatched_by)
+      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, 'in_progress', 'cargo', $5) RETURNING trip_id;
     `,
       [ownerId, vehicle1Id, driver1Id, routeId, managerUserId],
     );

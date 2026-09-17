@@ -8,6 +8,7 @@ import ManagerDetails from "./ManagerDetails";
 
 // import tables to show the list
 import DriversTable from "../components/DriversTable";
+import TripsTable from "../components/TripsTable";
 import VehiclesTable from "../components/VehiclesTable";
 import ManagersTable from "../components/ManagersTable";
 import CompanyRequests from "../components/CompanyRequests";
@@ -69,6 +70,11 @@ function OwnerDashboard() {
   const [driversLoaded, setDriversLoaded] = useState(false); // checks if already loaded
   const [driversLoading, setDriversLoading] = useState(false); // can be used for loading screen later
   const [driversError, setDriversError] = useState("");
+
+  const [trips, setTrips] = useState([]);
+  const [tripsLoaded, setTripsLoaded] = useState(false);
+  const [tripsLoading, setTripsLoading] = useState(false);
+  const [tripsError, setTripsError] = useState("");
 
   // Same thing for Vehicles data
   const [vehicles, setVehicles] = useState([]);
@@ -188,6 +194,25 @@ function OwnerDashboard() {
     }
   }, []);
 
+  const fetchTrips = useCallback(async () => {
+    try {
+      setTripsLoading(true);
+      setTripsError("");
+      setTrips(await apiFetch("/api/company/trips"));
+      setTripsLoaded(true);
+    } catch (error) {
+      setTripsError(error.message || "Failed to fetch trips");
+    } finally {
+      setTripsLoading(false);
+    }
+  }, []);
+
+  const refreshTripResources = useCallback(() => {
+    fetchTrips();
+    fetchDrivers();
+    fetchVehicles();
+  }, [fetchDrivers, fetchTrips, fetchVehicles]);
+
   useEffect(() => {
     // 1. Grab the token from local storage
     const token = localStorage.getItem("token");
@@ -254,7 +279,7 @@ function OwnerDashboard() {
   // New useEffect for handling Drivers data for Drivers tab
   // Load drivers only when the Drivers tab is opened
   useEffect(() => {
-    if (activeTab !== "drivers") {
+    if (activeTab !== "drivers" && activeTab !== "trips") {
       return;
     }
 
@@ -266,10 +291,28 @@ function OwnerDashboard() {
     fetchDrivers();
   }, [activeTab, driversLoaded, fetchDrivers]);
 
+  useEffect(() => {
+    if (activeTab === "trips" && !tripsLoaded) fetchTrips();
+  }, [activeTab, tripsLoaded, fetchTrips]);
+
+  useEffect(() => {
+    if (activeTab !== "drivers" && activeTab !== "trips") {
+      return undefined;
+    }
+
+    const refreshInterval = window.setInterval(() => {
+      fetchDrivers();
+      fetchVehicles();
+      if (activeTab === "trips") fetchTrips();
+    }, 10000);
+
+    return () => window.clearInterval(refreshInterval);
+  }, [activeTab, fetchDrivers, fetchVehicles, fetchTrips]);
+
   // useEffect for Vehicles data
   // Load vehicles only when the Vehicles tab is opened
   useEffect(() => {
-    if (activeTab !== "vehicles") {
+    if (activeTab !== "vehicles" && activeTab !== "trips") {
       return;
     }
 
@@ -389,6 +432,16 @@ function OwnerDashboard() {
               }}
             >
               Drivers
+            </li>
+            <li
+              onClick={() => navigate("/dashboard/trips")}
+              style={{
+                padding: "15px 20px",
+                cursor: "pointer",
+                backgroundColor: activeTab === "trips" ? "#34495e" : "transparent",
+              }}
+            >
+              Trips
             </li>
             {userRole === "owner" && (
               <li
@@ -539,12 +592,30 @@ function OwnerDashboard() {
                 drivers={drivers}
                 driversLoading={driversLoading}
                 error={driversError}
-                onRefresh={fetchDrivers}
+                onRefresh={() => {
+                  fetchDrivers();
+                  fetchVehicles();
+                }}
                 onDriverClick={(driverId) =>
                   navigate(`/dashboard/drivers/${driverId}`)
                 }
               />
             )
+          )}
+
+          {activeTab === "trips" && (
+            <>
+              {tripsError && <div style={{ color: "#cc0000", marginBottom: "12px" }}>{tripsError}</div>}
+              <TripsTable
+                trips={trips}
+                tripsLoading={tripsLoading}
+                drivers={drivers}
+                vehicles={vehicles}
+                onDriverClick={(driverId) => navigate(`/dashboard/drivers/${driverId}`)}
+                onVehicleClick={(vehicleId) => navigate(`/dashboard/vehicles/${vehicleId}`)}
+                onRefresh={refreshTripResources}
+              />
+            </>
           )}
 
           {activeTab === "managers" && userRole === "owner" && (

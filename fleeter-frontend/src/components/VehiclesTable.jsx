@@ -31,7 +31,7 @@ function VehiclesTable({
       vehicle.type,
       vehicle.fuel_type,
       vehicle.current_driver_name,
-      vehicle.status,
+      vehicle.availability_status,
     ]
       .filter(Boolean)
       .join(" ")
@@ -161,7 +161,7 @@ function VehiclesTable({
                   )}
                 </td>
 
-                <td style={tableCellStyle}>{vehicle.status}</td>
+                <td style={tableCellStyle}>{vehicle.availability_status || "Unknown"}</td>
               </tr>
             ))}
           </tbody>

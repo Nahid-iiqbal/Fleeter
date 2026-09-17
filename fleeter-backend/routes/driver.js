@@ -51,7 +51,7 @@ router.get("/trips", async (req, res) => {
       const tripsQuery = await pool.query(
         `
         SELECT
-          t.trip_id, t.vehicle_id, t.status,
+          t.trip_id, t.vehicle_id, t.status, t.cargo_type,
           COALESCE(r.origin, t.origin_address) AS origin,
           COALESCE(r.destination, t.destination_address) AS destination,
           v.registration_no, t.departure_time, t.arrival_time
@@ -110,7 +110,7 @@ router.put("/trips/:tripId/start", async (req, res) => {
       `UPDATE Trip
        SET status = 'in_progress', departure_time = NOW()
        WHERE trip_id = $1 AND driver_id = $2 AND status = 'scheduled'
-       RETURNING *`,
+        RETURNING trip_id, vehicle_id, status, departure_time`,
       [tripId, req.driver_id],
     );
 
@@ -120,6 +120,15 @@ router.put("/trips/:tripId/start", async (req, res) => {
         error: "Forbidden: Trip not found, already started, or you are not assigned to it.",
       });
     }
+
+    await client.query(
+      "UPDATE Driver SET status = 'dispatched' WHERE driver_id = $1",
+      [req.driver_id],
+    );
+    await client.query(
+      "UPDATE Vehicle SET availability_status = 'dispatched' WHERE vehicle_id = $1",
+      [result.rows[0].vehicle_id],
+    );
 
     await client.query("COMMIT");
     res.json({ message: "Trip started successfully", trip: result.rows[0] });
@@ -139,24 +148,63 @@ router.put("/trips/:tripId/complete", async (req, res) => {
   if (!req.driver_id)
     return res.status(404).json({ error: "Driver profile not found." });
 
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
+    await client.query("BEGIN");
+    const result = await client.query(
       `UPDATE Trip
        SET status = 'completed', arrival_time = NOW()
-       WHERE trip_id = $1 AND driver_id = $2 RETURNING *`,
+       WHERE trip_id = $1 AND driver_id = $2 AND status = 'in_progress'
+       RETURNING trip_id, vehicle_id, status, arrival_time`,
       [tripId, req.driver_id],
     );
 
     if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
       return res.status(403).json({
         error: "Forbidden: Trip not found or you are not assigned to it.",
       });
     }
 
+    const remainingDriverTrips = await client.query(
+      `
+        SELECT 1 FROM Trip
+        WHERE driver_id = $1 AND status IN ('scheduled', 'in_progress')
+        LIMIT 1
+      `,
+      [req.driver_id],
+    );
+
+    const remainingVehicleTrips = await client.query(
+      `
+        SELECT 1 FROM Trip
+        WHERE vehicle_id = $1 AND status IN ('scheduled', 'in_progress')
+        LIMIT 1
+      `,
+      [result.rows[0].vehicle_id],
+    );
+
+    if (remainingDriverTrips.rowCount === 0) {
+      await client.query(
+        "UPDATE Driver SET status = 'available' WHERE driver_id = $1",
+        [req.driver_id],
+      );
+    }
+    if (remainingVehicleTrips.rowCount === 0) {
+      await client.query(
+        "UPDATE Vehicle SET availability_status = 'available' WHERE vehicle_id = $1",
+        [result.rows[0].vehicle_id],
+      );
+    }
+
+    await client.query("COMMIT");
     res.json({ message: "Trip completed successfully", trip: result.rows[0] });
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("Error completing trip:", err);
     res.status(500).json({ error: "Failed to complete trip." });
+  } finally {
+    client.release();
   }
 });
 
