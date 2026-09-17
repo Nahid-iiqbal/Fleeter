@@ -7,11 +7,19 @@ const { verifyToken } = require("../middleware/authMiddleware");
 router.get('/roster', verifyToken, async (req, res) => {
   try {
     // Ensure the requester is an admin
-    const adminCheck = await pool.query('SELECT role FROM User_Account WHERE user_id = $1', [req.user.user_id]);
+    router.get('/roster', verifyToken, async (req, res) => {
+      try {
+        if (req.user.role !== 'admin') {
+          return res.status(403).json({ error: 'Unauthorized. Site Admins only.' });
+        }
 
-    if (adminCheck.rows.length === 0 || adminCheck.rows[0].role !== 'admin') {
-      return res.status(403).json({ error: 'UnverifyTokenorized. Site Admins only.' });
-    }
+        const rosterQuery = await pool.query(`...`);
+        res.json(rosterQuery.rows);
+      } catch (error) {
+        console.error('Error fetching universal roster:', error);
+        res.status(500).json({ error: 'Failed to fetch roster.' });
+      }
+    });
 
     const rosterQuery = await pool.query(`
       SELECT

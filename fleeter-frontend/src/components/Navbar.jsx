@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { AppBar, Toolbar, Typography, Button, Box } from "@mui/material";
 
 export default function Navbar({ role }) {
   const navigate = useNavigate();
@@ -32,37 +33,20 @@ export default function Navbar({ role }) {
   };
 
   return (
-    <nav
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "1rem 2rem",
-        background: "#0f172a",
-        color: "#fff",
-      }}
-    >
-      <div
-        style={{ fontSize: "1.5rem", fontWeight: "bold", letterSpacing: "1px" }}
-      >
-        FLEETER{" "}
-        <span style={{ fontSize: "0.8rem", color: "#38bdf8" }}>
-          | {role?.toUpperCase()} PORTAL
-        </span>
-      </div>
-      <button
-        onClick={handleLogout}
-        style={{
-          background: "#ef4444",
-          color: "#fff",
-          border: "none",
-          padding: "0.5rem 1rem",
-          borderRadius: "4px",
-          cursor: "pointer",
-        }}
-      >
-        Logout
-      </button>
-    </nav>
+    <AppBar position="static" color="secondary">
+      <Toolbar sx={{ justifyContent: "space-between" }}>
+        <Box>
+          <Typography component="span" variant="h6" fontWeight="bold" letterSpacing={1}>
+            FLEETER
+          </Typography>
+          <Typography component="span" variant="caption" color="info.light" sx={{ ml: 1 }}>
+            | {role?.toUpperCase()} PORTAL
+          </Typography>
+        </Box>
+        <Button variant="contained" color="error" onClick={handleLogout}>
+          Logout
+        </Button>
+      </Toolbar>
+    </AppBar>
   );
 }

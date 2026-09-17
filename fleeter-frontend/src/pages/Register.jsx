@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom"; // The import causing the warning
+import { apiFetch } from "../utils/api";
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -20,30 +21,16 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch("http://127.0.0.1:5000/api/auth/register", {
+      await apiFetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setIsSuccess(true);
-        setMessage("Registration successful! Redirecting to login...");
-
-        // 2. Redirect the user to the login page after a short delay
-        setTimeout(() => {
-          navigate("/login");
-        }, 1500);
-      } else {
-        setIsSuccess(false);
-        setMessage(`Error: ${data.error}`);
-      }
+      setIsSuccess(true);
+      setMessage("Registration successful! Redirecting to login...");
+      setTimeout(() => navigate("/login"), 1500);
     } catch (error) {
-      console.error("Registration failed", error);
       setIsSuccess(false);
-      setMessage("Network error. Is the backend running?");
+      setMessage(error.message || "Network error. Is the backend running?");
     }
   };
 

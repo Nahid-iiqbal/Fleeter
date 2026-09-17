@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../utils/api";
 
 function AdminDashboard() {
   const navigate = useNavigate();
@@ -13,24 +14,10 @@ function AdminDashboard() {
 
   const fetchRoster = async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        navigate("/login");
-        return;
-      }
-
-      const res = await fetch("http://localhost:5000/api/admin/roster", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (res.ok) {
-        setUsers(await res.json());
-      } else if (res.status === 401 || res.status === 403) {
-        localStorage.clear();
-        navigate("/login");
-      }
+      const data = await apiFetch("/api/admin/roster");
+      setUsers(data);
     } catch (err) {
-      console.error("Failed to load users");
+      console.error("Failed to load users", err);
     }
   };
 

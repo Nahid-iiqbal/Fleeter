@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Box, Button, TextField, Typography, Alert, Container } from "@mui/material";
 import { apiFetch } from "../utils/api";
-
 
 function Login() {
   const [formData, setFormData] = useState({
@@ -32,7 +32,6 @@ function Login() {
       if (data.role === "admin") navigate("/admin-dashboard");
       else if (data.role === "owner" || data.role === "manager") navigate("/owner-dashboard");
       else if (data.role === "driver") navigate("/driver-portal");
-
     } catch (err) {
       console.error("Login request failed", err);
       setError(err.message || "Network error. Is the backend running?");
@@ -40,86 +39,55 @@ function Login() {
   };
 
   return (
-    <div
-      style={{
-        maxWidth: "400px",
-        margin: "50px auto",
-        fontFamily: "sans-serif",
-      }}
-    >
-      <button
-        onClick={() => navigate("/")}
-        style={{
-          padding: "8px 12px",
-          marginBottom: "20px",
-          background: "none",
-          border: "none",
-          color: "#007BFF",
-          cursor: "pointer",
-          fontSize: "16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "5px",
-          marginLeft: "-10px", // aligns it slightly left of the container
-        }}
-      >
+    <Container maxWidth="xs" sx={{ mt: 8 }}>
+      <Button onClick={() => navigate("/")} sx={{ mb: 2, ml: -1 }}>
         ← Back to Home
-      </button>
-      <h2>Login to Fleeter</h2>
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: "flex", flexDirection: "column", gap: "15px" }}
-      >
-        <input
-          type="text"
+      </Button>
+
+      <Typography variant="h5" component="h2" gutterBottom>
+        Login to Fleeter
+      </Typography>
+
+      <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <TextField
           name="identifier"
+          label="Email or Username"
           value={formData.identifier}
-          placeholder="Email or Username"
           onChange={handleChange}
           required
-          style={{ padding: "10px" }}
+          fullWidth
         />
 
-        <input
+        <TextField
           type="password"
           name="password"
+          label="Password"
           value={formData.password}
-          placeholder="Password"
           onChange={handleChange}
           required
-          style={{ padding: "10px" }}
+          fullWidth
         />
 
-        <button
-          type="submit"
-          style={{
-            padding: "10px",
-            background: "#007BFF",
-            color: "white",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
+        <Button type="submit" variant="contained" size="large">
           Login
-        </button>
-      </form>
+        </Button>
+      </Box>
 
-      {error && <p style={{ marginTop: "15px", color: "red" }}>{error}</p>}
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
 
-      <div style={{ marginTop: "20px", textAlign: "center" }}>
-        <p>Don't have an account?</p>
-        <Link
-          to="/register"
-          style={{
-            color: "#007BFF",
-            textDecoration: "none",
-            fontWeight: "bold",
-          }}
-        >
-          Create an account
+      <Box sx={{ mt: 3, textAlign: "center" }}>
+        <Typography variant="body2">Don't have an account?</Typography>
+        <Link to="/register" style={{ textDecoration: "none" }}>
+          <Typography variant="body2" fontWeight="bold" color="primary">
+            Create an account
+          </Typography>
         </Link>
-      </div>
-    </div>
+      </Box>
+    </Container>
   );
 }
 
