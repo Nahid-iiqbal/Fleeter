@@ -17,6 +17,8 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [driverSearch, setDriverSearch] = useState("");
+  const [vehicleSearch, setVehicleSearch] = useState("");
   const [form, setForm] = useState({ driver_id: "", vehicle_id: "", route_id: "", route_name: "", custom_route: false, origin_address: "", destination_address: "", departure_time: defaultDeparture(), cargo_type: "cargo", notes: "" });
 
   useEffect(() => {
@@ -39,8 +41,31 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
     setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
   };
 
+  const updateResourceSearch = (event, resourceType) => {
+    const value = event.target.value;
+    const resources = resourceType === "driver" ? drivers : vehicles;
+    const selectedResource = resources.find((resource) => {
+      const label = resourceType === "driver"
+        ? resource.full_name
+        : `${resource.registration_no} (${resource.brand} ${resource.model})`;
+      return label === value;
+    });
+
+    if (resourceType === "driver") setDriverSearch(value);
+    else setVehicleSearch(value);
+
+    setForm((current) => ({
+      ...current,
+      [`${resourceType}_id`]: selectedResource ? selectedResource[`${resourceType}_id`] : "",
+    }));
+  };
+
   const submit = async (event) => {
     event.preventDefault();
+    if (!form.driver_id || !form.vehicle_id) {
+      setError("Select a driver and vehicle from the search results.");
+      return;
+    }
     try {
       setLoading(true);
       setError("");
@@ -64,7 +89,12 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
     <div style={{ backgroundColor: "white", padding: "20px", borderRadius: "8px", border: "1px solid #e0e0e0" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <h2 style={{ margin: 0 }}>Trip Management</h2>
-        <button type="button" onClick={() => { setError(""); setForm((current) => ({ ...current, departure_time: defaultDeparture() })); setIsOpen(true); }} style={{ padding: "9px 14px", border: "none", borderRadius: "5px", backgroundColor: "#16a085", color: "white", cursor: "pointer" }}>Add trip</button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <button type="button" onClick={onRefresh} disabled={tripsLoading} style={{ padding: "9px 14px", border: "none", borderRadius: "5px", backgroundColor: "#3498db", color: "white", cursor: tripsLoading ? "not-allowed" : "pointer" }}>
+            {tripsLoading ? "Refreshing..." : "Refresh trips"}
+          </button>
+          <button type="button" onClick={() => { setError(""); setForm((current) => ({ ...current, departure_time: defaultDeparture() })); setIsOpen(true); }} style={{ padding: "9px 14px", border: "none", borderRadius: "5px", backgroundColor: "#16a085", color: "white", cursor: "pointer" }}>Add trip</button>
+        </div>
       </div>
       {tripsLoading ? <p>Loading trips...</p> : trips.length === 0 ? <p>No trips found.</p> : (
         ["in_progress", "scheduled", "completed"].map((status) => (
@@ -92,8 +122,8 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
           <div style={{ display: "flex", justifyContent: "space-between" }}><h2 id="add-trip-title" style={{ marginTop: 0 }}>Add trip</h2><button type="button" onClick={() => setIsOpen(false)} style={{ border: "none", background: "transparent", cursor: "pointer" }}>X</button></div>
           {error && <div style={{ color: "#be123c", backgroundColor: "#fff1f2", padding: "10px", marginBottom: "14px" }}>{error}</div>}
           <form onSubmit={submit}>
-            <label style={fieldStyle}>Driver<select name="driver_id" value={form.driver_id} onChange={update} required style={inputStyle}><option value="">Select a driver</option>{drivers.map((driver) => <option key={driver.driver_id} value={driver.driver_id}>{driver.full_name}</option>)}</select></label>
-            <label style={fieldStyle}>Vehicle<select name="vehicle_id" value={form.vehicle_id} onChange={update} required style={inputStyle}><option value="">Select a vehicle</option>{vehicles.map((vehicle) => <option key={vehicle.vehicle_id} value={vehicle.vehicle_id}>{vehicle.registration_no} ({vehicle.brand} {vehicle.model})</option>)}</select></label>
+            <label style={fieldStyle}>Search drivers<input type="search" value={driverSearch} onChange={(event) => updateResourceSearch(event, "driver")} placeholder="Search by driver name" list="trip-driver-options" required style={inputStyle} /><datalist id="trip-driver-options">{drivers.map((driver) => <option key={driver.driver_id} value={driver.full_name} />)}</datalist></label>
+            <label style={fieldStyle}>Search vehicles<input type="search" value={vehicleSearch} onChange={(event) => updateResourceSearch(event, "vehicle")} placeholder="Search by registration, brand, or model" list="trip-vehicle-options" required style={inputStyle} /><datalist id="trip-vehicle-options">{vehicles.map((vehicle) => <option key={vehicle.vehicle_id} value={`${vehicle.registration_no} (${vehicle.brand} ${vehicle.model})`} />)}</datalist></label>
             <label style={fieldStyle}>Existing route<select name="route_id" value={form.route_id} onChange={update} disabled={form.custom_route} required={!form.custom_route} style={inputStyle}><option value="">Select a route</option>{routes.map((route) => <option key={route.route_id} value={route.route_id}>{route.route_name}: {route.origin} to {route.destination}</option>)}</select></label>
             <label style={{ display: "flex", gap: "8px", marginBottom: "14px" }}><input type="checkbox" name="custom_route" checked={form.custom_route} onChange={update} /> Add custom trip addresses as a route</label>
             {form.custom_route && <><label style={fieldStyle}>Route name<input name="route_name" value={form.route_name} onChange={update} required maxLength="100" style={inputStyle} /></label><div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px" }}><label style={fieldStyle}>Origin<input name="origin_address" value={form.origin_address} onChange={update} required style={inputStyle} /></label><label style={fieldStyle}>Destination<input name="destination_address" value={form.destination_address} onChange={update} required style={inputStyle} /></label></div></>}

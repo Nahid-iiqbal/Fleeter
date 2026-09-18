@@ -13,6 +13,14 @@ const tableCellStyle = {
   borderBottom: "1px solid #eee",
 };
 
+const getVehicleStatusColor = (status) => {
+  const normalizedStatus = String(status || "").toLowerCase().replaceAll("_", " ");
+  if (normalizedStatus === "available") return "#15803d";
+  if (normalizedStatus === "dispatched") return "#6b7280";
+  if (normalizedStatus === "unavailable") return "#dc2626";
+  return "inherit";
+};
+
 function VehiclesTable({
   vehicles,
   vehiclesLoading,
@@ -161,7 +169,9 @@ function VehiclesTable({
                   )}
                 </td>
 
-                <td style={tableCellStyle}>{vehicle.availability_status || "Unknown"}</td>
+                <td style={{ ...tableCellStyle, color: getVehicleStatusColor(vehicle.availability_status), fontWeight: "600" }}>
+                  {vehicle.availability_status || "Unknown"}
+                </td>
               </tr>
             ))}
           </tbody>

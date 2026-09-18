@@ -135,8 +135,15 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true }) {
 
       {!joinOnly && (role === "owner" || role === "manager") && (
         <section style={sectionStyle}>
-          <h2>Pending Requests</h2>
-          {role === "manager" && <p>Managers can approve driver requests only.</p>}
+          <div style={requestsHeaderStyle}>
+            <div>
+              <h2 style={{ margin: 0 }}>Pending Requests</h2>
+              {role === "manager" && <p style={{ margin: "6px 0 0" }}>Managers can approve driver requests only.</p>}
+            </div>
+            <button type="button" onClick={loadRequests} disabled={loading} style={refreshButtonStyle}>
+              {loading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
           {pending.map((request) => (
             <div key={request.request_id} style={pendingRequestStyle}>
               <div style={requestIdentityStyle}>

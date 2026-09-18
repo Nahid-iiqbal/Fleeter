@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -94,41 +94,53 @@ function DriverDashboard() {
   const [docError, setDocError] = useState("");
   const [docSuccess, setDocSuccess] = useState("");
 
-  // --- INITIAL DATA FETCH ---
-  useEffect(() => {
-    const fetchDriverData = async () => {
-      try {
-        const data = await apiFetch("/api/driver/trips");
+  const fetchDriverData = useCallback(async () => {
+    try {
+      const data = await apiFetch("/api/driver/trips");
+      const hasCompany = Boolean(data.companyName && data.companyName !== "Unassigned");
 
-        setDriverStats({
-          name: data.name || "Unknown",
-          companyName: data.companyName || "Unassigned",
-          trips: data.trips || [],
-          alerts: 0,
-          driverProfileMissing: data.driverProfileMissing,
-          hasCompany: Boolean(data.companyName && data.companyName !== "Unassigned"),
-        });
+      setDriverStats({
+        name: data.name || "Unknown",
+        companyName: data.companyName || "Unassigned",
+        trips: data.trips || [],
+        alerts: 0,
+        driverProfileMissing: data.driverProfileMissing,
+        hasCompany,
+      });
 
-        setAccountForm({
-          username: data.username || "",
-          email: data.email || "",
-          password: "",
-        });
-      } catch (error) {
-        setDriverStats({
-          name: "Network Error",
-          trips: [],
-          alerts: 0,
-          driverProfileMissing: true,
-          hasCompany: false,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDriverData();
+      setAccountForm({
+        username: data.username || "",
+        email: data.email || "",
+        password: "",
+      });
+      return hasCompany;
+    } catch (error) {
+      setDriverStats({
+        name: "Network Error",
+        trips: [],
+        alerts: 0,
+        driverProfileMissing: true,
+        hasCompany: false,
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchDriverData();
+  }, [fetchDriverData]);
+
+  useEffect(() => {
+    if (loading || driverStats.hasCompany) return undefined;
+
+    const approvalCheck = window.setInterval(async () => {
+      if (await fetchDriverData()) window.location.reload();
+    }, 5000);
+
+    return () => window.clearInterval(approvalCheck);
+  }, [driverStats.hasCompany, fetchDriverData, loading]);
 
   // --- FETCH DOCUMENTS ---
   useEffect(() => {

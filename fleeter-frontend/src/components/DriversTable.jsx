@@ -13,6 +13,14 @@ const tableCellStyle = {
   borderBottom: "1px solid #eee",
 };
 
+const getDriverStatusColor = (status) => {
+  const normalizedStatus = String(status || "").toLowerCase().replaceAll("_", " ");
+  if (normalizedStatus === "available") return "#15803d";
+  if (normalizedStatus === "dispatched") return "#6b7280";
+  if (normalizedStatus === "on leave") return "#dc2626";
+  return "inherit";
+};
+
 function DriversTable({
   drivers,
   driversLoading,
@@ -24,6 +32,8 @@ function DriversTable({
   const [assigningDriver, setAssigningDriver] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [vehicleSearch, setVehicleSearch] = useState("");
+  const [routeSearch, setRouteSearch] = useState("");
   const [tripLoading, setTripLoading] = useState(false);
   const [tripError, setTripError] = useState("");
   const [tripForm, setTripForm] = useState({
@@ -76,6 +86,8 @@ function DriversTable({
           vehicle_id: current.vehicle_id || String(vehicleData[0]?.vehicle_id || ""),
           route_id: current.route_id || String(routeData[0]?.route_id || ""),
         }));
+        setVehicleSearch((current) => current || getVehicleLabel(vehicleData[0]));
+        setRouteSearch((current) => current || getRouteLabel(routeData[0]));
       } catch (loadError) {
         setTripError(loadError.message || "Unable to load trip options.");
       } finally {
@@ -93,6 +105,10 @@ function DriversTable({
 
   const submitAssignment = async (event) => {
     event.preventDefault();
+    if (!tripForm.vehicle_id || (!tripForm.custom_route && !tripForm.route_id)) {
+      setTripError("Select a vehicle and route from the search results.");
+      return;
+    }
     try {
       setTripLoading(true);
       setTripError("");
@@ -117,6 +133,25 @@ function DriversTable({
     setTripForm((current) => ({
       ...current,
       [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const updateTripResourceSearch = (event, resourceType) => {
+    const value = event.target.value;
+    const resources = resourceType === "vehicle" ? vehicles : routes;
+    const selectedResource = resources.find((resource) => {
+      const label = resourceType === "vehicle"
+        ? getVehicleLabel(resource)
+        : getRouteLabel(resource);
+      return label === value;
+    });
+
+    if (resourceType === "vehicle") setVehicleSearch(value);
+    else setRouteSearch(value);
+
+    setTripForm((current) => ({
+      ...current,
+      [`${resourceType}_id`]: selectedResource ? selectedResource[`${resourceType}_id`] : "",
     }));
   };
 
@@ -254,7 +289,9 @@ function DriversTable({
 
                 <td style={tableCellStyle}>{driver.phone}</td>
 
-                <td style={tableCellStyle}>{driver.status}</td>
+                <td style={{ ...tableCellStyle, color: getDriverStatusColor(driver.status), fontWeight: "600" }}>
+                  {driver.status}
+                </td>
 
                 <td style={tableCellStyle}>{driver.joined_date}</td>
 
@@ -302,27 +339,19 @@ function DriversTable({
             ) : (
               <form onSubmit={submitAssignment}>
                 <label style={fieldStyle}>
-                  Vehicle
-                  <select name="vehicle_id" value={tripForm.vehicle_id} onChange={updateTripField} required style={inputStyle}>
-                    <option value="">Select a vehicle</option>
-                    {vehicles.map((vehicle) => (
-                      <option key={vehicle.vehicle_id} value={vehicle.vehicle_id}>
-                        {vehicle.registration_no} ({vehicle.brand} {vehicle.model})
-                      </option>
-                    ))}
-                  </select>
+                  Search vehicles
+                  <input type="search" value={vehicleSearch} onChange={(event) => updateTripResourceSearch(event, "vehicle")} placeholder="Search by registration, brand, or model" list="driver-trip-vehicle-options" required style={inputStyle} />
+                  <datalist id="driver-trip-vehicle-options">
+                    {vehicles.map((vehicle) => <option key={vehicle.vehicle_id} value={getVehicleLabel(vehicle)} />)}
+                  </datalist>
                 </label>
 
                 <label style={fieldStyle}>
-                  Existing route
-                  <select name="route_id" value={tripForm.route_id} onChange={updateTripField} disabled={tripForm.custom_route} required={!tripForm.custom_route} style={inputStyle}>
-                    <option value="">Select a route</option>
-                    {routes.map((route) => (
-                      <option key={route.route_id} value={route.route_id}>
-                        {route.route_name}: {route.origin} to {route.destination}
-                      </option>
-                    ))}
-                  </select>
+                  Search routes
+                  <input type="search" value={routeSearch} onChange={(event) => updateTripResourceSearch(event, "route")} placeholder="Search by route, origin, or destination" list="driver-trip-route-options" disabled={tripForm.custom_route} required={!tripForm.custom_route} style={inputStyle} />
+                  <datalist id="driver-trip-route-options">
+                    {routes.map((route) => <option key={route.route_id} value={getRouteLabel(route)} />)}
+                  </datalist>
                 </label>
 
                 <label style={checkboxStyle}>
@@ -385,6 +414,14 @@ function getDefaultDepartureTime() {
   const departure = new Date(Date.now() + 60 * 60 * 1000);
   departure.setMinutes(departure.getMinutes() - departure.getTimezoneOffset());
   return departure.toISOString().slice(0, 16);
+}
+
+function getVehicleLabel(vehicle) {
+  return vehicle ? `${vehicle.registration_no} (${vehicle.brand} ${vehicle.model})` : "";
+}
+
+function getRouteLabel(route) {
+  return route ? `${route.route_name}: ${route.origin} to ${route.destination}` : "";
 }
 
 const inputStyle = {

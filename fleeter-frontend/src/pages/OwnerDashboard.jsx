@@ -295,20 +295,6 @@ function OwnerDashboard() {
     if (activeTab === "trips" && !tripsLoaded) fetchTrips();
   }, [activeTab, tripsLoaded, fetchTrips]);
 
-  useEffect(() => {
-    if (activeTab !== "drivers" && activeTab !== "trips") {
-      return undefined;
-    }
-
-    const refreshInterval = window.setInterval(() => {
-      fetchDrivers();
-      fetchVehicles();
-      if (activeTab === "trips") fetchTrips();
-    }, 10000);
-
-    return () => window.clearInterval(refreshInterval);
-  }, [activeTab, fetchDrivers, fetchVehicles, fetchTrips]);
-
   // useEffect for Vehicles data
   // Load vehicles only when the Vehicles tab is opened
   useEffect(() => {
