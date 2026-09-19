@@ -4,8 +4,31 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import LocateControl from "../components/LocateControl";
-import { apiFetch } from "../utils/api"; // 1. Import the utility
+import { apiFetch } from "../utils/api";
 import CompanyRequests from "../components/CompanyRequests";
+import {
+  Box,
+  Drawer,
+  AppBar,
+  Toolbar,
+  Typography,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  IconButton,
+  Button,
+  Badge,
+  Popover,
+  Tooltip
+} from '@mui/material';
+import SettingsIcon from '@mui/icons-material/Settings';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import LogoutIcon from '@mui/icons-material/Logout';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import AccountSettings from '../components/AccountSettings';
+import { useThemeSettings } from '../context/ThemeSettingsContext';
 
 // Fix for Leaflet's default marker icons in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -17,7 +40,13 @@ L.Icon.Default.mergeOptions({
 
 function DriverDashboard() {
   const navigate = useNavigate();
+  const { mode, toggleTheme } = useThemeSettings();
   const [loading, setLoading] = useState(true);
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
+  const handleNotificationsClick = (event) => setNotificationAnchorEl(event.currentTarget);
+  const handleNotificationsClose = () => setNotificationAnchorEl(null);
+  const isNotificationsOpen = Boolean(notificationAnchorEl);
+
   const [currentView, setCurrentView] = useState("dashboard");
 
   const [driverStats, setDriverStats] = useState({
@@ -31,15 +60,6 @@ function DriverDashboard() {
 
   // --- LIVE TRACKING STATE ---
   const [currentPosition, setCurrentPosition] = useState(null);
-
-  // --- ACCOUNT SETTINGS STATE ---
-  const [accountForm, setAccountForm] = useState({
-    username: "",
-    email: "",
-    password: "",
-  });
-  const [accountError, setAccountError] = useState("");
-  const [accountSuccess, setAccountSuccess] = useState("");
 
   // --- MODAL STATES (Separated Error & Success) ---
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
@@ -59,7 +79,7 @@ function DriverDashboard() {
     description: "",
     reportedTo: "",
   });
-  const [incidentPhoto, setIncidentPhoto] = useState(null);
+
   const [incidentError, setIncidentError] = useState("");
   const [incidentSuccess, setIncidentSuccess] = useState("");
 
@@ -108,11 +128,6 @@ function DriverDashboard() {
         hasCompany,
       });
 
-      setAccountForm({
-        username: data.username || "",
-        email: data.email || "",
-        password: "",
-      });
       return hasCompany;
     } catch (error) {
       setDriverStats({
@@ -163,7 +178,7 @@ function DriverDashboard() {
       }
     };
 
-    if (currentView === "profile") fetchDocuments();
+    if (currentView === "documents") fetchDocuments();
   }, [currentView]);
 
   // --- TRIP LOGIC HELPERS ---
@@ -319,26 +334,6 @@ function DriverDashboard() {
     }
   };
 
-  // --- ACCOUNT HANDLER ---
-  const handleAccountChange = (e) =>
-    setAccountForm({ ...accountForm, [e.target.name]: e.target.value });
-
-  const updateAccount = async (e) => {
-    e.preventDefault();
-    setAccountError("");
-    setAccountSuccess("");
-    try {
-      await apiFetch("/api/driver/account", {
-        method: "PUT",
-        body: JSON.stringify(accountForm),
-      });
-      setAccountSuccess("Account updated successfully!");
-      setTimeout(() => setAccountSuccess(""), 3000);
-    } catch (error) {
-      setAccountError(error.message);
-    }
-  };
-
   // --- DOCS HANDLER ---
   const handleDocChange = (e) =>
     setNewDocForm({ ...newDocForm, [e.target.name]: e.target.value });
@@ -422,29 +417,16 @@ function DriverDashboard() {
     setIncidentError("");
     setIncidentSuccess("");
     try {
-      const formData = new FormData();
-      formData.append("trip_id", activeTrip?.trip_id);
-      formData.append("type", incidentForm.type);
-      formData.append("severity", incidentForm.severity);
-      formData.append("description", incidentForm.description);
-      formData.append("reported_to", incidentForm.reportedTo);
-      if (incidentPhoto) formData.append("photo", incidentPhoto);
-
-      // NOTE: We use raw fetch here because apiFetch forces Content-Type: application/json
-      // FormData requires the browser to automatically set the Content-Type with a boundary.
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        "http://localhost:5000/api/driver/log-incident",
-        {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData,
-        },
-      );
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok)
-        throw new Error(data.error || "Failed to report incident");
+      await apiFetch("/api/driver/log-incident", {
+        method: "POST",
+        body: JSON.stringify({
+          trip_id: activeTrip?.trip_id,
+          type: incidentForm.type,
+          severity: incidentForm.severity,
+          description: incidentForm.description,
+          reported_to: incidentForm.reportedTo,
+        }),
+      });
 
       setIncidentSuccess("Incident reported successfully.");
       setTimeout(() => {
@@ -456,7 +438,7 @@ function DriverDashboard() {
           description: "",
           reportedTo: "",
         });
-        setIncidentPhoto(null);
+
       }, 1500);
     } catch (error) {
       setIncidentError(error.message);
@@ -504,881 +486,807 @@ function DriverDashboard() {
 
   if (!driverStats.hasCompany) {
     return (
-      <div style={requestOnlyShellStyle}>
-        <header style={requestOnlyHeaderStyle}>
-          <div>
-            <strong style={requestOnlyBrandStyle}>Fleeter OS</strong>
-            <span style={requestOnlyWelcomeStyle}>Welcome, {driverStats.name}</span>
-          </div>
-          <button onClick={handleLogout} style={requestOnlyLogoutStyle}>Logout</button>
-        </header>
-        <main style={requestOnlyContentStyle}>
-          <div style={requestOnlyIntroStyle}>
-            <span style={requestOnlyEyebrowStyle}>Driver account setup</span>
-            <h1 style={{ margin: "8px 0 6px", color: "#1f2937" }}>Join a company</h1>
-            <p style={{ margin: 0, color: "#64748b" }}>
-              Your driver dashboard will be available after a company approves your request.
-            </p>
-          </div>
+      <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+        <AppBar position="static" color="secondary">
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>Fleeter OS</Typography>
+            <Typography variant="body2">Welcome, {driverStats.name}</Typography>
+            <IconButton color="error" onClick={handleLogout} sx={{ ml: 2 }}>
+              <LogoutIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+        <Box maxWidth="900px" mx="auto" p={4}>
+          <Typography variant="overline">Driver account setup</Typography>
+          <Typography variant="h4" gutterBottom>Join a company</Typography>
+          <Typography variant="body1" color="text.secondary" gutterBottom>
+            Your driver dashboard will be available after a company approves your request.
+          </Typography>
           <CompanyRequests joinOnly />
-        </main>
-      </div>
+        </Box>
+      </Box>
     );
   }
 
   return (
-    <div style={styles.appContainer}>
-      {/* ================= LEFT SIDEBAR ================= */}
-      <aside style={styles.sidebar}>
-        <div style={styles.sidebarHeader}>
-          <h1 style={styles.sidebarTitle}>Fleeter OS</h1>
-          <p style={styles.sidebarSubtitle}>Welcome, {driverStats.name}</p>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: 240,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': { width: 240, boxSizing: 'border-box' },
+        }}
+      >
+        <Box p={2} sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+          <Typography variant="h6" fontWeight="bold">Fleeter OS</Typography>
+          <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
+            Welcome, {driverStats.name}
+          </Typography>
           {!driverStats.driverProfileMissing && (
-            <p style={styles.sidebarCompany}>🏢 {driverStats.companyName}</p>
+            <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
+              🏢 {driverStats.companyName}
+            </Typography>
           )}
-        </div>
+        </Box>
+        <List sx={{ flexGrow: 1 }}>
+          <ListItem disablePadding>
+            <ListItemButton selected={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')}>
+              <ListItemText primary="Dashboard" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton selected={currentView === 'history'} onClick={() => setCurrentView('history')}>
+              <ListItemText primary="Trip History" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton selected={currentView === 'documents'} onClick={() => setCurrentView('documents')}>
+              <ListItemText primary="Documents" />
+            </ListItemButton>
+          </ListItem>
+        </List>
+        <Box p={2}>
+          <Typography variant="overline" color="textSecondary">Trip Actions</Typography>
+          <Button fullWidth variant="outlined" color="info" sx={{ mb: 1 }} disabled={!canAccessTripFeatures} onClick={() => setIsFuelModalOpen(true)}>Log Fuel</Button>
+          <Button fullWidth variant="outlined" color="error" sx={{ mb: 1 }} disabled={!canAccessTripFeatures} onClick={() => setIsIncidentModalOpen(true)}>Report Incident</Button>
+          <Button fullWidth variant="outlined" color="warning" sx={{ mb: 1 }} disabled={!canAccessTripFeatures} onClick={() => setIsMaintenanceModalOpen(true)}>Maintenance</Button>
+        </Box>
+      </Drawer>
 
-        <nav style={styles.navContainer}>
-          <div style={styles.navSectionTitle}>Menu</div>
-          <button
-            onClick={() => setCurrentView("dashboard")}
-            style={tabButtonStyle(currentView === "dashboard")}
-          >
-            🏠 Dashboard
-          </button>
-          <button
-            onClick={() => setCurrentView("history")}
-            style={tabButtonStyle(currentView === "history")}
-          >
-            🕒 Trip History
-          </button>
+      <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <AppBar position="static" color="default" elevation={1}>
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>Driver Portal</Typography>
+            <IconButton color="inherit" onClick={handleNotificationsClick}>
+              <Badge badgeContent={driverStats?.alerts || 0} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+            <Popover
+              open={isNotificationsOpen}
+              anchorEl={notificationAnchorEl}
+              onClose={handleNotificationsClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              <Box p={2} maxWidth={300}>
+                <Typography variant="h6" gutterBottom>Notifications</Typography>
 
-          <div style={styles.navSectionTitleFlex}>
-            Trip Actions
-            {!canAccessTripFeatures && (
-              <span style={styles.lockedBadge}>🔒 LOCKED</span>
-            )}
-          </div>
+                {driverStats?.driverProfileMissing && (
+                  <Button fullWidth color="inherit" style={{ justifyContent: 'flex-start', textTransform: 'none', textAlign: 'left', color: '#d32f2f' }} onClick={() => { handleNotificationsClose(); }}>
+                    ⚠️ Action Required: Your account is not linked to a Driver profile in the database. Contact your fleet admin.
+                  </Button>
+                )}
 
-          <button
-            onClick={() => setIsFuelModalOpen(true)}
-            style={actionTabStyle(canAccessTripFeatures, "#3498db")}
-            disabled={!canAccessTripFeatures}
-          >
-            ⛽ Log Fuel
-          </button>
-          <button
-            onClick={() => setIsIncidentModalOpen(true)}
-            style={actionTabStyle(canAccessTripFeatures, "#e74c3c")}
-            disabled={!canAccessTripFeatures}
-          >
-            ⚠️ Report Incident
-          </button>
-          <button
-            onClick={() => setIsMaintenanceModalOpen(true)}
-            style={actionTabStyle(canAccessTripFeatures, "#f39c12")}
-            disabled={!canAccessTripFeatures}
-          >
-            🔧 Maintenance
-          </button>
+                {driverStats?.alerts > 0 && !driverStats?.driverProfileMissing && (
+                  <Button fullWidth color="inherit" style={{ justifyContent: 'flex-start', textTransform: 'none', textAlign: 'left', color: '#ed6c02' }} onClick={() => { handleNotificationsClose(); setCurrentView('documents'); }}>
+                    ⚠️ You have {driverStats.alerts} document alert(s) pending. Click to view.
+                  </Button>
+                )}
 
-          <div style={styles.navSectionTitle}>Account</div>
-          <button
-            onClick={() => setCurrentView("profile")}
-            style={tabButtonStyle(currentView === "profile")}
-          >
-            👤 My Profile & Docs
-          </button>
-        </nav>
+                {(!driverStats?.alerts || driverStats.alerts === 0) && !driverStats?.driverProfileMissing && (
+                  <Typography variant="body2" color="text.secondary">No new notifications.</Typography>
+                )}
+              </Box>
+            </Popover>
+            <IconButton color="inherit" onClick={() => setCurrentView('settings')}>
+              <SettingsIcon />
+            </IconButton>
+            <IconButton color="error" onClick={handleLogout}>
+              <LogoutIcon />
+            </IconButton>
+            <Tooltip title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}>
+              <IconButton onClick={toggleTheme} sx={{ mx: 0.5 }}>
+                {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Settings">
+              <IconButton onClick={() => setCurrentView('settings')}>
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Logout">
+              <IconButton color="error" onClick={handleLogout}>
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          </Toolbar>
+        </AppBar>
+        <Box sx={{ p: 3, overflowY: 'auto', flexGrow: 1 }}>
 
-        <div style={styles.logoutContainer}>
-          <button onClick={handleLogout} style={styles.logoutBtn}>
-            Logout
-          </button>
-        </div>
-      </aside>
 
-      {/* ================= MIDDLE CONTENT AREA ================= */}
-      <main style={styles.mainContent}>
-        {driverStats.driverProfileMissing && (
-          <div style={styles.alertBoxDanger}>
-            ⚠️ <strong>Action Required:</strong> Your account is not linked to a
-            Driver profile in the database. Contact your fleet admin to assign
-            you to a vehicle.
-          </div>
-        )}
 
-        {driverStats.alerts > 0 && !driverStats.driverProfileMissing && (
-          <div style={styles.alertBoxWarning}>
-            ⚠️ <strong>Action Required:</strong> You have {driverStats.alerts}{" "}
-            document alert(s) pending. Check your profile.
-          </div>
-        )}
+          {currentView === 'settings' && <AccountSettings />}
 
-        {/* --- DASHBOARD VIEW --- */}
-        {currentView === "dashboard" && (
-          <>
-            <section style={styles.dashboardSection}>
-              <h2 style={styles.sectionHeader}>Current Trip</h2>
-              {activeTrip ? (
-                <div style={styles.activeTripCard}>
-                  <div style={styles.flexBetweenAlignTop}>
-                    <div>
-                      <h3 style={styles.tripRouteTitle}>
-                        Route: {activeTrip.origin} ➔ {activeTrip.destination}
-                      </h3>
-                      <p style={styles.tripDetailText}>
-                        <strong>Vehicle:</strong> {activeTrip.registration_no}
-                      </p>
-                      <p style={styles.tripDetailText}>
-                        <strong>Started:</strong>{" "}
-                        {new Date(activeTrip.departure_time).toLocaleString()}
-                      </p>
-                    </div>
-                    <span style={styles.inProgressBadge}>IN PROGRESS</span>
-                  </div>
-                  <div style={styles.tripActionRow}>
-                    <button
-                      style={styles.completeTripBtn}
-                      onClick={() => setIsCompleteTripModalOpen(true)}
-                    >
-                      Complete Trip
-                    </button>
-                  </div>
-
-                  {/* MAP RENDER */}
-                  <div style={{ marginTop: "25px" }}>
-                    <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50" }}>
-                      Live GPS Tracking
-                    </h4>
-                    {currentPosition ? (
-                      <div
-                        style={{
-                          height: "350px",
-                          width: "100%",
-                          borderRadius: "8px",
-                          overflow: "hidden",
-                          border: "1px solid #bdc3c7",
-                        }}
-                      >
-                        <MapContainer
-                          center={currentPosition}
-                          zoom={16}
-                          style={{ height: "100%", width: "100%" }}
-                        >
-                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                          <LocateControl position={currentPosition} />
-                          <Marker position={currentPosition}>
-                            <Popup>You are actively tracking.</Popup>
-                          </Marker>
-                        </MapContainer>
-                      </div>
-                    ) : (
-                      <div
-                        style={{
-                          padding: "20px",
-                          backgroundColor: "#fdf2e9",
-                          borderRadius: "8px",
-                          color: "#e67e22",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        📡 Acquiring GPS signal... Please ensure location
-                        permissions are enabled.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div style={styles.noTripCard}>
-                  <h3 style={styles.noTripTitle}>No Active Trip</h3>
-                  <p style={styles.noTripText}>
-                    You are not currently on the road. Start a scheduled
-                    assignment below to unlock your trip tools.
-                  </p>
-                </div>
-              )}
-            </section>
-
-            <section>
-              <h2 style={styles.sectionHeader}>Upcoming Assignments</h2>
-              {futureTrips.length > 0 ? (
-                <div style={styles.futureTripsGrid}>
-                  {futureTrips.map((trip) => (
-                    <div key={trip.trip_id} style={styles.futureTripCard}>
+          {/* --- DASHBOARD VIEW --- */}
+          {currentView === "dashboard" && (
+            <>
+              <section style={styles.dashboardSection}>
+                <h2 style={styles.sectionHeader}>Current Trip</h2>
+                {activeTrip ? (
+                  <div style={styles.activeTripCard}>
+                    <div style={styles.flexBetweenAlignTop}>
                       <div>
+                        <h3 style={styles.tripRouteTitle}>
+                          Route: {activeTrip.origin} ➔ {activeTrip.destination}
+                        </h3>
+                        <p style={styles.tripDetailText}>
+                          <strong>Vehicle:</strong> {activeTrip.registration_no}
+                        </p>
+                        <p style={styles.tripDetailText}>
+                          <strong>Started:</strong>{" "}
+                          {new Date(activeTrip.departure_time).toLocaleString()}
+                        </p>
+                      </div>
+                      <span style={styles.inProgressBadge}>IN PROGRESS</span>
+                    </div>
+                    <div style={styles.tripActionRow}>
+                      <button
+                        style={styles.completeTripBtn}
+                        onClick={() => setIsCompleteTripModalOpen(true)}
+                      >
+                        Complete Trip
+                      </button>
+                    </div>
+
+                    {/* MAP RENDER */}
+                    <div style={{ marginTop: "25px" }}>
+                      <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50" }}>
+                        Live GPS Tracking
+                      </h4>
+                      {currentPosition ? (
+                        <div
+                          style={{
+                            height: "350px",
+                            width: "100%",
+                            borderRadius: "8px",
+                            overflow: "hidden",
+                            border: "1px solid #bdc3c7",
+                          }}
+                        >
+                          <MapContainer
+                            center={currentPosition}
+                            zoom={16}
+                            style={{ height: "100%", width: "100%" }}
+                          >
+                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                            <LocateControl position={currentPosition} />
+                            <Marker position={currentPosition}>
+                              <Popup>You are actively tracking.</Popup>
+                            </Marker>
+                          </MapContainer>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            padding: "20px",
+                            backgroundColor: "#fdf2e9",
+                            borderRadius: "8px",
+                            color: "#e67e22",
+                            fontWeight: "bold",
+                          }}
+                        >
+                          📡 Acquiring GPS signal... Please ensure location
+                          permissions are enabled.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={styles.noTripCard}>
+                    <h3 style={styles.noTripTitle}>No Active Trip</h3>
+                    <p style={styles.noTripText}>
+                      You are not currently on the road. Start a scheduled
+                      assignment below to unlock your trip tools.
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <h2 style={styles.sectionHeader}>Upcoming Assignments</h2>
+                {futureTrips.length > 0 ? (
+                  <div style={styles.futureTripsGrid}>
+                    {futureTrips.map((trip) => (
+                      <div key={trip.trip_id} style={styles.futureTripCard}>
+                        <div>
+                          <h4 style={styles.futureTripRoute}>
+                            {trip.origin} ➔ {trip.destination}
+                          </h4>
+                          <p style={styles.futureTripDetail}>
+                            Vehicle: {trip.registration_no} | Scheduled:{" "}
+                            {new Date(trip.departure_time).toLocaleString()}
+                          </p>
+                        </div>
+                        <button
+                          style={styles.startBtn}
+                          onClick={() => {
+                            setTripToStart(trip);
+                            setIsStartTripModalOpen(true);
+                          }}
+                        >
+                          Start
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={styles.mutedText}>No upcoming scheduled trips.</p>
+                )}
+              </section>
+            </>
+          )}
+
+          {/* --- HISTORY VIEW --- */}
+          {currentView === "history" && (
+            <section style={styles.dashboardSection}>
+              <h2 style={styles.sectionHeader}>Trip History</h2>
+              {pastTrips.length > 0 ? (
+                <div style={styles.futureTripsGrid}>
+                  {pastTrips.map((trip) => (
+                    <div
+                      key={trip.trip_id}
+                      style={{
+                        ...styles.futureTripCard,
+                        borderLeft: "4px solid #95a5a6",
+                      }}
+                    >
+                      <div style={{ width: "100%" }}>
                         <h4 style={styles.futureTripRoute}>
                           {trip.origin} ➔ {trip.destination}
                         </h4>
                         <p style={styles.futureTripDetail}>
-                          Vehicle: {trip.registration_no} | Scheduled:{" "}
-                          {new Date(trip.departure_time).toLocaleString()}
+                          Vehicle: {trip.registration_no}
                         </p>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            backgroundColor: "#f8f9fa",
+                            padding: "10px",
+                            borderRadius: "6px",
+                            marginTop: "10px",
+                          }}
+                        >
+                          <div style={{ fontSize: "14px" }}>
+                            <strong>Started:</strong>
+                            <br />
+                            {new Date(trip.departure_time).toLocaleString()}
+                          </div>
+                          <div style={{ fontSize: "14px" }}>
+                            <strong>Ended:</strong>
+                            <br />
+                            {new Date(trip.arrival_time).toLocaleString()}
+                          </div>
+                          <div style={{ fontSize: "14px", color: "#2980b9" }}>
+                            <strong>Total Time:</strong>
+                            <br />
+                            {calculateDuration(
+                              trip.departure_time,
+                              trip.arrival_time,
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <button
-                        style={styles.startBtn}
-                        onClick={() => {
-                          setTripToStart(trip);
-                          setIsStartTripModalOpen(true);
-                        }}
-                      >
-                        Start
-                      </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p style={styles.mutedText}>No upcoming scheduled trips.</p>
+                <p style={styles.mutedText}>No completed trips found.</p>
               )}
             </section>
-          </>
-        )}
+          )}
 
-        {/* --- HISTORY VIEW --- */}
-        {currentView === "history" && (
-          <section style={styles.dashboardSection}>
-            <h2 style={styles.sectionHeader}>Trip History</h2>
-            {pastTrips.length > 0 ? (
-              <div style={styles.futureTripsGrid}>
-                {pastTrips.map((trip) => (
-                  <div
-                    key={trip.trip_id}
-                    style={{
-                      ...styles.futureTripCard,
-                      borderLeft: "4px solid #95a5a6",
-                    }}
-                  >
-                    <div style={{ width: "100%" }}>
-                      <h4 style={styles.futureTripRoute}>
-                        {trip.origin} ➔ {trip.destination}
-                      </h4>
-                      <p style={styles.futureTripDetail}>
-                        Vehicle: {trip.registration_no}
-                      </p>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          backgroundColor: "#f8f9fa",
-                          padding: "10px",
-                          borderRadius: "6px",
-                          marginTop: "10px",
-                        }}
-                      >
-                        <div style={{ fontSize: "14px" }}>
-                          <strong>Started:</strong>
-                          <br />
-                          {new Date(trip.departure_time).toLocaleString()}
-                        </div>
-                        <div style={{ fontSize: "14px" }}>
-                          <strong>Ended:</strong>
-                          <br />
-                          {new Date(trip.arrival_time).toLocaleString()}
-                        </div>
-                        <div style={{ fontSize: "14px", color: "#2980b9" }}>
-                          <strong>Total Time:</strong>
-                          <br />
-                          {calculateDuration(
-                            trip.departure_time,
-                            trip.arrival_time,
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={styles.mutedText}>No completed trips found.</p>
-            )}
-          </section>
-        )}
+          {/* --- PROFILE VIEW --- */}
+          {currentView === "documents" && (
+            <div style={styles.profileContainer}>
+              <section style={{ flex: 2 }}>
+                <h2 style={styles.sectionHeader}>My Documents</h2>
+                {docsLoading ? (
+                  <p style={styles.mutedText}>Loading documents...</p>
+                ) : driverDocs.length === 0 ? (
+                  <p style={styles.mutedText}>No documents on file.</p>
+                ) : (
+                  <div style={styles.docList}>
+                    {driverDocs.map((doc) => {
+                      const isExpired = new Date(doc.expiry_date) < new Date();
+                      const hasAlert = doc.alert_triggered || isExpired;
+                      const borderColor = hasAlert ? "#e74c3c" : "#2ecc71";
 
-        {/* --- PROFILE VIEW --- */}
-        {currentView === "profile" && (
-          <div style={styles.profileContainer}>
-            <section style={{ flex: 2 }}>
-              <h2 style={styles.sectionHeader}>My Documents</h2>
-              {docsLoading ? (
-                <p style={styles.mutedText}>Loading documents...</p>
-              ) : driverDocs.length === 0 ? (
-                <p style={styles.mutedText}>No documents on file.</p>
-              ) : (
-                <div style={styles.docList}>
-                  {driverDocs.map((doc) => {
-                    const isExpired = new Date(doc.expiry_date) < new Date();
-                    const hasAlert = doc.alert_triggered || isExpired;
-                    const borderColor = hasAlert ? "#e74c3c" : "#2ecc71";
-
-                    return (
-                      <div
-                        key={doc.document_id}
-                        style={{
-                          ...styles.docCard,
-                          borderLeft: `6px solid ${borderColor}`,
-                        }}
-                      >
-                        <div style={styles.flexBetween}>
-                          <strong style={styles.docTitle}>
-                            {doc.document_type.replace("_", " ")}
-                          </strong>
-                          <div>
-                            {isExpired && (
-                              <span style={styles.expiredBadge}>EXPIRED</span>
-                            )}
-                            <button
-                              onClick={() => deleteDocument(doc.document_id)}
-                              style={styles.iconBtn}
-                              title="Delete Document"
+                      return (
+                        <div
+                          key={doc.document_id}
+                          style={{
+                            ...styles.docCard,
+                            borderLeft: `6px solid ${borderColor}`,
+                          }}
+                        >
+                          <div style={styles.flexBetween}>
+                            <strong style={styles.docTitle}>
+                              {doc.document_type.replace("_", " ")}
+                            </strong>
+                            <div>
+                              {isExpired && (
+                                <span style={styles.expiredBadge}>EXPIRED</span>
+                              )}
+                              <button
+                                onClick={() => deleteDocument(doc.document_id)}
+                                style={styles.iconBtn}
+                                title="Delete Document"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+                          <span style={styles.docSubtitle}>
+                            Number: {doc.document_no}
+                          </span>
+                          <div style={styles.docDates}>
+                            <span style={styles.mutedText}>
+                              Issued:{" "}
+                              {new Date(doc.issue_date).toLocaleDateString()}
+                            </span>
+                            <span
+                              style={{
+                                color: hasAlert ? "#c0392b" : "#27ae60",
+                                fontWeight: "bold",
+                              }}
                             >
-                              🗑️
-                            </button>
+                              Expires:{" "}
+                              {new Date(doc.expiry_date).toLocaleDateString()}
+                            </span>
                           </div>
                         </div>
-                        <span style={styles.docSubtitle}>
-                          Number: {doc.document_no}
-                        </span>
-                        <div style={styles.docDates}>
-                          <span style={styles.mutedText}>
-                            Issued:{" "}
-                            {new Date(doc.issue_date).toLocaleDateString()}
-                          </span>
-                          <span
-                            style={{
-                              color: hasAlert ? "#c0392b" : "#27ae60",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            Expires:{" "}
-                            {new Date(doc.expiry_date).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
-
-            <div style={styles.formsColumn}>
-              {/* Account Form */}
-              <section style={styles.card}>
-                <h3 style={styles.cardHeader}>Account Settings</h3>
-                {accountError && (
-                  <div style={styles.errorBanner}>{accountError}</div>
+                      );
+                    })}
+                  </div>
                 )}
-                {accountSuccess && (
-                  <div style={styles.successBanner}>{accountSuccess}</div>
-                )}
-                <form onSubmit={updateAccount} style={styles.form}>
-                  <div>
-                    <label style={styles.label}>Username</label>
-                    <input
-                      type="text"
-                      name="username"
-                      value={accountForm.username}
-                      onChange={handleAccountChange}
-                      required
-                      style={styles.input}
-                    />
-                  </div>
-                  <div>
-                    <label style={styles.label}>Email</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={accountForm.email}
-                      onChange={handleAccountChange}
-                      required
-                      style={styles.input}
-                    />
-                  </div>
-                  <div>
-                    <label style={styles.label}>New Password (Optional)</label>
-                    <input
-                      type="password"
-                      name="password"
-                      value={accountForm.password}
-                      onChange={handleAccountChange}
-                      style={styles.input}
-                      placeholder="••••••••"
-                    />
-                  </div>
-                  <button type="submit" style={styles.primaryBtn}>
-                    Save Credentials
-                  </button>
-                </form>
               </section>
 
-              {/* Document Upload Form */}
-              <section style={styles.card}>
-                <h3 style={{ ...styles.cardHeader, color: "#8e44ad" }}>
-                  + Add New Document
-                </h3>
-                {docError && <div style={styles.errorBanner}>{docError}</div>}
-                {docSuccess && (
-                  <div style={styles.successBanner}>{docSuccess}</div>
-                )}
-                <form onSubmit={submitDocument} style={styles.form}>
-                  <div>
-                    <label style={styles.label}>Document Type</label>
-                    <select
-                      name="document_type"
-                      value={newDocForm.document_type}
-                      onChange={handleDocChange}
-                      style={styles.input}
+              <div style={styles.formsColumn}>
+                {/* Document Upload Form */}
+                <section style={styles.card}>
+                  <h3 style={{ ...styles.cardHeader, color: "#8e44ad" }}>
+                    + Add New Document
+                  </h3>
+                  {docError && <div style={styles.errorBanner}>{docError}</div>}
+                  {docSuccess && (
+                    <div style={styles.successBanner}>{docSuccess}</div>
+                  )}
+                  <form onSubmit={submitDocument} style={styles.form}>
+                    <div>
+                      <label style={styles.label}>Document Type</label>
+                      <select
+                        name="document_type"
+                        value={newDocForm.document_type}
+                        onChange={handleDocChange}
+                        style={styles.input}
+                      >
+                        <option value="license">Driver's License</option>
+                        <option value="medical">Medical Card</option>
+                        <option value="insurance">Insurance Policy</option>
+                        <option value="certification">
+                          Special Certification
+                        </option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={styles.label}>Document Number</label>
+                      <input
+                        type="text"
+                        name="document_no"
+                        value={newDocForm.document_no}
+                        onChange={handleDocChange}
+                        required
+                        style={styles.input}
+                      />
+                    </div>
+                    <div>
+                      <label style={styles.label}>Issue Date</label>
+                      <input
+                        type="date"
+                        name="issue_date"
+                        value={newDocForm.issue_date}
+                        onChange={handleDocChange}
+                        required
+                        style={styles.input}
+                      />
+                    </div>
+                    <div>
+                      <label style={styles.label}>Expiry Date</label>
+                      <input
+                        type="date"
+                        name="expiry_date"
+                        value={newDocForm.expiry_date}
+                        min={newDocForm.issue_date}
+                        onChange={handleDocChange}
+                        required
+                        style={styles.input}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      style={{ ...styles.primaryBtn, backgroundColor: "#8e44ad" }}
                     >
-                      <option value="license">Driver's License</option>
-                      <option value="medical">Medical Card</option>
-                      <option value="insurance">Insurance Policy</option>
-                      <option value="certification">
-                        Special Certification
-                      </option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={styles.label}>Document Number</label>
-                    <input
-                      type="text"
-                      name="document_no"
-                      value={newDocForm.document_no}
-                      onChange={handleDocChange}
-                      required
-                      style={styles.input}
-                    />
-                  </div>
-                  <div>
-                    <label style={styles.label}>Issue Date</label>
-                    <input
-                      type="date"
-                      name="issue_date"
-                      value={newDocForm.issue_date}
-                      onChange={handleDocChange}
-                      required
-                      style={styles.input}
-                    />
-                  </div>
-                  <div>
-                    <label style={styles.label}>Expiry Date</label>
-                    <input
-                      type="date"
-                      name="expiry_date"
-                      value={newDocForm.expiry_date}
-                      min={newDocForm.issue_date}
-                      onChange={handleDocChange}
-                      required
-                      style={styles.input}
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    style={{ ...styles.primaryBtn, backgroundColor: "#8e44ad" }}
-                  >
-                    Upload Document
-                  </button>
-                </form>
-              </section>
+                      Upload Document
+                    </button>
+                  </form>
+                </section>
+              </div>
+            </div>
+          )}
+        </Box>
+
+        {/* ================= MODALS ================= */}
+
+        {/* START TRIP MODAL */}
+        {isStartTripModalOpen && tripToStart && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modalContainer}>
+              <h2 style={{ ...styles.modalTitle, color: "#3498db" }}>
+                Start Trip
+              </h2>
+              <p
+                style={{
+                  color: "#7f8c8d",
+                  fontSize: "15px",
+                  marginBottom: "20px",
+                }}
+              >
+                Are you ready to begin your trip to{" "}
+                <strong>{tripToStart.destination}</strong>? This will activate
+                live GPS tracking.
+              </p>
+              {startTripError && (
+                <div style={styles.errorBanner}>{startTripError}</div>
+              )}
+              {startTripSuccess && (
+                <div style={styles.successBanner}>{startTripSuccess}</div>
+              )}
+              <div style={styles.modalActionRow}>
+                <button
+                  type="button"
+                  onClick={() => setIsStartTripModalOpen(false)}
+                  style={styles.cancelBtn}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmStartTrip}
+                  style={{ ...styles.submitBtn, backgroundColor: "#3498db" }}
+                >
+                  Yes, Start Trip
+                </button>
+              </div>
             </div>
           </div>
         )}
-      </main>
 
-      {/* ================= MODALS ================= */}
-
-      {/* START TRIP MODAL */}
-      {isStartTripModalOpen && tripToStart && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContainer}>
-            <h2 style={{ ...styles.modalTitle, color: "#3498db" }}>
-              Start Trip
-            </h2>
-            <p
-              style={{
-                color: "#7f8c8d",
-                fontSize: "15px",
-                marginBottom: "20px",
-              }}
-            >
-              Are you ready to begin your trip to{" "}
-              <strong>{tripToStart.destination}</strong>? This will activate
-              live GPS tracking.
-            </p>
-            {startTripError && (
-              <div style={styles.errorBanner}>{startTripError}</div>
-            )}
-            {startTripSuccess && (
-              <div style={styles.successBanner}>{startTripSuccess}</div>
-            )}
-            <div style={styles.modalActionRow}>
-              <button
-                type="button"
-                onClick={() => setIsStartTripModalOpen(false)}
-                style={styles.cancelBtn}
+        {/* COMPLETE TRIP MODAL */}
+        {isCompleteTripModalOpen && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modalContainer}>
+              <h2 style={{ ...styles.modalTitle, color: "#2ecc71" }}>
+                Complete Trip
+              </h2>
+              <p
+                style={{
+                  color: "#7f8c8d",
+                  fontSize: "15px",
+                  marginBottom: "20px",
+                }}
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmStartTrip}
-                style={{ ...styles.submitBtn, backgroundColor: "#3498db" }}
-              >
-                Yes, Start Trip
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* COMPLETE TRIP MODAL */}
-      {isCompleteTripModalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContainer}>
-            <h2 style={{ ...styles.modalTitle, color: "#2ecc71" }}>
-              Complete Trip
-            </h2>
-            <p
-              style={{
-                color: "#7f8c8d",
-                fontSize: "15px",
-                marginBottom: "20px",
-              }}
-            >
-              Are you sure you have arrived and want to complete this trip? This
-              will stop live tracking.
-            </p>
-            {completeTripError && (
-              <div style={styles.errorBanner}>{completeTripError}</div>
-            )}
-            {completeTripSuccess && (
-              <div style={styles.successBanner}>{completeTripSuccess}</div>
-            )}
-            <div style={styles.modalActionRow}>
-              <button
-                type="button"
-                onClick={() => setIsCompleteTripModalOpen(false)}
-                style={styles.cancelBtn}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmCompleteTrip}
-                style={{ ...styles.submitBtn, backgroundColor: "#2ecc71" }}
-              >
-                Yes, Complete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* FUEL MODAL */}
-      {isFuelModalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContainer}>
-            <h2 style={styles.modalTitle}>Log Fuel Purchase</h2>
-            {fuelError && <div style={styles.errorBanner}>{fuelError}</div>}
-            {fuelSuccess && (
-              <div style={styles.successBanner}>{fuelSuccess}</div>
-            )}
-            <form onSubmit={submitFuelLog} style={styles.form}>
-              <div>
-                <label style={styles.label}>Station Name</label>
-                <input
-                  type="text"
-                  name="stationName"
-                  value={fuelForm.stationName}
-                  onChange={handleFuelChange}
-                  required
-                  style={styles.input}
-                />
-              </div>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Liters Filled</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="liters"
-                    value={fuelForm.liters}
-                    onChange={handleFuelChange}
-                    required
-                    style={styles.input}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Total Cost (৳)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="totalCost"
-                    value={fuelForm.totalCost}
-                    onChange={handleFuelChange}
-                    required
-                    style={styles.input}
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={styles.label}>Current Odometer (km)</label>
-                <input
-                  type="number"
-                  name="odometer"
-                  value={fuelForm.odometer}
-                  onChange={handleFuelChange}
-                  required
-                  style={styles.input}
-                />
-              </div>
+                Are you sure you have arrived and want to complete this trip? This
+                will stop live tracking.
+              </p>
+              {completeTripError && (
+                <div style={styles.errorBanner}>{completeTripError}</div>
+              )}
+              {completeTripSuccess && (
+                <div style={styles.successBanner}>{completeTripSuccess}</div>
+              )}
               <div style={styles.modalActionRow}>
                 <button
                   type="button"
-                  onClick={() => setIsFuelModalOpen(false)}
-                  style={styles.cancelBtn}
-                >
-                  Cancel
-                </button>
-                <button type="submit" style={styles.submitBtn}>
-                  Submit Log
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* INCIDENT MODAL */}
-      {isIncidentModalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContainer}>
-            <h2 style={{ ...styles.modalTitle, color: "#c0392b" }}>
-              Report Incident
-            </h2>
-            {incidentError && (
-              <div style={styles.errorBanner}>{incidentError}</div>
-            )}
-            {incidentSuccess && (
-              <div style={styles.successBanner}>{incidentSuccess}</div>
-            )}
-            <form onSubmit={submitIncidentLog} style={styles.form}>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Incident Type</label>
-                  <select
-                    name="type"
-                    value={incidentForm.type}
-                    onChange={handleIncidentChange}
-                    style={styles.input}
-                  >
-                    <option value="accident">Accident</option>
-                    <option value="breakdown">Breakdown</option>
-                    <option value="traffic_violation">Traffic Violation</option>
-                    <option value="theft">Theft</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Severity</label>
-                  <select
-                    name="severity"
-                    value={incidentForm.severity}
-                    onChange={handleIncidentChange}
-                    style={styles.input}
-                  >
-                    <option value="minor">Minor</option>
-                    <option value="moderate">Moderate</option>
-                    <option value="severe">Severe</option>
-                    <option value="critical">Critical</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label style={styles.label}>Description of Incident</label>
-                <textarea
-                  name="description"
-                  value={incidentForm.description}
-                  onChange={handleIncidentChange}
-                  required
-                  style={styles.textarea}
-                />
-              </div>
-              <div>
-                <label style={styles.label}>
-                  Reported To (Authority/Police)
-                </label>
-                <input
-                  type="text"
-                  name="reportedTo"
-                  value={incidentForm.reportedTo}
-                  onChange={handleIncidentChange}
-                  style={styles.input}
-                />
-              </div>
-              <div>
-                <label style={styles.label}>Attach Photo (Optional)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => setIncidentPhoto(e.target.files[0])}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.modalActionRow}>
-                <button
-                  type="button"
-                  onClick={() => setIsIncidentModalOpen(false)}
+                  onClick={() => setIsCompleteTripModalOpen(false)}
                   style={styles.cancelBtn}
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  style={{ ...styles.submitBtn, backgroundColor: "#e74c3c" }}
+                  type="button"
+                  onClick={confirmCompleteTrip}
+                  style={{ ...styles.submitBtn, backgroundColor: "#2ecc71" }}
                 >
-                  Submit Report
+                  Yes, Complete
                 </button>
               </div>
-            </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* MAINTENANCE MODAL */}
-      {isMaintenanceModalOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContainer}>
-            <h2 style={{ ...styles.modalTitle, color: "#e67e22" }}>
-              Request Maintenance
-            </h2>
-            {maintenanceError && (
-              <div style={styles.errorBanner}>{maintenanceError}</div>
-            )}
-            {maintenanceSuccess && (
-              <div style={styles.successBanner}>{maintenanceSuccess}</div>
-            )}
-            <form onSubmit={submitMaintenanceRequest} style={styles.form}>
-              <div style={{ display: "flex", gap: "10px" }}>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Service Type</label>
-                  <select
-                    name="serviceType"
-                    value={maintenanceForm.serviceType}
-                    onChange={handleMaintenanceChange}
+        {/* FUEL MODAL */}
+        {isFuelModalOpen && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modalContainer}>
+              <h2 style={styles.modalTitle}>Log Fuel Purchase</h2>
+              {fuelError && <div style={styles.errorBanner}>{fuelError}</div>}
+              {fuelSuccess && (
+                <div style={styles.successBanner}>{fuelSuccess}</div>
+              )}
+              <form onSubmit={submitFuelLog} style={styles.form}>
+                <div>
+                  <label style={styles.label}>Station Name</label>
+                  <input
+                    type="text"
+                    name="stationName"
+                    value={fuelForm.stationName}
+                    onChange={handleFuelChange}
+                    required
                     style={styles.input}
-                  >
-                    <option value="repair">Repair</option>
-                    <option value="routine">Routine Service</option>
-                    <option value="inspection">Inspection</option>
-                    <option value="emergency">Emergency Breakdown</option>
-                  </select>
+                  />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={styles.label}>Current Odometer</label>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={styles.label}>Liters Filled</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="liters"
+                      value={fuelForm.liters}
+                      onChange={handleFuelChange}
+                      required
+                      style={styles.input}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={styles.label}>Total Cost (৳)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="totalCost"
+                      value={fuelForm.totalCost}
+                      onChange={handleFuelChange}
+                      required
+                      style={styles.input}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={styles.label}>Current Odometer (km)</label>
                   <input
                     type="number"
                     name="odometer"
-                    value={maintenanceForm.odometer}
-                    onChange={handleMaintenanceChange}
+                    value={fuelForm.odometer}
+                    onChange={handleFuelChange}
                     required
                     style={styles.input}
                   />
                 </div>
-              </div>
-              <div>
-                <label style={styles.label}>Issue Description</label>
-                <textarea
-                  name="description"
-                  value={maintenanceForm.description}
-                  onChange={handleMaintenanceChange}
-                  required
-                  style={styles.textarea}
-                />
-              </div>
-              <div>
-                <label style={styles.label}>
-                  Preferred Workshop (Optional)
-                </label>
-                <input
-                  type="text"
-                  name="workshop"
-                  value={maintenanceForm.workshop}
-                  onChange={handleMaintenanceChange}
-                  style={styles.input}
-                />
-              </div>
-              <div style={styles.modalActionRow}>
-                <button
-                  type="button"
-                  onClick={() => setIsMaintenanceModalOpen(false)}
-                  style={styles.cancelBtn}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{ ...styles.submitBtn, backgroundColor: "#f39c12" }}
-                >
-                  Submit Request
-                </button>
-              </div>
-            </form>
+                <div style={styles.modalActionRow}>
+                  <button
+                    type="button"
+                    onClick={() => setIsFuelModalOpen(false)}
+                    style={styles.cancelBtn}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" style={styles.submitBtn}>
+                    Submit Log
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {/* INCIDENT MODAL */}
+        {isIncidentModalOpen && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modalContainer}>
+              <h2 style={{ ...styles.modalTitle, color: "#c0392b" }}>
+                Report Incident
+              </h2>
+              {incidentError && (
+                <div style={styles.errorBanner}>{incidentError}</div>
+              )}
+              {incidentSuccess && (
+                <div style={styles.successBanner}>{incidentSuccess}</div>
+              )}
+              <form onSubmit={submitIncidentLog} style={styles.form}>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={styles.label}>Incident Type</label>
+                    <select
+                      name="type"
+                      value={incidentForm.type}
+                      onChange={handleIncidentChange}
+                      style={styles.input}
+                    >
+                      <option value="accident">Accident</option>
+                      <option value="breakdown">Breakdown</option>
+                      <option value="traffic_violation">Traffic Violation</option>
+                      <option value="theft">Theft</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={styles.label}>Severity</label>
+                    <select
+                      name="severity"
+                      value={incidentForm.severity}
+                      onChange={handleIncidentChange}
+                      style={styles.input}
+                    >
+                      <option value="minor">Minor</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="severe">Severe</option>
+                      <option value="critical">Critical</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={styles.label}>Description of Incident</label>
+                  <textarea
+                    name="description"
+                    value={incidentForm.description}
+                    onChange={handleIncidentChange}
+                    required
+                    style={styles.textarea}
+                  />
+                </div>
+                <div>
+                  <label style={styles.label}>
+                    Reported To (Authority/Police)
+                  </label>
+                  <input
+                    type="text"
+                    name="reportedTo"
+                    value={incidentForm.reportedTo}
+                    onChange={handleIncidentChange}
+                    style={styles.input}
+                  />
+                </div>
+                <div>
+                  <label style={styles.label}>Attach Photo (Optional)</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={styles.input}
+                  />
+                </div>
+                <div style={styles.modalActionRow}>
+                  <button
+                    type="button"
+                    onClick={() => setIsIncidentModalOpen(false)}
+                    style={styles.cancelBtn}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{ ...styles.submitBtn, backgroundColor: "#e74c3c" }}
+                  >
+                    Submit Report
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MAINTENANCE MODAL */}
+        {isMaintenanceModalOpen && (
+          <div style={styles.modalOverlay}>
+            <div style={styles.modalContainer}>
+              <h2 style={{ ...styles.modalTitle, color: "#e67e22" }}>
+                Request Maintenance
+              </h2>
+              {maintenanceError && (
+                <div style={styles.errorBanner}>{maintenanceError}</div>
+              )}
+              {maintenanceSuccess && (
+                <div style={styles.successBanner}>{maintenanceSuccess}</div>
+              )}
+              <form onSubmit={submitMaintenanceRequest} style={styles.form}>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={styles.label}>Service Type</label>
+                    <select
+                      name="serviceType"
+                      value={maintenanceForm.serviceType}
+                      onChange={handleMaintenanceChange}
+                      style={styles.input}
+                    >
+                      <option value="repair">Repair</option>
+                      <option value="routine">Routine Service</option>
+                      <option value="inspection">Inspection</option>
+                      <option value="emergency">Emergency Breakdown</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={styles.label}>Current Odometer</label>
+                    <input
+                      type="number"
+                      name="odometer"
+                      value={maintenanceForm.odometer}
+                      onChange={handleMaintenanceChange}
+                      required
+                      style={styles.input}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={styles.label}>Issue Description</label>
+                  <textarea
+                    name="description"
+                    value={maintenanceForm.description}
+                    onChange={handleMaintenanceChange}
+                    required
+                    style={styles.textarea}
+                  />
+                </div>
+                <div>
+                  <label style={styles.label}>
+                    Preferred Workshop (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="workshop"
+                    value={maintenanceForm.workshop}
+                    onChange={handleMaintenanceChange}
+                    style={styles.input}
+                  />
+                </div>
+                <div style={styles.modalActionRow}>
+                  <button
+                    type="button"
+                    onClick={() => setIsMaintenanceModalOpen(false)}
+                    style={styles.cancelBtn}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{ ...styles.submitBtn, backgroundColor: "#f39c12" }}
+                  >
+                    Submit Request
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </Box>
+    </Box>
   );
 }
 
-// --- DYNAMIC STYLE HELPERS ---
-const tabButtonStyle = (isActive) => ({
-  width: "100%",
-  textAlign: "left",
-  padding: "15px 20px",
-  backgroundColor: isActive ? "#34495e" : "transparent",
-  color: "white",
-  border: "none",
-  borderLeft: isActive ? "4px solid #3498db" : "4px solid transparent",
-  cursor: "pointer",
-  fontSize: "15px",
-});
-const actionTabStyle = (isEnabled, activeColor) => ({
-  width: "100%",
-  textAlign: "left",
-  padding: "15px 20px",
-  backgroundColor: "transparent",
-  color: isEnabled ? "white" : "#7f8c8d",
-  border: "none",
-  borderLeft: `4px solid ${isEnabled ? activeColor : "transparent"}`,
-  cursor: isEnabled ? "pointer" : "not-allowed",
-  fontSize: "15px",
-  opacity: isEnabled ? 1 : 0.4,
-});
 
-const requestOnlyShellStyle = {
-  minHeight: "100vh",
-  backgroundColor: "#f4f7f6",
-  fontFamily: "sans-serif",
-};
 
-const requestOnlyHeaderStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: "20px",
-  padding: "18px clamp(20px, 5vw, 64px)",
-  backgroundColor: "#2c3e50",
-  color: "white",
-  boxShadow: "0 2px 10px rgba(15, 23, 42, 0.12)",
-};
 
-const requestOnlyBrandStyle = { display: "block", fontSize: "21px", letterSpacing: "0.2px" };
-const requestOnlyWelcomeStyle = { display: "block", marginTop: "4px", color: "#cbd5e1", fontSize: "13px" };
-const requestOnlyLogoutStyle = { padding: "8px 14px", border: "1px solid #64748b", borderRadius: "5px", backgroundColor: "transparent", color: "white", cursor: "pointer", fontWeight: 600 };
-
-const requestOnlyContentStyle = { width: "min(100% - 40px, 1040px)", margin: "0 auto", padding: "clamp(28px, 5vw, 56px) 0 48px" };
-const requestOnlyIntroStyle = { marginBottom: "24px" };
-const requestOnlyEyebrowStyle = { color: "#2e86de", fontSize: "12px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" };
 
 // --- CENTRALIZED STATIC STYLES ---
 const styles = {

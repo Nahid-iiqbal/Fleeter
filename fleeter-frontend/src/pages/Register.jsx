@@ -1,17 +1,31 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom"; // The import causing the warning
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Alert,
+  Container,
+  Paper,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Divider,
+} from "@mui/material";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { apiFetch } from "../utils/api";
 
 function Register() {
   const [formData, setFormData] = useState({
+    username: "",
     email: "",
     password: "",
     role: "driver",
   });
   const [message, setMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
-
-  // 1. Initialize the navigate function
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -20,6 +34,7 @@ function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage("");
     try {
       await apiFetch("/api/auth/register", {
         method: "POST",
@@ -35,105 +50,110 @@ function Register() {
   };
 
   return (
-    <div
-      style={{
-        maxWidth: "400px",
-        margin: "50px auto",
-        fontFamily: "sans-serif",
+    <Box
+      sx={{
+        minHeight: "100vh",
+        bgcolor: "background.default",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        py: 4,
       }}
     >
-      <button
-        onClick={() => navigate("/")}
-        style={{
-          padding: "8px 12px",
-          marginBottom: "20px",
-          background: "none",
-          border: "none",
-          color: "#007BFF",
-          cursor: "pointer",
-          fontSize: "16px",
-          display: "flex",
-          alignItems: "center",
-          gap: "5px",
-          marginLeft: "-10px", // aligns it slightly left of the container
-        }}
-      >
-        ← Back to Home
-      </button>
-      <h2>Create an Account</h2>
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: "flex", flexDirection: "column", gap: "15px" }}
-      >
-        <input
-          type="text"
-          name="username"
-          placeholder="Unique username"
-          value={formData.username}
-          onChange={handleChange}
-          required
-          style={{ padding: "10px" }}
-        />
+      <Container maxWidth="xs">
+        {/* Logo */}
+        <Box display="flex" alignItems="center" justifyContent="center" mb={3} gap={1}>
+          <LocalShippingIcon color="primary" sx={{ fontSize: 32 }} />
+          <Typography variant="h5" fontWeight={800} color="primary" letterSpacing={1}>
+            FLEETER
+          </Typography>
+        </Box>
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email address"
-          onChange={handleChange}
-          required
-          style={{ padding: "10px" }}
-        />
+        <Paper elevation={0} sx={{ p: 4, border: 1, borderColor: "divider" }}>
+          <Typography variant="h5" fontWeight={700} mb={0.5}>
+            Create an Account
+          </Typography>
+          <Typography variant="body2" color="text.secondary" mb={3}>
+            Start managing your fleet today.
+          </Typography>
 
-        <input
-          type="password"
-          name="password"
-          placeholder="Secure password"
-          onChange={handleChange}
-          required
-          style={{ padding: "10px" }}
-        />
-        <select
-          name="role"
-          value={formData.role}
-          onChange={handleChange}
-          style={{ padding: "10px" }}
-        >
-          <option value="driver">Driver</option>
-          <option value="manager">Manager / Dispatcher</option>
-          <option value="owner">Fleet Owner</option>
-        </select>
-        <button
-          type="submit"
-          style={{
-            padding: "10px",
-            background: "#007BFF",
-            color: "white",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Sign Up
-        </button>
-        <div style={{ marginTop: "20px", textAlign: "center" }}>
-          <p>Already have an account?</p>
-          <Link
-            to="/login"
-            style={{
-              color: "#007BFF",
-              textDecoration: "none",
-              fontWeight: "bold",
-            }}
-          >
-            Login
-          </Link>
-        </div>
-      </form>
-      {message && (
-        <p style={{ marginTop: "15px", color: isSuccess ? "green" : "red" }}>
-          {message}
-        </p>
-      )}
-    </div>
+          {message && (
+            <Alert severity={isSuccess ? "success" : "error"} sx={{ mb: 2 }}>
+              {message}
+            </Alert>
+          )}
+
+          <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
+            <TextField
+              name="username"
+              label="Username"
+              value={formData.username}
+              onChange={handleChange}
+              required
+              fullWidth
+              autoComplete="username"
+            />
+            <TextField
+              type="email"
+              name="email"
+              label="Email Address"
+              value={formData.email}
+              onChange={handleChange}
+              required
+              fullWidth
+              autoComplete="email"
+            />
+            <TextField
+              type="password"
+              name="password"
+              label="Password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+              fullWidth
+              autoComplete="new-password"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Role</InputLabel>
+              <Select
+                name="role"
+                value={formData.role}
+                label="Role"
+                onChange={handleChange}
+              >
+                <MenuItem value="driver">Driver</MenuItem>
+                <MenuItem value="manager">Manager / Dispatcher</MenuItem>
+                <MenuItem value="owner">Fleet Owner</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Button type="submit" variant="contained" size="large" fullWidth>
+              Sign Up
+            </Button>
+          </Box>
+
+          <Divider sx={{ my: 3 }} />
+
+          <Box textAlign="center">
+            <Typography variant="body2" color="text.secondary" display="inline">
+              Already have an account?{" "}
+            </Typography>
+            <Link to="/login" style={{ textDecoration: "none" }}>
+              <Typography variant="body2" fontWeight={700} color="primary" display="inline">
+                Sign In
+              </Typography>
+            </Link>
+          </Box>
+        </Paper>
+
+        <Box textAlign="center" mt={2}>
+          <Button onClick={() => navigate("/")} size="small" color="inherit">
+            ← Back to Home
+          </Button>
+        </Box>
+      </Container>
+    </Box>
   );
 }
 

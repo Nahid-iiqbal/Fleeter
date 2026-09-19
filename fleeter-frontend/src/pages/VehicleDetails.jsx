@@ -1,18 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { apiFetch } from "../utils/api";
 
-const tableHeaderStyle = {
-  textAlign: "left",
-  padding: "12px",
-  borderBottom: "2px solid #ddd",
-  color: "#555",
-};
-
-const tableCellStyle = {
-  padding: "12px",
-  borderBottom: "1px solid #eee",
-};
-
 function VehicleDetails({ vehicleId, onBack }) {
   const [vehicle, setVehicle] = useState(null);
   const [loading, setLoading] = useState(true);

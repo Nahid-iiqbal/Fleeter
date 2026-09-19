@@ -1,6 +1,5 @@
 import React from "react";
-import { ThemeProvider, CssBaseline } from "@mui/material";
-import theme from "./theme";
+import { ThemeSettingsProvider } from "./context/ThemeSettingsContext";
 import {
   BrowserRouter as Router,
   Routes,
@@ -18,8 +17,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ThemeSettingsProvider>
       <Router>
         <Routes>
           {/* Public Routes */}
@@ -68,7 +66,7 @@ function App() {
           />
         </Routes>
       </Router>
-    </ThemeProvider>
+    </ThemeSettingsProvider>
   );
 }
 

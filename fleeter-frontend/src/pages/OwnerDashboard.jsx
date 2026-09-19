@@ -1,5 +1,24 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import {
+  Box, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon,
+  ListItemText, AppBar, Toolbar, IconButton, Badge, Popover, Button, Paper, Tooltip,
+} from "@mui/material";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import LogoutIcon from "@mui/icons-material/Logout";
+import SettingsIcon from "@mui/icons-material/Settings";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import AccountSettings from "../components/AccountSettings";
+import { useThemeSettings } from "../context/ThemeSettingsContext";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import MapIcon from "@mui/icons-material/Map";
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import PersonIcon from "@mui/icons-material/Person";
+import RouteIcon from "@mui/icons-material/Route";
+import GroupIcon from "@mui/icons-material/Group";
+import WorkIcon from "@mui/icons-material/Work";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 
 // import driver and vehicle details for the details page
 import DriverDetails from "./DriverDetails";
@@ -15,19 +34,14 @@ import CompanyRequests from "../components/CompanyRequests";
 import LiveMap from "../components/LiveMap";
 import { apiFetch } from "../utils/api";
 
-// Table styles (Header and cell)
-const tableHeaderStyle = {
-  textAlign: "left",
-  padding: "12px",
-  borderBottom: "2px solid #ddd",
-  color: "#555",
-};
-
-const tableCellStyle = {
-  padding: "12px",
-  borderBottom: "1px solid #eee",
-};
+const DRAWER_WIDTH = 252;
 function OwnerDashboard() {
+  const { mode, toggleTheme } = useThemeSettings();
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
+  const handleNotificationsClick = (event) => setNotificationAnchorEl(event.currentTarget);
+  const handleNotificationsClose = () => setNotificationAnchorEl(null);
+  const isNotificationsOpen = Boolean(notificationAnchorEl);
+
   const navigate = useNavigate();
   const location = useLocation();
   const requestedTab = location.pathname.split("/")[2];
@@ -327,278 +341,207 @@ function OwnerDashboard() {
 
   if (!companyContext.hasCompany) {
     return (
-      <div style={styles.requestOnlyShell}>
-        <header style={styles.requestOnlyHeader}>
-          <strong>Fleeter OS</strong>
-          <span>Company: No company selected</span>
-        </header>
-        <main style={styles.requestOnlyContent}>
-          <h1>Join a company</h1>
-          <p>You need an approved company membership before dashboard access is enabled.</p>
+      <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
+        <AppBar position="static" color="secondary">
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>Fleeter OS</Typography>
+            <Typography variant="body2">Company: No company selected</Typography>
+            <IconButton color="error" onClick={handleLogout} sx={{ ml: 2 }}>
+              <LogoutIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+        <Box maxWidth="900px" mx="auto" p={4}>
+          <Typography variant="h4" gutterBottom>Join a company</Typography>
+          <Typography variant="body1" color="text.secondary" gutterBottom>
+            You need an approved company membership before dashboard access is enabled.
+          </Typography>
           <CompanyRequests joinOnly />
-        </main>
-      </div>
+        </Box>
+      </Box>
     );
   }
 
+  const navItems = [
+    { label: "Overview", tab: "overview", icon: <DashboardIcon /> },
+    { label: "Live Map", tab: "map", icon: <MapIcon /> },
+    { label: "Vehicles", tab: "vehicles", icon: <DirectionsCarIcon /> },
+    { label: "Drivers", tab: "drivers", icon: <PersonIcon /> },
+    { label: "Trips", tab: "trips", icon: <RouteIcon /> },
+    ...(userRole === "owner" ? [{ label: "Managers", tab: "managers", icon: <GroupIcon /> }] : []),
+    { label: "Recruit", tab: "recruit", icon: <WorkIcon /> },
+    { label: "Settings", tab: "settings", icon: <SettingsIcon /> },
+  ];
+
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        fontFamily: "sans-serif",
-        backgroundColor: "#f4f7f6",
-      }}
-    >
-      {/* Sidebar Navigation */}
-      <aside
-        style={{
-          width: "250px",
-          backgroundColor: "#2c3e50",
-          color: "white",
-          display: "flex",
-          flexDirection: "column",
+    <Box sx={{ display: "flex", height: "100vh", bgcolor: "background.default" }}>
+      {/* Sidebar */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: DRAWER_WIDTH,
+          flexShrink: 0,
+          "& .MuiDrawer-paper": { width: DRAWER_WIDTH, boxSizing: "border-box" },
         }}
       >
-        <div
-          style={{
-            padding: "20px",
-            fontSize: "24px",
-            fontWeight: "bold",
-            borderBottom: "1px solid #34495e",
-          }}
-        >
-          <div>Fleeter OS</div>
-          <div style={styles.companyIndicator}>
-            Company: {companyContext.companyName || "Unnamed company"}
-          </div>
-        </div>
-        <nav style={{ flex: 1, padding: "20px 0" }}>
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            <li
-              onClick={() => navigate("/dashboard/overview")}
-              style={{
-                padding: "15px 20px",
-                cursor: "pointer",
-                backgroundColor:
-                  activeTab === "overview" ? "#34495e" : "transparent",
-              }}
-            >
-              Dashboard Overview
-            </li>
-            <li
-              onClick={() => navigate("/dashboard/map")}
-              style={{
-                padding: "15px 20px",
-                cursor: "pointer",
-                backgroundColor:
-                  activeTab === "map" ? "#34495e" : "transparent",
-              }}
-            >
-              Live Map
-            </li>
-            <li
-              onClick={() => navigate("/dashboard/vehicles")}
-              style={{
-                padding: "15px 20px",
-                cursor: "pointer",
-                backgroundColor:
-                  activeTab === "vehicles" ? "#34495e" : "transparent",
-              }}
-            >
-              Vehicles
-            </li>
-            <li
-              onClick={() => navigate("/dashboard/drivers")}
-              style={{
-                padding: "15px 20px",
-                cursor: "pointer",
-                backgroundColor:
-                  activeTab === "drivers" ? "#34495e" : "transparent",
-              }}
-            >
-              Drivers
-            </li>
-            <li
-              onClick={() => navigate("/dashboard/trips")}
-              style={{
-                padding: "15px 20px",
-                cursor: "pointer",
-                backgroundColor: activeTab === "trips" ? "#34495e" : "transparent",
-              }}
-            >
-              Trips
-            </li>
-            {userRole === "owner" && (
-              <li
-                onClick={() => navigate("/dashboard/managers")}
-                style={{
-                  padding: "15px 20px",
-                  cursor: "pointer",
-                  backgroundColor:
-                    activeTab === "managers" ? "#34495e" : "transparent",
-                }}
-              >
-                Managers
-              </li>
-            )}
-            <li
-              onClick={() => navigate("/dashboard/recruit")}
-              style={{
-                padding: "15px 20px",
-                cursor: "pointer",
-                backgroundColor:
-                  activeTab === "recruit" ? "#34495e" : "transparent",
-              }}
-            >
-              Recruit
-            </li>
-          </ul>
-        </nav>
-        <div style={{ padding: "20px" }}>
-          <button
-            onClick={handleLogout}
-            style={{
-              width: "100%",
-              padding: "10px",
-              backgroundColor: "#e74c3c",
-              color: "white",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        {/* Top Header */}
-        <header
-          style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderBottom: "1px solid #e0e0e0",
+        {/* Logo area */}
+        <Box
+          sx={{
+            px: 2.5,
+            py: 2,
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
+            gap: 1,
+            borderBottom: 1,
+            borderColor: "divider",
           }}
         >
-          <h1 style={{ margin: 0, fontSize: "24px", color: "#333" }}>
-            Command Center
-          </h1>
-          <div style={{ color: "#7f8c8d" }}>
-            Logged in as: <strong>{userRole}</strong>
-          </div>
-        </header>
+          <LocalShippingIcon color="primary" />
+          <Box>
+            <Typography variant="subtitle1" fontWeight={800} color="primary" letterSpacing={1} lineHeight={1.2}>
+              FLEETER
+            </Typography>
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {companyContext.companyName || "Unnamed company"}
+            </Typography>
+          </Box>
+        </Box>
 
-        {/* Dashboard Widgets */}
-        <div style={{ padding: "20px", overflowY: "auto" }}>
-          {/* OVERVIEW TAB CONTENT */}
+        {/* Nav */}
+        <List sx={{ pt: 1 }}>
+          {navItems.map(({ label, tab, icon }) => (
+            <ListItem key={tab} disablePadding>
+              <ListItemButton
+                selected={activeTab === tab}
+                onClick={() => navigate(`/dashboard/${tab}`)}
+              >
+                <ListItemIcon sx={{ minWidth: 36, color: activeTab === tab ? "primary.main" : "inherit" }}>
+                  {icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={label}
+                  primaryTypographyProps={{ fontSize: "0.9rem", fontWeight: activeTab === tab ? 600 : 400 }}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Drawer>
+
+      {/* Main content */}
+      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* AppBar */}
+        <AppBar position="static" elevation={0}>
+          <Toolbar>
+            <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
+              Command Center
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+              {userRole}
+            </Typography>
+            <IconButton onClick={handleNotificationsClick}>
+              <Badge badgeContent={stats?.alerts || 0} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+            <Popover
+              open={isNotificationsOpen}
+              anchorEl={notificationAnchorEl}
+              onClose={handleNotificationsClose}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              transformOrigin={{ vertical: "top", horizontal: "right" }}
+            >
+              <Box p={2} minWidth={260}>
+                <Typography variant="subtitle1" fontWeight={700} gutterBottom>Notifications</Typography>
+                {stats?.alerts > 0 ? (
+                  <Button
+                    fullWidth
+                    sx={{ justifyContent: "flex-start", textTransform: "none" }}
+                    onClick={() => { handleNotificationsClose(); navigate("/dashboard/overview"); }}
+                  >
+                    ⚠️ You have {stats.alerts} system alert(s).
+                  </Button>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">No new notifications.</Typography>
+                )}
+              </Box>
+            </Popover>
+            <Tooltip title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}>
+              <IconButton onClick={toggleTheme} sx={{ mx: 0.5 }}>
+                {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Settings">
+              <IconButton onClick={() => navigate("/dashboard/settings")} sx={{ mx: 0.5 }}>
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Logout">
+              <IconButton color="error" onClick={handleLogout}>
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          </Toolbar>
+        </AppBar>
+
+        {/* Content */}
+        <Box sx={{ flex: 1, overflowY: "auto", p: 3 }}>
           {activeTab === "overview" && (
             <>
-              {/* Metrics Row */}
-              <div
-                style={{ display: "flex", gap: "20px", marginBottom: "20px" }}
+              <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+                <MetricCard title="Total Vehicles" value={stats.totalVehicles} color="#3498db" />
+                <MetricCard title="Active Drivers" value={stats.activeDrivers} color="#2ecc71" />
+                <MetricCard title="System Alerts" value={stats.alerts} color="#e67e22" />
+              </Box>
+              <Paper
+                variant="outlined"
+                sx={{ minHeight: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
               >
-                <MetricCard
-                  title="Total Vehicles"
-                  value={stats.totalVehicles}
-                  color="#3498db"
-                />
-                <MetricCard
-                  title="Active Drivers"
-                  value={stats.activeDrivers}
-                  color="#2ecc71"
-                />
-                <MetricCard
-                  title="System Alerts"
-                  value={stats.alerts}
-                  color="#e67e22"
-                />
-              </div>
-
-              {/* Placeholder for Analytics */}
-              <div
-                style={{
-                  backgroundColor: "white",
-                  padding: "20px",
-                  borderRadius: "8px",
-                  minHeight: "400px",
-                  border: "1px solid #e0e0e0",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  color: "#95a5a6",
-                }}
-              >
-                Overview Analytics Will Go Here
-              </div>
+                <Typography color="text.secondary">Overview Analytics Will Go Here</Typography>
+              </Paper>
             </>
           )}
 
-          {/* LIVE MAP TAB CONTENT */}
           {activeTab === "map" && <LiveMap />}
 
-
-          {/* VEHICLES TAB CONTENT */}
           {activeTab === "vehicles" && (
             selectedVehicleId ? (
-              <VehicleDetails
-                vehicleId={selectedVehicleId}
-                onBack={() => navigate("/dashboard/vehicles")}
-              />
+              <VehicleDetails vehicleId={selectedVehicleId} onBack={() => navigate("/dashboard/vehicles")} />
             ) : (
               <VehiclesTable
                 vehicles={vehicles}
                 vehiclesLoading={vehiclesLoading}
                 onRefresh={fetchVehicles}
-                onVehicleClick={(vehicleId) =>
-                  navigate(`/dashboard/vehicles/${vehicleId}`)
-                }
-                onDriverClick={(driverId) =>
-                  navigate(`/dashboard/drivers/${driverId}`)
-                }
+                onVehicleClick={(id) => navigate(`/dashboard/vehicles/${id}`)}
+                onDriverClick={(id) => navigate(`/dashboard/drivers/${id}`)}
               />
             )
           )}
 
-
-          {/* DRIVERS TAB CONTENT */}
           {activeTab === "drivers" && (
             selectedDriverId ? (
-              <DriverDetails
-                driverId={selectedDriverId}
-                onBack={() => navigate("/dashboard/drivers")}
-              />
+              <DriverDetails driverId={selectedDriverId} onBack={() => navigate("/dashboard/drivers")} />
             ) : (
               <DriversTable
                 drivers={drivers}
                 driversLoading={driversLoading}
                 error={driversError}
-                onRefresh={() => {
-                  fetchDrivers();
-                  fetchVehicles();
-                }}
-                onDriverClick={(driverId) =>
-                  navigate(`/dashboard/drivers/${driverId}`)
-                }
+                onRefresh={() => { fetchDrivers(); fetchVehicles(); }}
+                onDriverClick={(id) => navigate(`/dashboard/drivers/${id}`)}
               />
             )
           )}
 
           {activeTab === "trips" && (
             <>
-              {tripsError && <div style={{ color: "#cc0000", marginBottom: "12px" }}>{tripsError}</div>}
+              {tripsError && <Typography color="error" mb={1}>{tripsError}</Typography>}
               <TripsTable
                 trips={trips}
                 tripsLoading={tripsLoading}
                 drivers={drivers}
                 vehicles={vehicles}
-                onDriverClick={(driverId) => navigate(`/dashboard/drivers/${driverId}`)}
-                onVehicleClick={(vehicleId) => navigate(`/dashboard/vehicles/${vehicleId}`)}
+                onDriverClick={(id) => navigate(`/dashboard/drivers/${id}`)}
+                onVehicleClick={(id) => navigate(`/dashboard/vehicles/${id}`)}
                 onRefresh={refreshTripResources}
               />
             </>
@@ -606,19 +549,14 @@ function OwnerDashboard() {
 
           {activeTab === "managers" && userRole === "owner" && (
             selectedManagerId ? (
-              <ManagerDetails
-                managerId={selectedManagerId}
-                onBack={() => navigate("/dashboard/managers")}
-              />
+              <ManagerDetails managerId={selectedManagerId} onBack={() => navigate("/dashboard/managers")} />
             ) : (
               <ManagersTable
                 managers={managers}
                 managersLoading={managersLoading}
                 error={managersError}
                 onRefresh={fetchManagers}
-                onManagerClick={(managerId) =>
-                  navigate(`/dashboard/managers/${managerId}`)
-                }
+                onManagerClick={(id) => navigate(`/dashboard/managers/${id}`)}
               />
             )
           )}
@@ -627,65 +565,33 @@ function OwnerDashboard() {
             <CompanyRequests showJoinRequest={!companyContext.hasCompany} />
           )}
 
-        </div>
-      </main>
-    </div>
+          {activeTab === "settings" && <AccountSettings />}
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
-// A simple reusable UI component for the stats blocks
 function MetricCard({ title, value, color }) {
   return (
-    <div
-      style={{
+    <Paper
+      variant="outlined"
+      sx={{
         flex: 1,
-        backgroundColor: "white",
-        padding: "20px",
-        borderRadius: "8px",
+        p: 2.5,
         borderLeft: `5px solid ${color}`,
-        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+        transition: "box-shadow 0.2s",
+        "&:hover": { boxShadow: 3 },
       }}
     >
-      <h3
-        style={{
-          margin: "0 0 10px 0",
-          color: "#7f8c8d",
-          fontSize: "14px",
-          textTransform: "uppercase",
-        }}
-      >
+      <Typography variant="caption" color="text.secondary" fontWeight={600} textTransform="uppercase" display="block" mb={0.5}>
         {title}
-      </h3>
-      <div style={{ fontSize: "32px", fontWeight: "bold", color: "#2c3e50" }}>
+      </Typography>
+      <Typography variant="h4" fontWeight={700} color="text.primary">
         {value}
-      </div>
-    </div>
+      </Typography>
+    </Paper>
   );
 }
 
 export default OwnerDashboard;
-
-const styles = {
-  requestOnlyShell: {
-    minHeight: "100vh",
-    backgroundColor: "#f4f7f6",
-    fontFamily: "sans-serif",
-  },
-  requestOnlyHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "20px 30px",
-    backgroundColor: "#2c3e50",
-    color: "white",
-  },
-  requestOnlyContent: {
-    maxWidth: "900px",
-    margin: "0 auto",
-    padding: "40px 20px",
-  },
-  companyIndicator: {
-    marginTop: "8px",
-    fontSize: "13px",
-    color: "#d5e8f7",
-  },
-};

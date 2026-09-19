@@ -45,6 +45,8 @@ const initializeDatabase = async () => {
         email VARCHAR(100) UNIQUE NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         role VARCHAR(20) NOT NULL CHECK (role IN ('owner', 'manager', 'driver', 'admin')),
+        theme VARCHAR(10) DEFAULT 'light',
+        notifications_enabled BOOLEAN DEFAULT TRUE,
         is_active BOOLEAN DEFAULT TRUE,
         last_login TIMESTAMPTZ NULL,
         created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP

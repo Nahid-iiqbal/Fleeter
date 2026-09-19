@@ -72,6 +72,8 @@ router.post("/login", authLimiter, async (req, res) => {
       role: user.role,
       user_id: user.user_id,
       username: user.username,
+      theme: user.theme || 'light',
+      notifications_enabled: user.notifications_enabled,
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -105,7 +107,7 @@ router.post("/register", authLimiter, async (req, res) => {
     // 3. Insert the new user into the database
     const newUser = await db.query(
       "INSERT INTO User_Account (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id, username, email, role",
-      [username, email, passwordHash, role || "driver"],
+      [username, email, passwordHash, registeredRole],
     );
 
     if (registeredRole === "owner") {
@@ -151,6 +153,53 @@ router.post("/logout", verifyToken, async (req, res) => {
   } catch (error) {
     console.error("Logout error:", error);
     res.status(500).json({ message: "Server error during logout." });
+  }
+});
+
+// GET /api/auth/account
+router.get("/account", verifyToken, async (req, res) => {
+  try {
+    const userQuery = await db.query(
+      "SELECT username, email, theme, notifications_enabled FROM User_Account WHERE user_id = $1",
+      [req.user.user_id]
+    );
+    if (userQuery.rows.length === 0) return res.status(404).json({ error: "User not found" });
+    res.json(userQuery.rows[0]);
+  } catch (error) {
+    console.error("Error fetching account:", error);
+    res.status(500).json({ error: "Failed to fetch account." });
+  }
+});
+
+// PUT /api/auth/account
+router.put("/account", verifyToken, async (req, res) => {
+  const { username, email, password, theme, notifications_enabled } = req.body;
+
+  if (!username || !email) {
+    return res.status(400).json({ error: "Username and email are required." });
+  }
+
+  try {
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      const password_hash = await bcrypt.hash(password, salt);
+      await db.query(
+        "UPDATE User_Account SET username = $1, email = $2, password_hash = $3, theme = $4, notifications_enabled = $5 WHERE user_id = $6",
+        [username, email, password_hash, theme || 'light', notifications_enabled !== false, req.user.user_id]
+      );
+    } else {
+      await db.query(
+        "UPDATE User_Account SET username = $1, email = $2, theme = $3, notifications_enabled = $4 WHERE user_id = $5",
+        [username, email, theme || 'light', notifications_enabled !== false, req.user.user_id]
+      );
+    }
+    res.json({ message: "Account updated successfully", theme, notifications_enabled });
+  } catch (error) {
+    if (error.code === "23505") {
+      return res.status(409).json({ error: "Username or email is already taken." });
+    }
+    console.error("Error updating account:", error);
+    res.status(500).json({ error: "Failed to update account." });
   }
 });
 

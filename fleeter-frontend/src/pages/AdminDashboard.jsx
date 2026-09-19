@@ -1,39 +1,76 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../utils/api";
+import { useThemeSettings } from "../context/ThemeSettingsContext";
+import {
+  Box,
+  Drawer,
+  AppBar,
+  Toolbar,
+  Typography,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  IconButton,
+  Badge,
+  Paper,
+  Grid,
+  TextField,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  Button,
+  Tooltip
+} from "@mui/material";
+import SettingsIcon from "@mui/icons-material/Settings";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import LogoutIcon from "@mui/icons-material/Logout";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import GroupIcon from "@mui/icons-material/Group";
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
+  const { mode, toggleTheme } = useThemeSettings();
+  const [currentTab, setCurrentTab] = useState("overview");
+
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalAdmins, setTotalAdmins] = useState(0);
+  const [totalOwners, setTotalOwners] = useState(0);
+  const [totalDrivers, setTotalDrivers] = useState(0);
+  const [usersList, setUsersList] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentTab, setCurrentTab] = useState("overview"); // 'overview' or 'users'
 
   useEffect(() => {
-    fetchRoster();
+    const fetchData = async () => {
+      try {
+        const users = await apiFetch("/api/admin/users");
+        setUsersList(users);
+
+        setTotalUsers(users.length);
+        setTotalAdmins(users.filter((u) => u.role === "admin").length);
+        setTotalOwners(users.filter((u) => u.role === "owner").length);
+        setTotalDrivers(users.filter((u) => u.role === "driver").length);
+      } catch (err) {
+        console.error("Failed to load admin stats:", err);
+      }
+    };
+    fetchData();
   }, []);
 
-  const fetchRoster = async () => {
-    try {
-      const data = await apiFetch("/api/admin/roster");
-      setUsers(data);
-    } catch (err) {
-      console.error("Failed to load users", err);
-    }
-  };
-
   const handleLogout = () => {
-    localStorage.clear();
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
     navigate("/login");
   };
 
-  // --- DERIVED METRICS ---
-  const totalUsers = users.length;
-  const totalOwners = users.filter((u) => u.role === "owner").length;
-  const totalDrivers = users.filter((u) => u.role === "driver").length;
-  const totalAdmins = users.filter((u) => u.role === "admin").length;
-
-  // --- SEARCH LOGIC ---
-  const filteredUsers = users.filter(
+  const filteredUsers = usersList.filter(
     (u) =>
       u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -41,191 +78,165 @@ function AdminDashboard() {
   );
 
   return (
-    <div style={styles.appContainer}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Drawer
+        variant="permanent"
+        sx={{
+          width: 240,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': { width: 240, boxSizing: 'border-box' },
+        }}
+      >
+        <Box p={2} sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+          <Typography variant="h6" fontWeight="bold">Fleeter OS</Typography>
+          <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
+            Admin Portal
+          </Typography>
+        </Box>
+        <List sx={{ flexGrow: 1 }}>
+          <Typography variant="caption" sx={{ px: 2, color: 'text.secondary', fontWeight: 'bold' }}>DASHBOARD</Typography>
+          <ListItem disablePadding>
+            <ListItemButton selected={currentTab === "overview"} onClick={() => setCurrentTab("overview")}>
+              <DashboardIcon sx={{ mr: 2 }} />
+              <ListItemText primary="System Overview" />
+            </ListItemButton>
+          </ListItem>
+          <Typography variant="caption" sx={{ px: 2, color: 'text.secondary', fontWeight: 'bold', mt: 2, display: 'block' }}>MANAGEMENT</Typography>
+          <ListItem disablePadding>
+            <ListItemButton selected={currentTab === "users"} onClick={() => setCurrentTab("users")}>
+              <GroupIcon sx={{ mr: 2 }} />
+              <ListItemText primary="User Roster" />
+            </ListItemButton>
+          </ListItem>
+        </List>
+      </Drawer>
 
-      {/* ================= LEFT SIDEBAR ================= */}
-      <aside style={styles.sidebar}>
-        <div style={styles.sidebarHeader}>
-          <h1 style={styles.sidebarTitle}>Fleeter OS</h1>
-          <p style={styles.sidebarSubtitle}>Super Admin Panel</p>
-        </div>
+      <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <AppBar position="static" color="default" elevation={1}>
+          <Toolbar>
+            <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>System Administration</Typography>
+            <IconButton color="inherit">
+              <Badge badgeContent={0} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+            <IconButton color="inherit" onClick={() => navigate("/dashboard/settings")}>
+              <SettingsIcon />
+            </IconButton>
+            <IconButton color="error" onClick={handleLogout}>
+              <LogoutIcon />
+            </IconButton>
+            <Tooltip title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}>
+              <IconButton onClick={toggleTheme} sx={{ mx: 0.5 }}>
+                {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Settings">
+              <IconButton color="inherit" onClick={() => navigate("/dashboard/settings")}>
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Logout">
+              <IconButton color="error" onClick={handleLogout}>
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          </Toolbar>
+        </AppBar>
+        <Box sx={{ p: 3, overflowY: 'auto', flexGrow: 1 }}>
+          {currentTab === "overview" && (
+            <Box>
+              <Typography variant="h4" gutterBottom>System Overview</Typography>
+              <Grid container spacing={3} mb={3}>
+                <Grid item xs={12} md={3}>
+                  <Paper sx={{ p: 3, borderTop: 5, borderColor: 'success.main', boxShadow: 1 }}>
+                    <Typography variant="overline" color="text.secondary">Site State</Typography>
+                    <Typography variant="h5" fontWeight="bold" color="success.main">🟢 Online</Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Paper sx={{ p: 3, borderTop: 5, borderColor: 'info.main', boxShadow: 1 }}>
+                    <Typography variant="overline" color="text.secondary">Total Users</Typography>
+                    <Typography variant="h4" fontWeight="bold" color="text.primary">{totalUsers}</Typography>
+                    <Typography variant="caption" color="text.secondary">{totalAdmins} Site Admins</Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Paper sx={{ p: 3, borderTop: 5, borderColor: 'secondary.main', boxShadow: 1 }}>
+                    <Typography variant="overline" color="text.secondary">Registered Companies</Typography>
+                    <Typography variant="h4" fontWeight="bold" color="text.primary">{totalOwners}</Typography>
+                    <Typography variant="caption" color="text.secondary">Active Fleet Owners</Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Paper sx={{ p: 3, borderTop: 5, borderColor: 'warning.main', boxShadow: 1 }}>
+                    <Typography variant="overline" color="text.secondary">Registered Drivers</Typography>
+                    <Typography variant="h4" fontWeight="bold" color="text.primary">{totalDrivers}</Typography>
+                    <Typography variant="caption" color="text.secondary">Across all fleets</Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
 
-        <nav style={styles.navContainer}>
-          <div style={styles.navSectionTitle}>Dashboard</div>
-          <button
-            onClick={() => setCurrentTab("overview")}
-            style={tabButtonStyle(currentTab === "overview")}
-          >
-            📊 System Overview
-          </button>
-
-          <div style={styles.navSectionTitle}>Management</div>
-          <button
-            onClick={() => setCurrentTab("users")}
-            style={tabButtonStyle(currentTab === "users")}
-          >
-            👥 User Roster
-          </button>
-        </nav>
-
-        <div style={styles.logoutContainer}>
-          <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
-        </div>
-      </aside>
-
-      {/* ================= MAIN CONTENT ================= */}
-      <main style={styles.mainContent}>
-
-        {/* OVERVIEW TAB */}
-        {currentTab === "overview" && (
-          <section>
-            <h2 style={styles.pageHeader}>System Overview</h2>
-
-            <div style={styles.metricsGrid}>
-
-              {/* Site State Card */}
-              <div style={{ ...styles.metricCard, borderTop: "4px solid #2ecc71" }}>
-                <h3 style={styles.metricTitle}>Site State</h3>
-                <p style={{ ...styles.metricValue, color: "#2ecc71", fontSize: "24px" }}>
-                  🟢 Online & Healthy
-                </p>
-              </div>
-
-              {/* Total Users Card */}
-              <div style={{ ...styles.metricCard, borderTop: "4px solid #3498db" }}>
-                <h3 style={styles.metricTitle}>Total Users</h3>
-                <p style={styles.metricValue}>{totalUsers}</p>
-                <p style={styles.metricSubtitle}>{totalAdmins} Site Admins</p>
-              </div>
-
-              {/* Total Owners Card */}
-              <div style={{ ...styles.metricCard, borderTop: "4px solid #9b59b6" }}>
-                <h3 style={styles.metricTitle}>Registered Companies</h3>
-                <p style={styles.metricValue}>{totalOwners}</p>
-                <p style={styles.metricSubtitle}>Active Fleet Owners</p>
-              </div>
-
-              {/* Total Drivers Card */}
-              <div style={{ ...styles.metricCard, borderTop: "4px solid #e67e22" }}>
-                <h3 style={styles.metricTitle}>Registered Drivers</h3>
-                <p style={styles.metricValue}>{totalDrivers}</p>
-                <p style={styles.metricSubtitle}>Across all fleets</p>
-              </div>
-
-            </div>
-          </section>
-        )}
-
-        {/* USERS TAB */}
-        {currentTab === "users" && (
-          <section style={styles.rosterSection}>
-            <div style={styles.rosterHeaderFlex}>
-              <h2 style={{ margin: 0, color: "#34495e" }}>
-                Universal Roster ({filteredUsers.length})
-              </h2>
-              <input
-                type="text"
-                placeholder="Search by username, email, or company..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={styles.searchInput}
-              />
-            </div>
-
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ backgroundColor: "#ecf0f1", textAlign: "left" }}>
-                  <th style={styles.thStyle}>ID</th>
-                  <th style={styles.thStyle}>Username</th>
-                  <th style={styles.thStyle}>Email</th>
-                  <th style={styles.thStyle}>Role</th>
-                  <th style={styles.thStyle}>Association</th>
-                  <th style={styles.thStyle}>Status</th>
-                  <th style={styles.thStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user) => (
-                  <tr key={user.user_id} style={{ borderBottom: "1px solid #ecf0f1" }}>
-                    <td style={styles.tdStyle}>{user.user_id}</td>
-                    <td style={styles.tdStyle}><strong>{user.username}</strong></td>
-                    <td style={styles.tdStyle}>{user.email}</td>
-                    <td style={styles.tdStyle}>
-                      <span
-                        style={{
-                          padding: "4px 8px",
-                          backgroundColor: user.role === "admin" ? "#e74c3c" : user.role === "owner" ? "#9b59b6" : "#3498db",
-                          color: "white",
-                          borderRadius: "4px",
-                          fontSize: "12px",
-                        }}
-                      >
-                        {user.role.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={styles.tdStyle}>
-                      {user.company_name && `🏢 ${user.company_name}`}
-                      {user.driver_name && `🚚 Driver: ${user.driver_name}`}
-                      {!user.company_name && !user.driver_name && "Unassigned"}
-                    </td>
-                    <td style={styles.tdStyle}>{user.driver_status || "active"}</td>
-                    <td style={styles.tdStyle}>
-                      <button style={styles.manageBtn}>Manage</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-        )}
-      </main>
-    </div>
+          {currentTab === "users" && (
+            <Paper sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h5">Universal Roster ({filteredUsers.length})</Typography>
+                <TextField
+                  size="small"
+                  placeholder="Search users..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  sx={{ width: 300 }}
+                />
+              </Box>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>ID</TableCell>
+                      <TableCell>Username</TableCell>
+                      <TableCell>Email</TableCell>
+                      <TableCell>Role</TableCell>
+                      <TableCell>Association</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredUsers.map((user) => (
+                      <TableRow key={user.user_id}>
+                        <TableCell>{user.user_id}</TableCell>
+                        <TableCell fontWeight="bold">{user.username}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={user.role.toUpperCase()}
+                            color={user.role === 'admin' ? 'error' : user.role === 'owner' ? 'secondary' : 'primary'}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {user.company_name && `🏢 ${user.company_name}`}
+                          {user.driver_name && `🚗 Driver: ${user.driver_name}`}
+                          {!user.company_name && !user.driver_name && "Unassigned"}
+                        </TableCell>
+                        <TableCell>{user.driver_status || "active"}</TableCell>
+                        <TableCell>
+                          <Button variant="outlined" size="small" color="warning">Manage</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          )}
+        </Box>
+      </Box>
+    </Box>
   );
 }
-
-// --- DYNAMIC STYLE HELPERS ---
-const tabButtonStyle = (isActive) => ({
-  width: "100%",
-  textAlign: "left",
-  padding: "15px 20px",
-  backgroundColor: isActive ? "#34495e" : "transparent",
-  color: "white",
-  border: "none",
-  borderLeft: isActive ? "4px solid #3498db" : "4px solid transparent",
-  cursor: "pointer",
-  fontSize: "15px",
-});
-
-// --- CENTRALIZED STATIC STYLES ---
-const styles = {
-  appContainer: { display: "flex", height: "100vh", backgroundColor: "#f4f7f6", fontFamily: "sans-serif" },
-  mainContent: { flex: 1, padding: "30px", overflowY: "auto" },
-  pageHeader: { color: "#2c3e50", marginTop: 0, marginBottom: "30px", borderBottom: "2px solid #ecf0f1", paddingBottom: "10px" },
-
-  // Sidebar
-  sidebar: { width: "260px", backgroundColor: "#2c3e50", color: "white", display: "flex", flexDirection: "column" },
-  sidebarHeader: { padding: "20px", borderBottom: "1px solid #34495e" },
-  sidebarTitle: { margin: 0, fontSize: "22px" },
-  sidebarSubtitle: { margin: "5px 0 0 0", fontSize: "14px", color: "#bdc3c7" },
-  navContainer: { flex: 1, padding: "20px 0", display: "flex", flexDirection: "column", gap: "10px" },
-  navSectionTitle: { padding: "10px 20px 0 20px", fontSize: "12px", color: "#7f8c8d", textTransform: "uppercase", fontWeight: "bold" },
-  logoutContainer: { padding: "20px" },
-  logoutBtn: { width: "100%", padding: "12px", backgroundColor: "#c0392b", color: "white", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" },
-
-  // Metrics Grid
-  metricsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px" },
-  metricCard: { backgroundColor: "white", padding: "25px", borderRadius: "8px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)" },
-  metricTitle: { margin: "0 0 10px 0", fontSize: "16px", color: "#7f8c8d", textTransform: "uppercase" },
-  metricValue: { margin: 0, fontSize: "36px", fontWeight: "bold", color: "#2c3e50" },
-  metricSubtitle: { margin: "5px 0 0 0", fontSize: "14px", color: "#95a5a6" },
-
-  // Roster Table
-  rosterSection: { backgroundColor: "white", padding: "20px", borderRadius: "8px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)" },
-  rosterHeaderFlex: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" },
-  searchInput: { width: "300px", padding: "10px", borderRadius: "6px", border: "1px solid #ccc", boxSizing: "border-box" },
-  thStyle: { padding: "12px 15px", color: "#7f8c8d" },
-  tdStyle: { padding: "12px 15px", color: "#2c3e50" },
-  manageBtn: { padding: "6px 12px", backgroundColor: "#f39c12", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontSize: "12px" },
-};
 
 export default AdminDashboard;
