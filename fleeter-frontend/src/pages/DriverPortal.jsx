@@ -18,6 +18,7 @@ import {
   ListItemText,
   IconButton,
   Button,
+  Stack,
   Badge,
   Popover,
   Tooltip,
@@ -520,30 +521,52 @@ function DriverDashboard() {
                 ))}
               </Box>
               <Box sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, bgcolor: "background.paper", boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)" }}>
-                {docError && <div style={styles.errorBanner}>{docError}</div>}
-                <form onSubmit={submitDocument} style={styles.form}>
-                  <input type="hidden" name="document_type" value="driving_license" />
-                  <div style={styles.fixedDocumentType}>
-                    <span style={styles.label}>Required document</span>
-                    <strong>Driver&apos;s licence</strong>
-                  </div>
-                  <div>
-                    <label style={styles.label}>Document number</label>
-                    <input type="text" name="document_no" value={newDocForm.document_no} onChange={handleDocChange} required style={styles.input} />
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
-                    <div>
-                      <label style={styles.label}>Issue date</label>
-                      <input type="date" name="issue_date" value={newDocForm.issue_date} onChange={handleDocChange} required style={styles.input} />
-                    </div>
-                    <div>
-                      <label style={styles.label}>Expiry date</label>
-                      <input type="date" name="expiry_date" value={newDocForm.expiry_date} min={newDocForm.issue_date} onChange={handleDocChange} required style={styles.input} />
-                    </div>
-                  </div>
-                  <button type="submit" style={{ ...styles.primaryBtn, backgroundColor: "#0284c7" }}>
-                    Save document and continue
-                  </button>
+                {docError && <Alert severity="error" sx={{ mb: 2 }}>{docError}</Alert>}
+                <form onSubmit={submitDocument}>
+                  <Stack spacing={3}>
+                    <input type="hidden" name="document_type" value="driving_license" />
+                    <Box p={2} bgcolor="background.default" borderRadius={2} border="1px solid" borderColor="divider">
+                      <Typography variant="caption" color="text.secondary" display="block">Required document</Typography>
+                      <Typography variant="body1" fontWeight={700}>Driver&apos;s licence</Typography>
+                    </Box>
+                    <TextField
+                      variant="outlined"
+                      label="Document number"
+                      name="document_no"
+                      value={newDocForm.document_no}
+                      onChange={handleDocChange}
+                      required
+                      fullWidth
+                    />
+                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 2 }}>
+                      <TextField
+                        variant="outlined"
+                        type="date"
+                        label="Issue date"
+                        name="issue_date"
+                        value={newDocForm.issue_date}
+                        onChange={handleDocChange}
+                        required
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                      />
+                      <TextField
+                        variant="outlined"
+                        type="date"
+                        label="Expiry date"
+                        name="expiry_date"
+                        value={newDocForm.expiry_date}
+                        inputProps={{ min: newDocForm.issue_date }}
+                        onChange={handleDocChange}
+                        required
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Box>
+                    <Button type="submit" variant="contained" color="primary" size="large" disableElevation>
+                      Save document and continue
+                    </Button>
+                  </Stack>
                 </form>
               </Box>
             </Box>

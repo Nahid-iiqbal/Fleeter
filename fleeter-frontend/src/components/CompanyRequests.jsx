@@ -73,6 +73,7 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true, requiresDoc
   const activeRequest = mine.find((request) => ["pending", "approved"].includes(request.status));
   const hasOnlyRejectedRequests = mine.every((request) => request.status === "rejected");
   const canRequest = licenseComplete && hasOnlyRejectedRequests && !activeRequest;
+  const requestLocked = !!activeRequest;
 
   const submitRequest = async (event) => {
     event.preventDefault();

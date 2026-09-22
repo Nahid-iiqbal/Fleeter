@@ -97,6 +97,26 @@ function Register() {
           <Box component="form" onSubmit={handleSubmit}>
             {/* Stack ensures perfectly even spacing between all form elements */}
             <Stack spacing={3} sx={{ pt: 2 }}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  variant="outlined"
+                  name="firstName"
+                  label="First Name"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  required={formData.role !== "owner"}
+                  fullWidth
+                />
+                <TextField
+                  variant="outlined"
+                  name="lastName"
+                  label="Last Name"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  required={formData.role !== "owner"}
+                  fullWidth
+                />
+              </Stack>
               <TextField
                 variant="outlined"
                 name="username"
