@@ -1,27 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../utils/api";
-
-const cardStyle = {
-  backgroundColor: "white",
-  borderRadius: "8px",
-  border: "1px solid #e0e0e0",
-  padding: "24px",
-  marginBottom: "20px",
-};
-
-const labelStyle = {
-  fontSize: "12px",
-  color: "#7f8c8d",
-  textTransform: "uppercase",
-  marginBottom: "6px",
-};
-
-const valueStyle = {
-  fontSize: "16px",
-  color: "#2c3e50",
-  fontWeight: "500",
-};
+import {
+  Box,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  Button,
+  Chip,
+  Alert,
+  CircularProgress,
+  Avatar,
+  Paper
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 function DriverDetails({ driverId, onBack }) {
   const navigate = useNavigate();
@@ -35,8 +28,6 @@ function DriverDetails({ driverId, onBack }) {
       try {
         setLoading(true);
         setError("");
-
-
         const data = await apiFetch(`/api/drivers/${driverId}`);
         setDriver(data);
       } catch (err) {
@@ -46,291 +37,141 @@ function DriverDetails({ driverId, onBack }) {
         setLoading(false);
       }
     };
-
     fetchDriver();
-  }, [driverId]); 
+  }, [driverId]);
 
-  const getStatusStyle = (status) => {
+  const getStatusColor = (status) => {
     switch (status) {
-      case "active":
-        return { backgroundColor: "#d5f5e3", color: "#1e8449" };
-      case "on_leave":
-        return { backgroundColor: "#fcf3cf", color: "#9a7d0a" };
-      case "suspended":
-        return { backgroundColor: "#fadbd8", color: "#c0392b" };
-      case "terminated":
-        return { backgroundColor: "#eaecee", color: "#566573" };
-      default:
-        return { backgroundColor: "#eaecee", color: "#566573" };
+      case "active": return "success";
+      case "on_leave": return "warning";
+      case "suspended": return "error";
+      case "terminated": return "default";
+      default: return "default";
     }
   };
 
   if (loading) {
     return (
-      <div
-        style={{ padding: "30px", fontFamily: "sans-serif", color: "#2c3e50" }}
-      >
-        Loading driver profile...
-      </div>
+      <Box sx={{ p: 4, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <CircularProgress sx={{ mb: 2 }} />
+        <Typography color="text.secondary">Loading driver profile...</Typography>
+      </Box>
     );
   }
 
-  // 4. Render the caught error message cleanly
   if (error || !driver) {
     return (
-      <div style={{ padding: "30px", fontFamily: "sans-serif" }}>
-        <button
-          onClick={onBack}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            color: "#3498db",
-            cursor: "pointer",
-            fontSize: "14px",
-            marginBottom: "20px",
-          }}
-        >
-          ← Back to Drivers
-        </button>
-
-        <div style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Driver Unavailable</h2>
-          {error ? (
-            <div
-              style={{
-                backgroundColor: "#ffe6e6",
-                color: "#cc0000",
-                padding: "15px",
-                borderRadius: "5px",
-                border: "1px solid #cc0000",
-              }}
-            >
-              <strong>Error:</strong> {error}
-            </div>
-          ) : (
-            <p style={{ color: "#7f8c8d" }}>This driver could not be found.</p>
-          )}
-        </div>
-      </div>
+      <Box>
+        <Button startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ mb: 3 }}>
+          Back to Drivers
+        </Button>
+        <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+          <CardContent sx={{ p: 4 }}>
+            <Typography variant="h5" fontWeight={700} gutterBottom>
+              Driver Unavailable
+            </Typography>
+            {error ? (
+              <Alert severity="error">{error}</Alert>
+            ) : (
+              <Typography color="text.secondary">This driver could not be found.</Typography>
+            )}
+          </CardContent>
+        </Card>
+      </Box>
     );
   }
 
-  const statusStyle = getStatusStyle(driver.status);
-
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor: "#f4f7f6",
-        fontFamily: "sans-serif",
-      }}
-    >
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3, pb: 4 }}>
       {/* Header */}
-      <header
-        style={{
-          backgroundColor: "white",
-          padding: "20px 30px",
-          borderBottom: "1px solid #e0e0e0",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <div>
-          <h1 style={{ margin: 0, fontSize: "24px", color: "#2c3e50" }}>
-            Driver Profile
-          </h1>
-          <div style={{ marginTop: "5px", color: "#7f8c8d", fontSize: "14px" }}>
-            Driver ID #{driver.driver_id}
-          </div>
-        </div>
-      </header>
+      <Paper elevation={0} sx={{ borderBottom: 1, borderColor: "divider", p: 3, mx: -3, mt: -3, mb: 1, borderRadius: 0, bgcolor: "background.paper", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700} color="text.primary">Driver Profile</Typography>
+          <Typography variant="body2" color="text.secondary">Driver ID #{driver.driver_id}</Typography>
+        </Box>
+      </Paper>
 
-      <main style={{ padding: "30px", maxWidth: "1200px", margin: "0 auto" }}>
-        {/* Back button */}
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            background: "none",
-            border: "none",
-            padding: "0",
-            color: "#3498db",
-            cursor: "pointer",
-            fontSize: "14px",
-            marginBottom: "20px",
-          }}
-        >
-          ← Back
-        </button>
+      <Box>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
+          Back
+        </Button>
+      </Box>
 
-        {/* Driver identity card */}
-        <div style={cardStyle}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "20px",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
-              {/* Avatar */}
-              <div
-                style={{
-                  width: "70px",
-                  height: "70px",
-                  borderRadius: "50%",
-                  backgroundColor: "#3498db",
-                  color: "white",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "28px",
-                  fontWeight: "bold",
-                }}
-              >
-                {driver.full_name?.charAt(0).toUpperCase()}
-              </div>
+      {/* Driver Identity Card */}
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2.5 }}>
+            <Avatar sx={{ width: 70, height: 70, bgcolor: "primary.main", fontSize: "1.75rem", fontWeight: 700 }}>
+              {driver.full_name?.charAt(0).toUpperCase()}
+            </Avatar>
+            <Box>
+              <Typography variant="h5" fontWeight={700} color="text.primary">
+                {driver.full_name}
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Driver #{driver.driver_id}
+              </Typography>
+            </Box>
+          </Box>
+          <Chip
+            label={driver.status?.replace("_", " ")}
+            color={getStatusColor(driver.status)}
+            sx={{ fontWeight: 700, textTransform: "capitalize", px: 1, fontSize: "0.875rem" }}
+          />
+        </CardContent>
+      </Card>
 
-              <div>
-                <h2 style={{ margin: 0, fontSize: "26px", color: "#2c3e50" }}>
-                  {driver.full_name}
-                </h2>
-                <p style={{ margin: "6px 0 0", color: "#7f8c8d" }}>
-                  Driver #{driver.driver_id}
-                </p>
-              </div>
-            </div>
+      {/* Personal Information */}
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h6" fontWeight={700} mb={3}>Personal Information</Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Full Name" value={driver.full_name} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Phone" value={driver.phone} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Username" value={driver.username || "Not linked"} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Email" value={driver.email} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Joined Date" value={driver.joined_date} /></Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
-            {/* Status */}
-            <span
-              style={{
-                ...statusStyle,
-                padding: "8px 14px",
-                borderRadius: "20px",
-                fontSize: "13px",
-                fontWeight: "bold",
-                textTransform: "capitalize",
-              }}
-            >
-              {driver.status?.replace("_", " ")}
-            </span>
-          </div>
-        </div>
+      {/* License Information */}
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h6" fontWeight={700} mb={3}>License Information</Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Document Number" value={driver.document_no} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Document Type" value={driver.document_type?.replaceAll("_", " ")} sx={{ textTransform: "capitalize" }} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Issue Date" value={driver.document_issue_date} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Expiry Date" value={driver.document_expiry_date} /></Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
-        {/* Personal Information */}
-        <div style={cardStyle}>
-          <h2 style={{ marginTop: 0, marginBottom: "20px", color: "#2c3e50" }}>
-            Personal Information
-          </h2>
+      {/* Record Information */}
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h6" fontWeight={700} mb={3}>Record Information</Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Driver ID" value={driver.driver_id} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Created At" value={driver.created_at ? new Date(driver.created_at).toLocaleString() : null} /></Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+    </Box>
+  );
+}
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "25px",
-            }}
-          >
-            <div>
-              <div style={labelStyle}>Full Name</div>
-              <div style={valueStyle}>{driver.full_name}</div>
-            </div>
-
-            <div>
-              <div style={labelStyle}>Phone</div>
-              <div style={valueStyle}>{driver.phone || "Not provided"}</div>
-            </div>
-
-            <div>
-              <div style={labelStyle}>Username</div>
-              <div style={valueStyle}>{driver.username || "Not linked"}</div>
-            </div>
-
-            <div>
-              <div style={labelStyle}>Email</div>
-              <div style={valueStyle}>{driver.email || "Not provided"}</div>
-            </div>
-
-            <div>
-              <div style={labelStyle}>Joined Date</div>
-              <div style={valueStyle}>
-                {driver.joined_date || "Not provided"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* License Information */}
-        <div style={cardStyle}>
-          <h2 style={{ marginTop: 0, marginBottom: "20px", color: "#2c3e50" }}>
-            License Information
-          </h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "25px",
-            }}
-          >
-            <div>
-              <div style={labelStyle}>Document Number</div>
-              <div style={valueStyle}>
-                {driver.document_no || "Not provided"}
-              </div>
-            </div>
-
-            <div>
-              <div style={labelStyle}>Document Type</div>
-              <div style={valueStyle}>
-                {driver.document_type?.replaceAll("_", " ") || "Not provided"}
-              </div>
-            </div>
-
-            <div>
-              <div style={labelStyle}>Issue Date</div>
-              <div style={valueStyle}>
-                {driver.document_issue_date || "Not provided"}
-              </div>
-            </div>
-
-            <div>
-              <div style={labelStyle}>Expiry Date</div>
-              <div style={valueStyle}>
-                {driver.document_expiry_date || "Not provided"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Account / Record Information */}
-        <div style={cardStyle}>
-          <h2 style={{ marginTop: 0, marginBottom: "20px", color: "#2c3e50" }}>
-            Record Information
-          </h2>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: "25px",
-            }}
-          >
-            <div>
-              <div style={labelStyle}>Driver ID</div>
-              <div style={valueStyle}>{driver.driver_id}</div>
-            </div>
-
-            <div>
-              <div style={labelStyle}>Created At</div>
-              <div style={valueStyle}>{driver.created_at}</div>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+function InfoItem({ label, value, sx }) {
+  return (
+    <Box>
+      <Typography variant="overline" color="text.secondary" display="block" lineHeight={1.2} mb={0.5}>
+        {label}
+      </Typography>
+      <Typography variant="body1" fontWeight={500} color="text.primary" sx={sx}>
+        {value !== null && value !== undefined && value !== "" ? value : "Not provided"}
+      </Typography>
+    </Box>
   );
 }
 

@@ -20,15 +20,35 @@ import {
   Button,
   Badge,
   Popover,
-  Tooltip
+  Tooltip,
+  Card,
+  CardContent,
+  Grid,
+  Paper,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import LogoutIcon from '@mui/icons-material/Logout';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
+import WarningIcon from '@mui/icons-material/Warning';
+import BuildIcon from '@mui/icons-material/Build';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import HistoryIcon from '@mui/icons-material/History';
+import DescriptionIcon from '@mui/icons-material/Description';
 import AccountSettings from '../components/AccountSettings';
 import { useThemeSettings } from '../context/ThemeSettingsContext';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 // Fix for Leaflet's default marker icons in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -37,6 +57,8 @@ L.Icon.Default.mergeOptions({
   iconUrl: require("leaflet/dist/images/marker-icon.png"),
   shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
 });
+
+const DRAWER_WIDTH = 260;
 
 function DriverDashboard() {
   const navigate = useNavigate();
@@ -48,6 +70,7 @@ function DriverDashboard() {
   const isNotificationsOpen = Boolean(notificationAnchorEl);
 
   const [currentView, setCurrentView] = useState("dashboard");
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
 
   const [driverStats, setDriverStats] = useState({
     name: "Loading...",
@@ -61,7 +84,7 @@ function DriverDashboard() {
   // --- LIVE TRACKING STATE ---
   const [currentPosition, setCurrentPosition] = useState(null);
 
-  // --- MODAL STATES (Separated Error & Success) ---
+  // --- MODAL STATES ---
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [fuelForm, setFuelForm] = useState({
     liters: "",
@@ -79,9 +102,9 @@ function DriverDashboard() {
     description: "",
     reportedTo: "",
   });
-
   const [incidentError, setIncidentError] = useState("");
   const [incidentSuccess, setIncidentSuccess] = useState("");
+  const [incidentUploading, setIncidentUploading] = useState(false);
 
   const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
   const [maintenanceForm, setMaintenanceForm] = useState({
@@ -105,6 +128,8 @@ function DriverDashboard() {
   // --- PROFILE/DOCUMENTS STATE ---
   const [driverDocs, setDriverDocs] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
+  const [showDocuments, setShowDocuments] = useState(false);
+
   const [newDocForm, setNewDocForm] = useState({
     document_type: "license",
     document_no: "",
@@ -113,10 +138,15 @@ function DriverDashboard() {
   });
   const [docError, setDocError] = useState("");
   const [docSuccess, setDocSuccess] = useState("");
+  const [docUploading, setDocUploading] = useState(false);
 
   const fetchDriverData = useCallback(async () => {
     try {
       const data = await apiFetch("/api/driver/trips");
+      const accountData = await apiFetch("/api/auth/account");
+      if (!accountData.full_name || !accountData.phone || !accountData.address) {
+        setProfileIncomplete(true);
+      }
       const hasCompany = Boolean(data.companyName && data.companyName !== "Unassigned");
 
       setDriverStats({
@@ -157,7 +187,6 @@ function DriverDashboard() {
     return () => window.clearInterval(approvalCheck);
   }, [driverStats.hasCompany, fetchDriverData, loading]);
 
-  // --- FETCH DOCUMENTS ---
   useEffect(() => {
     const fetchDocuments = async () => {
       setDocsLoading(true);
@@ -181,10 +210,7 @@ function DriverDashboard() {
     if (currentView === "documents") fetchDocuments();
   }, [currentView]);
 
-  // --- TRIP LOGIC HELPERS ---
-  const currentTrips = driverStats.trips.filter(
-    (t) => t.status === "in_progress",
-  );
+  const currentTrips = driverStats.trips.filter((t) => t.status === "in_progress");
   const futureTrips = driverStats.trips.filter((t) => t.status === "scheduled");
   const pastTrips = driverStats.trips.filter((t) => t.status === "completed");
   const activeTrip = currentTrips.length > 0 ? currentTrips[0] : null;
@@ -198,65 +224,42 @@ function DriverDashboard() {
     return `${diffHrs}h ${diffMins}m`;
   };
 
-  // --- START TRIP HANDLER ---
   const confirmStartTrip = async () => {
     if (!tripToStart) return;
     setStartTripError("");
     setStartTripSuccess("");
-
     try {
-      const responseData = await apiFetch(
-        `/api/driver/trips/${tripToStart.trip_id}/start`,
-        { method: "PUT" },
-      );
+      const responseData = await apiFetch(`/api/driver/trips/${tripToStart.trip_id}/start`, { method: "PUT" });
       setStartTripSuccess("Trip started successfully!");
-
       setTimeout(() => {
         setIsStartTripModalOpen(false);
         setStartTripSuccess("");
         setDriverStats((prev) => ({
           ...prev,
           trips: prev.trips.map((t) =>
-            t.trip_id === tripToStart.trip_id
-              ? {
-                ...t,
-                status: "in_progress",
-                departure_time: responseData.trip.departure_time,
-              }
-              : t,
+            t.trip_id === tripToStart.trip_id ? { ...t, status: "in_progress", departure_time: responseData.trip.departure_time } : t
           ),
         }));
         setTripToStart(null);
       }, 1500);
     } catch (error) {
-      setStartTripError(error.message); // Displays 403 or 400 errors explicitly
+      setStartTripError(error.message);
     }
   };
 
-  // --- COMPLETE TRIP HANDLER ---
   const confirmCompleteTrip = async () => {
     setCompleteTripError("");
     setCompleteTripSuccess("");
     try {
-      const responseData = await apiFetch(
-        `/api/driver/trips/${activeTrip.trip_id}/complete`,
-        { method: "PUT" },
-      );
+      const responseData = await apiFetch(`/api/driver/trips/${activeTrip.trip_id}/complete`, { method: "PUT" });
       setCompleteTripSuccess("Trip completed successfully!");
-
       setTimeout(() => {
         setIsCompleteTripModalOpen(false);
         setCompleteTripSuccess("");
         setDriverStats((prev) => ({
           ...prev,
           trips: prev.trips.map((t) =>
-            t.trip_id === activeTrip.trip_id
-              ? {
-                ...t,
-                status: "completed",
-                arrival_time: responseData.trip.arrival_time,
-              }
-              : t,
+            t.trip_id === activeTrip.trip_id ? { ...t, status: "completed", arrival_time: responseData.trip.arrival_time } : t
           ),
         }));
         setCurrentPosition(null);
@@ -266,7 +269,6 @@ function DriverDashboard() {
     }
   };
 
-  // --- LIVE TRACKING ENGINE ---
   useEffect(() => {
     let watchId;
     if (activeTrip && navigator.geolocation) {
@@ -274,13 +276,11 @@ function DriverDashboard() {
         async (position) => {
           const { latitude, longitude, altitude, speed } = position.coords;
           setCurrentPosition([latitude, longitude]);
-
           let batteryLevel = null;
           if ("getBattery" in navigator) {
             const battery = await navigator.getBattery();
             batteryLevel = Math.round(battery.level * 100);
           }
-
           try {
             await apiFetch("/api/tracking/ping", {
               method: "POST",
@@ -294,9 +294,7 @@ function DriverDashboard() {
                 battery_level: batteryLevel,
               }),
             });
-          } catch (error) {
-            // Silently fail pings so we don't spam the user with errors while driving
-          }
+          } catch (error) { }
         },
         (error) => console.error("Error capturing GPS:", error),
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 },
@@ -307,24 +305,18 @@ function DriverDashboard() {
     };
   }, [activeTrip]);
 
-  // --- DELETE DOCUMENT ---
   const deleteDocument = async (documentId) => {
-    if (!window.confirm("Are you sure you want to delete this document?"))
-      return;
+    if (!window.confirm("Are you sure you want to delete this document?")) return;
     try {
-      await apiFetch(`/api/driver/documents/${documentId}`, {
-        method: "DELETE",
-      });
+      await apiFetch(`/api/driver/documents/${documentId}`, { method: "DELETE" });
       setDriverDocs(driverDocs.filter((doc) => doc.document_id !== documentId));
     } catch (error) {
       alert(`Failed to delete: ${error.message}`);
     }
   };
 
-  // --- LOGOUT HANDLER ---
   const handleLogout = async () => {
     try {
-      // Genuinely invalidate token on the server
       await apiFetch("/api/auth/logout", { method: "POST" });
     } catch (err) {
       console.error("Logout notification failed", err);
@@ -334,41 +326,50 @@ function DriverDashboard() {
     }
   };
 
-  // --- DOCS HANDLER ---
-  const handleDocChange = (e) =>
-    setNewDocForm({ ...newDocForm, [e.target.name]: e.target.value });
+  const handleDocChange = (e) => setNewDocForm({ ...newDocForm, [e.target.name]: e.target.value });
 
   const submitDocument = async (e) => {
     e.preventDefault();
     setDocError("");
     setDocSuccess("");
+    setDocUploading(true);
+
+    const formElement = e.target;
+    const formData = new FormData(formElement);
+
     try {
-      await apiFetch("/api/driver/documents", {
+      const response = await fetch("/api/driver/documents", {
         method: "POST",
-        body: JSON.stringify(newDocForm),
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: formData,
       });
 
-      setDocSuccess("Document added successfully! Refreshing...");
-      setNewDocForm({
-        document_type: "license",
-        document_no: "",
-        issue_date: "",
-        expiry_date: "",
-      });
-      setDriverStats((prev) => ({ ...prev, driverProfileMissing: false }));
+      const data = await response.json();
 
-      // Refresh docs
-      const updatedDocs = await apiFetch("/api/driver/documents");
-      setDriverDocs(updatedDocs);
-      setTimeout(() => setDocSuccess(""), 3000);
+      if (response.ok) {
+        setDocSuccess("Document added successfully!");
+        setNewDocForm({ document_type: "license", document_no: "", issue_date: "", expiry_date: "" });
+        formElement.reset();
+        setDriverStats((prev) => ({ ...prev, driverProfileMissing: false }));
+
+        if (data.document) {
+          setDriverDocs((prev) => [...prev, data.document]);
+          setShowDocuments(true);
+        }
+        setTimeout(() => setDocSuccess(""), 3000);
+      } else {
+        setDocError(data.message || "Failed to upload document.");
+      }
     } catch (error) {
-      setDocError(error.message);
+      setDocError("Network error: " + error.message);
+    } finally {
+      setDocUploading(false);
     }
   };
 
-  // --- FUEL HANDLER ---
-  const handleFuelChange = (e) =>
-    setFuelForm({ ...fuelForm, [e.target.name]: e.target.value });
+  const handleFuelChange = (e) => setFuelForm({ ...fuelForm, [e.target.name]: e.target.value });
 
   const submitFuelLog = async (e) => {
     e.preventDefault();
@@ -396,58 +397,55 @@ function DriverDashboard() {
       setTimeout(() => {
         setIsFuelModalOpen(false);
         setFuelSuccess("");
-        setFuelForm({
-          liters: "",
-          totalCost: "",
-          stationName: "",
-          odometer: "",
-        });
+        setFuelForm({ liters: "", totalCost: "", stationName: "", odometer: "" });
       }, 1500);
     } catch (error) {
       setFuelError(error.message);
     }
   };
 
-  // --- INCIDENT HANDLER ---
-  const handleIncidentChange = (e) =>
-    setIncidentForm({ ...incidentForm, [e.target.name]: e.target.value });
+  const handleIncidentChange = (e) => setIncidentForm({ ...incidentForm, [e.target.name]: e.target.value });
 
   const submitIncidentLog = async (e) => {
     e.preventDefault();
     setIncidentError("");
     setIncidentSuccess("");
+    setIncidentUploading(true);
+
+    const formElement = e.target;
+    const formData = new FormData(formElement);
+    formData.append("trip_id", activeTrip?.trip_id);
+
     try {
-      await apiFetch("/api/driver/log-incident", {
+      const response = await fetch("/api/driver/log-incident", {
         method: "POST",
-        body: JSON.stringify({
-          trip_id: activeTrip?.trip_id,
-          type: incidentForm.type,
-          severity: incidentForm.severity,
-          description: incidentForm.description,
-          reported_to: incidentForm.reportedTo,
-        }),
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: formData,
       });
 
-      setIncidentSuccess("Incident reported successfully.");
-      setTimeout(() => {
-        setIsIncidentModalOpen(false);
-        setIncidentSuccess("");
-        setIncidentForm({
-          type: "accident",
-          severity: "minor",
-          description: "",
-          reportedTo: "",
-        });
+      const data = await response.json();
 
-      }, 1500);
+      if (response.ok) {
+        setIncidentSuccess("Incident reported successfully.");
+        setTimeout(() => {
+          setIsIncidentModalOpen(false);
+          setIncidentSuccess("");
+          setIncidentForm({ type: "accident", severity: "minor", description: "", reportedTo: "" });
+          formElement.reset();
+        }, 1500);
+      } else {
+        setIncidentError(data.error || "Failed to log incident.");
+      }
     } catch (error) {
-      setIncidentError(error.message);
+      setIncidentError("Network error: " + error.message);
+    } finally {
+      setIncidentUploading(false);
     }
   };
 
-  // --- MAINTENANCE HANDLER ---
-  const handleMaintenanceChange = (e) =>
-    setMaintenanceForm({ ...maintenanceForm, [e.target.name]: e.target.value });
+  const handleMaintenanceChange = (e) => setMaintenanceForm({ ...maintenanceForm, [e.target.name]: e.target.value });
 
   const submitMaintenanceRequest = async (e) => {
     e.preventDefault();
@@ -469,20 +467,21 @@ function DriverDashboard() {
       setTimeout(() => {
         setIsMaintenanceModalOpen(false);
         setMaintenanceSuccess("");
-        setMaintenanceForm({
-          serviceType: "repair",
-          description: "",
-          odometer: "",
-          workshop: "",
-        });
+        setMaintenanceForm({ serviceType: "repair", description: "", odometer: "", workshop: "" });
       }, 1500);
     } catch (error) {
       setMaintenanceError(error.message);
     }
   };
 
-  if (loading)
-    return <div style={styles.loadingScreen}>Loading your dashboard...</div>;
+  if (loading) {
+    return (
+      <Box sx={{ p: 4, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <CircularProgress sx={{ mb: 2 }} />
+        <Typography color="text.secondary">Loading your dashboard...</Typography>
+      </Box>
+    );
+  }
 
   if (!driverStats.hasCompany) {
     return (
@@ -497,9 +496,9 @@ function DriverDashboard() {
           </Toolbar>
         </AppBar>
         <Box maxWidth="900px" mx="auto" p={4}>
-          <Typography variant="overline">Driver account setup</Typography>
-          <Typography variant="h4" gutterBottom>Join a company</Typography>
-          <Typography variant="body1" color="text.secondary" gutterBottom>
+          <Typography variant="overline" color="text.secondary">Driver account setup</Typography>
+          <Typography variant="h4" gutterBottom fontWeight={700}>Join a company</Typography>
+          <Typography variant="body1" color="text.secondary" gutterBottom mb={4}>
             Your driver dashboard will be available after a company approves your request.
           </Typography>
           <CompanyRequests joinOnly />
@@ -513,53 +512,58 @@ function DriverDashboard() {
       <Drawer
         variant="permanent"
         sx={{
-          width: 240,
+          width: DRAWER_WIDTH,
           flexShrink: 0,
-          '& .MuiDrawer-paper': { width: 240, boxSizing: 'border-box' },
+          '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' },
         }}
       >
-        <Box p={2} sx={{ bgcolor: 'primary.main', color: 'primary.contrastText' }}>
-          <Typography variant="h6" fontWeight="bold">Fleeter OS</Typography>
-          <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
+        <Box sx={{ px: 2.5, py: 2, borderBottom: 1, borderColor: "divider", display: "flex", flexDirection: "column" }}>
+          <Typography variant="subtitle1" fontWeight={800} color="primary" letterSpacing={1} lineHeight={1.2}>
+            FLEETER
+          </Typography>
+          <Typography variant="caption" color="text.secondary" mt={0.5}>
             Welcome, {driverStats.name}
           </Typography>
           {!driverStats.driverProfileMissing && (
-            <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
+            <Typography variant="caption" color="text.primary" fontWeight={600} mt={0.5}>
               🏢 {driverStats.companyName}
             </Typography>
           )}
         </Box>
-        <List sx={{ flexGrow: 1 }}>
+        <List sx={{ flexGrow: 1, pt: 1 }}>
           <ListItem disablePadding>
             <ListItemButton selected={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')}>
-              <ListItemText primary="Dashboard" />
+              <DashboardIcon sx={{ mr: 2, color: currentView === 'dashboard' ? 'primary.main' : 'text.secondary' }} />
+              <ListItemText primary="Dashboard" primaryTypographyProps={{ fontWeight: currentView === 'dashboard' ? 700 : 500 }} />
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
             <ListItemButton selected={currentView === 'history'} onClick={() => setCurrentView('history')}>
-              <ListItemText primary="Trip History" />
+              <HistoryIcon sx={{ mr: 2, color: currentView === 'history' ? 'primary.main' : 'text.secondary' }} />
+              <ListItemText primary="Trip History" primaryTypographyProps={{ fontWeight: currentView === 'history' ? 700 : 500 }} />
             </ListItemButton>
           </ListItem>
           <ListItem disablePadding>
             <ListItemButton selected={currentView === 'documents'} onClick={() => setCurrentView('documents')}>
-              <ListItemText primary="Documents" />
+              <DescriptionIcon sx={{ mr: 2, color: currentView === 'documents' ? 'primary.main' : 'text.secondary' }} />
+              <ListItemText primary="Documents" primaryTypographyProps={{ fontWeight: currentView === 'documents' ? 700 : 500 }} />
             </ListItemButton>
           </ListItem>
         </List>
         <Box p={2}>
-          <Typography variant="overline" color="textSecondary">Trip Actions</Typography>
-          <Button fullWidth variant="outlined" color="info" sx={{ mb: 1 }} disabled={!canAccessTripFeatures} onClick={() => setIsFuelModalOpen(true)}>Log Fuel</Button>
-          <Button fullWidth variant="outlined" color="error" sx={{ mb: 1 }} disabled={!canAccessTripFeatures} onClick={() => setIsIncidentModalOpen(true)}>Report Incident</Button>
-          <Button fullWidth variant="outlined" color="warning" sx={{ mb: 1 }} disabled={!canAccessTripFeatures} onClick={() => setIsMaintenanceModalOpen(true)}>Maintenance</Button>
+          <Typography variant="overline" color="text.secondary" display="block" mb={1}>Trip Actions</Typography>
+          <Button fullWidth variant="outlined" color="info" sx={{ mb: 1.5, justifyContent: "flex-start" }} startIcon={<LocalGasStationIcon />} disabled={!canAccessTripFeatures} onClick={() => setIsFuelModalOpen(true)}>Log Fuel</Button>
+          <Button fullWidth variant="outlined" color="error" sx={{ mb: 1.5, justifyContent: "flex-start" }} startIcon={<WarningIcon />} disabled={!canAccessTripFeatures} onClick={() => setIsIncidentModalOpen(true)}>Report Incident</Button>
+          <Button fullWidth variant="outlined" color="warning" sx={{ mb: 1.5, justifyContent: "flex-start" }} startIcon={<BuildIcon />} disabled={!canAccessTripFeatures} onClick={() => setIsMaintenanceModalOpen(true)}>Maintenance</Button>
         </Box>
       </Drawer>
 
-      <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100vh' }}>
-        <AppBar position="static" color="default" elevation={1}>
+      <Box component="main" sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: "hidden" }}>
+        <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Toolbar>
-            <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>Driver Portal</Typography>
+            <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>Driver Portal</Typography>
             <IconButton color="inherit" onClick={handleNotificationsClick}>
-              <Badge badgeContent={driverStats?.alerts || 0} color="error">
+              <Badge badgeContent={(driverStats?.alerts || 0) + (driverStats?.driverProfileMissing ? 1 : 0) + (profileIncomplete ? 1 : 0)} color="error">
                 <NotificationsIcon />
               </Badge>
             </IconButton>
@@ -570,32 +574,28 @@ function DriverDashboard() {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
-              <Box p={2} maxWidth={300}>
-                <Typography variant="h6" gutterBottom>Notifications</Typography>
-
+              <Box p={2} minWidth={280}>
+                <Typography variant="subtitle1" fontWeight={700} gutterBottom>Notifications</Typography>
                 {driverStats?.driverProfileMissing && (
-                  <Button fullWidth color="inherit" style={{ justifyContent: 'flex-start', textTransform: 'none', textAlign: 'left', color: '#d32f2f' }} onClick={() => { handleNotificationsClose(); }}>
+                  <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start', textTransform: 'none', textAlign: 'left', color: 'error.main', mb: 1 }} onClick={() => { handleNotificationsClose(); }}>
                     ⚠️ Action Required: Your account is not linked to a Driver profile in the database. Contact your fleet admin.
                   </Button>
                 )}
-
-                {driverStats?.alerts > 0 && !driverStats?.driverProfileMissing && (
-                  <Button fullWidth color="inherit" style={{ justifyContent: 'flex-start', textTransform: 'none', textAlign: 'left', color: '#ed6c02' }} onClick={() => { handleNotificationsClose(); setCurrentView('documents'); }}>
+                {profileIncomplete && (
+                  <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start', textTransform: 'none', textAlign: 'left', color: 'warning.main', mb: 1 }} onClick={() => { handleNotificationsClose(); setCurrentView('settings'); }}>
+                    ⚠️ Action Required: Please complete your profile information (Full Name, Phone, and Address).
+                  </Button>
+                )}
+                {driverStats?.alerts > 0 && (
+                  <Button fullWidth color="inherit" sx={{ justifyContent: 'flex-start', textTransform: 'none', textAlign: 'left', color: 'warning.main', mb: 1 }} onClick={() => { handleNotificationsClose(); setCurrentView('documents'); }}>
                     ⚠️ You have {driverStats.alerts} document alert(s) pending. Click to view.
                   </Button>
                 )}
-
-                {(!driverStats?.alerts || driverStats.alerts === 0) && !driverStats?.driverProfileMissing && (
+                {(!driverStats?.alerts || driverStats.alerts === 0) && !driverStats?.driverProfileMissing && !profileIncomplete && (
                   <Typography variant="body2" color="text.secondary">No new notifications.</Typography>
                 )}
               </Box>
             </Popover>
-            <IconButton color="inherit" onClick={() => setCurrentView('settings')}>
-              <SettingsIcon />
-            </IconButton>
-            <IconButton color="error" onClick={handleLogout}>
-              <LogoutIcon />
-            </IconButton>
             <Tooltip title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}>
               <IconButton onClick={toggleTheme} sx={{ mx: 0.5 }}>
                 {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
@@ -613,994 +613,495 @@ function DriverDashboard() {
             </Tooltip>
           </Toolbar>
         </AppBar>
-        <Box sx={{ p: 3, overflowY: 'auto', flexGrow: 1 }}>
 
-
+        <Box sx={{ p: 4, overflowY: 'auto', flexGrow: 1 }}>
 
           {currentView === 'settings' && <AccountSettings />}
 
           {/* --- DASHBOARD VIEW --- */}
           {currentView === "dashboard" && (
-            <>
-              <section style={styles.dashboardSection}>
-                <h2 style={styles.sectionHeader}>Current Trip</h2>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <Box>
+                <Typography variant="h6" fontWeight={700} mb={2} sx={{ borderBottom: 2, borderColor: "divider", pb: 1 }}>
+                  Current Trip
+                </Typography>
                 {activeTrip ? (
-                  <div style={styles.activeTripCard}>
-                    <div style={styles.flexBetweenAlignTop}>
-                      <div>
-                        <h3 style={styles.tripRouteTitle}>
-                          Route: {activeTrip.origin} ➔ {activeTrip.destination}
-                        </h3>
-                        <p style={styles.tripDetailText}>
-                          <strong>Vehicle:</strong> {activeTrip.registration_no}
-                        </p>
-                        <p style={styles.tripDetailText}>
-                          <strong>Started:</strong>{" "}
-                          {new Date(activeTrip.departure_time).toLocaleString()}
-                        </p>
-                      </div>
-                      <span style={styles.inProgressBadge}>IN PROGRESS</span>
-                    </div>
-                    <div style={styles.tripActionRow}>
-                      <button
-                        style={styles.completeTripBtn}
-                        onClick={() => setIsCompleteTripModalOpen(true)}
-                      >
-                        Complete Trip
-                      </button>
-                    </div>
+                  <Card elevation={0} sx={{ border: 1, borderColor: "divider", borderLeft: 6, borderLeftColor: "success.main" }}>
+                    <CardContent sx={{ p: 3 }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 2 }}>
+                        <Box>
+                          <Typography variant="h5" fontWeight={700} color="text.primary" gutterBottom>
+                            Route: {activeTrip.origin} ➔ {activeTrip.destination}
+                          </Typography>
+                          <Typography variant="body1" color="text.secondary">
+                            <strong>Vehicle:</strong> {activeTrip.registration_no}
+                          </Typography>
+                          <Typography variant="body1" color="text.secondary">
+                            <strong>Started:</strong> {new Date(activeTrip.departure_time).toLocaleString()}
+                          </Typography>
+                        </Box>
+                        <Chip label="IN PROGRESS" color="success" sx={{ fontWeight: 700 }} />
+                      </Box>
+                      <Box sx={{ mt: 3 }}>
+                        <Button variant="contained" color="success" size="large" onClick={() => setIsCompleteTripModalOpen(true)}>
+                          Complete Trip
+                        </Button>
+                      </Box>
 
-                    {/* MAP RENDER */}
-                    <div style={{ marginTop: "25px" }}>
-                      <h4 style={{ margin: "0 0 10px 0", color: "#2c3e50" }}>
-                        Live GPS Tracking
-                      </h4>
-                      {currentPosition ? (
-                        <div
-                          style={{
-                            height: "350px",
-                            width: "100%",
-                            borderRadius: "8px",
-                            overflow: "hidden",
-                            border: "1px solid #bdc3c7",
-                          }}
-                        >
-                          <MapContainer
-                            center={currentPosition}
-                            zoom={16}
-                            style={{ height: "100%", width: "100%" }}
-                          >
-                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                            <LocateControl position={currentPosition} />
-                            <Marker position={currentPosition}>
-                              <Popup>You are actively tracking.</Popup>
-                            </Marker>
-                          </MapContainer>
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            padding: "20px",
-                            backgroundColor: "#fdf2e9",
-                            borderRadius: "8px",
-                            color: "#e67e22",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          📡 Acquiring GPS signal... Please ensure location
-                          permissions are enabled.
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                      <Box sx={{ mt: 4 }}>
+                        <Typography variant="subtitle1" fontWeight={700} mb={2}>
+                          Live GPS Tracking
+                        </Typography>
+                        {currentPosition ? (
+                          <Paper elevation={0} sx={{ height: 350, width: "100%", borderRadius: 2, overflow: "hidden", border: 1, borderColor: "divider" }}>
+                            <MapContainer center={currentPosition} zoom={16} style={{ height: "100%", width: "100%" }}>
+                              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                              <LocateControl position={currentPosition} />
+                              <Marker position={currentPosition}>
+                                <Popup>You are actively tracking.</Popup>
+                              </Marker>
+                            </MapContainer>
+                          </Paper>
+                        ) : (
+                          <Alert severity="warning">
+                            📡 Acquiring GPS signal... Please ensure location permissions are enabled.
+                          </Alert>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
                 ) : (
-                  <div style={styles.noTripCard}>
-                    <h3 style={styles.noTripTitle}>No Active Trip</h3>
-                    <p style={styles.noTripText}>
-                      You are not currently on the road. Start a scheduled
-                      assignment below to unlock your trip tools.
-                    </p>
-                  </div>
+                  <Paper elevation={0} sx={{ p: 4, textAlign: "center", bgcolor: "error.light", color: "error.dark", border: 2, borderColor: "error.main", borderStyle: "dashed" }}>
+                    <Typography variant="h6" fontWeight={700} gutterBottom>No Active Trip</Typography>
+                    <Typography>You are not currently on the road. Start a scheduled assignment below to unlock your trip tools.</Typography>
+                  </Paper>
                 )}
-              </section>
+              </Box>
 
-              <section>
-                <h2 style={styles.sectionHeader}>Upcoming Assignments</h2>
+              <Box>
+                <Typography variant="h6" fontWeight={700} mb={2} sx={{ borderBottom: 2, borderColor: "divider", pb: 1 }}>
+                  Upcoming Assignments
+                </Typography>
                 {futureTrips.length > 0 ? (
-                  <div style={styles.futureTripsGrid}>
+                  <Grid container spacing={2}>
                     {futureTrips.map((trip) => (
-                      <div key={trip.trip_id} style={styles.futureTripCard}>
-                        <div>
-                          <h4 style={styles.futureTripRoute}>
-                            {trip.origin} ➔ {trip.destination}
-                          </h4>
-                          <p style={styles.futureTripDetail}>
-                            Vehicle: {trip.registration_no} | Scheduled:{" "}
-                            {new Date(trip.departure_time).toLocaleString()}
-                          </p>
-                        </div>
-                        <button
-                          style={styles.startBtn}
-                          onClick={() => {
-                            setTripToStart(trip);
-                            setIsStartTripModalOpen(true);
-                          }}
-                        >
-                          Start
-                        </button>
-                      </div>
+                      <Grid item xs={12} key={trip.trip_id}>
+                        <Card elevation={0} sx={{ border: 1, borderColor: "divider", borderLeft: 4, borderLeftColor: "info.main" }}>
+                          <CardContent sx={{ p: 2.5, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <Box>
+                              <Typography variant="h6" fontWeight={700} color="text.primary">
+                                {trip.origin} ➔ {trip.destination}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                Vehicle: {trip.registration_no} | Scheduled: {new Date(trip.departure_time).toLocaleString()}
+                              </Typography>
+                            </Box>
+                            <Button
+                              variant="contained"
+                              color="info"
+                              onClick={() => {
+                                setTripToStart(trip);
+                                setIsStartTripModalOpen(true);
+                              }}
+                            >
+                              Start
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </Grid>
                     ))}
-                  </div>
+                  </Grid>
                 ) : (
-                  <p style={styles.mutedText}>No upcoming scheduled trips.</p>
+                  <Typography color="text.secondary" fontStyle="italic">No upcoming scheduled trips.</Typography>
                 )}
-              </section>
-            </>
+              </Box>
+            </Box>
           )}
 
           {/* --- HISTORY VIEW --- */}
           {currentView === "history" && (
-            <section style={styles.dashboardSection}>
-              <h2 style={styles.sectionHeader}>Trip History</h2>
+            <Box>
+              <Typography variant="h6" fontWeight={700} mb={3} sx={{ borderBottom: 2, borderColor: "divider", pb: 1 }}>
+                Trip History
+              </Typography>
               {pastTrips.length > 0 ? (
-                <div style={styles.futureTripsGrid}>
+                <Grid container spacing={2}>
                   {pastTrips.map((trip) => (
-                    <div
-                      key={trip.trip_id}
-                      style={{
-                        ...styles.futureTripCard,
-                        borderLeft: "4px solid #95a5a6",
-                      }}
-                    >
-                      <div style={{ width: "100%" }}>
-                        <h4 style={styles.futureTripRoute}>
-                          {trip.origin} ➔ {trip.destination}
-                        </h4>
-                        <p style={styles.futureTripDetail}>
-                          Vehicle: {trip.registration_no}
-                        </p>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            backgroundColor: "#f8f9fa",
-                            padding: "10px",
-                            borderRadius: "6px",
-                            marginTop: "10px",
-                          }}
-                        >
-                          <div style={{ fontSize: "14px" }}>
-                            <strong>Started:</strong>
-                            <br />
-                            {new Date(trip.departure_time).toLocaleString()}
-                          </div>
-                          <div style={{ fontSize: "14px" }}>
-                            <strong>Ended:</strong>
-                            <br />
-                            {new Date(trip.arrival_time).toLocaleString()}
-                          </div>
-                          <div style={{ fontSize: "14px", color: "#2980b9" }}>
-                            <strong>Total Time:</strong>
-                            <br />
-                            {calculateDuration(
-                              trip.departure_time,
-                              trip.arrival_time,
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <Grid item xs={12} md={6} key={trip.trip_id}>
+                      <Card elevation={0} sx={{ border: 1, borderColor: "divider", borderLeft: 4, borderLeftColor: "text.disabled" }}>
+                        <CardContent sx={{ p: 3 }}>
+                          <Typography variant="h6" fontWeight={700} color="text.primary">
+                            {trip.origin} ➔ {trip.destination}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" mb={2}>
+                            Vehicle: {trip.registration_no}
+                          </Typography>
+                          <Paper elevation={0} sx={{ p: 2, bgcolor: "action.hover", display: "flex", justifyContent: "space-between", borderRadius: 2 }}>
+                            <Box>
+                              <Typography variant="caption" fontWeight={700} display="block">Started:</Typography>
+                              <Typography variant="body2">{new Date(trip.departure_time).toLocaleString()}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" fontWeight={700} display="block">Ended:</Typography>
+                              <Typography variant="body2">{new Date(trip.arrival_time).toLocaleString()}</Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" fontWeight={700} color="primary" display="block">Total Time:</Typography>
+                              <Typography variant="body2" color="primary">{calculateDuration(trip.departure_time, trip.arrival_time)}</Typography>
+                            </Box>
+                          </Paper>
+                        </CardContent>
+                      </Card>
+                    </Grid>
                   ))}
-                </div>
+                </Grid>
               ) : (
-                <p style={styles.mutedText}>No completed trips found.</p>
+                <Typography color="text.secondary" fontStyle="italic">No completed trips found.</Typography>
               )}
-            </section>
+            </Box>
           )}
 
-          {/* --- PROFILE VIEW --- */}
+          {/* --- PROFILE / DOCUMENTS VIEW --- */}
           {currentView === "documents" && (
-            <div style={styles.profileContainer}>
-              <section style={{ flex: 2 }}>
-                <h2 style={styles.sectionHeader}>My Documents</h2>
-                {docsLoading ? (
-                  <p style={styles.mutedText}>Loading documents...</p>
-                ) : driverDocs.length === 0 ? (
-                  <p style={styles.mutedText}>No documents on file.</p>
-                ) : (
-                  <div style={styles.docList}>
-                    {driverDocs.map((doc) => {
-                      const isExpired = new Date(doc.expiry_date) < new Date();
-                      const hasAlert = doc.alert_triggered || isExpired;
-                      const borderColor = hasAlert ? "#e74c3c" : "#2ecc71";
+            <Grid container spacing={4}>
+              <Grid item xs={12} md={7}>
+                <Card elevation={0} sx={{ border: 1, borderColor: "divider", mb: 3 }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: showDocuments ? 3 : 0 }}>
+                      <Box>
+                        <Typography variant="h6" fontWeight={700}>My Documents</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {driverDocs.length} document{driverDocs.length !== 1 ? 's' : ''} on file.
+                        </Typography>
+                      </Box>
+                      <Button variant="outlined" onClick={() => setShowDocuments(!showDocuments)}>
+                        {showDocuments ? "Hide Documents" : "View Documents"}
+                      </Button>
+                    </Box>
 
-                      return (
-                        <div
-                          key={doc.document_id}
-                          style={{
-                            ...styles.docCard,
-                            borderLeft: `6px solid ${borderColor}`,
-                          }}
-                        >
-                          <div style={styles.flexBetween}>
-                            <strong style={styles.docTitle}>
-                              {doc.document_type.replace("_", " ")}
-                            </strong>
-                            <div>
-                              {isExpired && (
-                                <span style={styles.expiredBadge}>EXPIRED</span>
-                              )}
-                              <button
-                                onClick={() => deleteDocument(doc.document_id)}
-                                style={styles.iconBtn}
-                                title="Delete Document"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </div>
-                          <span style={styles.docSubtitle}>
-                            Number: {doc.document_no}
-                          </span>
-                          <div style={styles.docDates}>
-                            <span style={styles.mutedText}>
-                              Issued:{" "}
-                              {new Date(doc.issue_date).toLocaleDateString()}
-                            </span>
-                            <span
-                              style={{
-                                color: hasAlert ? "#c0392b" : "#27ae60",
-                                fontWeight: "bold",
-                              }}
-                            >
-                              Expires:{" "}
-                              {new Date(doc.expiry_date).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
+                    {showDocuments && (
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
+                        {docsLoading ? (
+                          <Typography color="text.secondary">Loading documents...</Typography>
+                        ) : driverDocs.length === 0 ? (
+                          <Typography color="text.secondary" fontStyle="italic">No documents uploaded yet.</Typography>
+                        ) : (
+                          driverDocs.map((doc) => {
+                            const isExpired = new Date(doc.expiry_date) < new Date();
+                            const hasAlert = doc.alert_triggered || isExpired;
+                            const borderColor = hasAlert ? "error.main" : "success.main";
 
-              <div style={styles.formsColumn}>
+                            return (
+                              <Paper key={doc.document_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider", borderLeft: 6, borderLeftColor: borderColor, borderRadius: 2, display: "flex", gap: 3, alignItems: "flex-start" }}>
+                                {/* Document Image Thumbnail */}
+                                <Box sx={{ width: 100, height: 100, flexShrink: 0, borderRadius: 1, overflow: "hidden", bgcolor: "action.hover", border: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                  {doc.document_url ? (
+                                    doc.document_url.toLowerCase().endsWith('.pdf') ? (
+                                      <Box sx={{ textAlign: "center", color: "text.secondary" }}>
+                                        <DescriptionIcon sx={{ fontSize: 32, mb: 1 }} />
+                                        <Typography variant="caption" display="block">PDF</Typography>
+                                      </Box>
+                                    ) : (
+                                      <Box component="img" src={`http://localhost:5000${doc.document_url}`} alt={doc.document_type} sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                    )
+                                  ) : (
+                                    <Typography variant="caption" color="text.secondary">No Image</Typography>
+                                  )}
+                                </Box>
+
+                                {/* Document Details */}
+                                <Box sx={{ flex: 1 }}>
+                                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                                    <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: "uppercase" }}>
+                                      {doc.document_type.replace("_", " ")}
+                                    </Typography>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                      {isExpired && (
+                                        <Chip label="EXPIRED" color="error" size="small" sx={{ fontWeight: 700 }} />
+                                      )}
+                                      <IconButton onClick={() => deleteDocument(doc.document_id)} color="error" size="small">
+                                        <Typography fontSize={18}>🗑️</Typography>
+                                      </IconButton>
+                                    </Box>
+                                  </Box>
+                                  <Typography variant="body2" color="text.secondary" mb={1}>
+                                    Number: {doc.document_no}
+                                  </Typography>
+                                  <Box sx={{ display: "flex", gap: 3 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                      Issued: {new Date(doc.issue_date).toLocaleDateString()}
+                                    </Typography>
+                                    <Typography variant="body2" color={hasAlert ? "error.main" : "success.main"} fontWeight={700}>
+                                      Expires: {new Date(doc.expiry_date).toLocaleDateString()}
+                                    </Typography>
+                                  </Box>
+
+                                  {doc.document_url && (
+                                    <Button
+                                      href={`http://localhost:5000${doc.document_url}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      startIcon={<OpenInNewIcon />}
+                                      size="small"
+                                      sx={{ mt: 1.5 }}
+                                    >
+                                      Open Document
+                                    </Button>
+                                  )}
+                                </Box>
+                              </Paper>
+                            );
+                          })
+                        )}
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid item xs={12} md={5}>
                 {/* Document Upload Form */}
-                <section style={styles.card}>
-                  <h3 style={{ ...styles.cardHeader, color: "#8e44ad" }}>
-                    + Add New Document
-                  </h3>
-                  {docError && <div style={styles.errorBanner}>{docError}</div>}
-                  {docSuccess && (
-                    <div style={styles.successBanner}>{docSuccess}</div>
-                  )}
-                  <form onSubmit={submitDocument} style={styles.form}>
-                    <div>
-                      <label style={styles.label}>Document Type</label>
-                      <select
-                        name="document_type"
-                        value={newDocForm.document_type}
-                        onChange={handleDocChange}
-                        style={styles.input}
-                      >
-                        <option value="license">Driver's License</option>
-                        <option value="medical">Medical Card</option>
-                        <option value="insurance">Insurance Policy</option>
-                        <option value="certification">
-                          Special Certification
-                        </option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={styles.label}>Document Number</label>
-                      <input
-                        type="text"
-                        name="document_no"
-                        value={newDocForm.document_no}
-                        onChange={handleDocChange}
-                        required
-                        style={styles.input}
-                      />
-                    </div>
-                    <div>
-                      <label style={styles.label}>Issue Date</label>
-                      <input
-                        type="date"
-                        name="issue_date"
-                        value={newDocForm.issue_date}
-                        onChange={handleDocChange}
-                        required
-                        style={styles.input}
-                      />
-                    </div>
-                    <div>
-                      <label style={styles.label}>Expiry Date</label>
-                      <input
-                        type="date"
-                        name="expiry_date"
-                        value={newDocForm.expiry_date}
-                        min={newDocForm.issue_date}
-                        onChange={handleDocChange}
-                        required
-                        style={styles.input}
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      style={{ ...styles.primaryBtn, backgroundColor: "#8e44ad" }}
-                    >
-                      Upload Document
-                    </button>
-                  </form>
-                </section>
-              </div>
-            </div>
+                <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+                  <CardContent sx={{ p: 3 }}>
+                    <Typography variant="h6" fontWeight={700} color="secondary.main" mb={3}>
+                      + Add New Document
+                    </Typography>
+
+                    {docError && <Alert severity="error" sx={{ mb: 2 }}>{docError}</Alert>}
+                    {docSuccess && <Alert severity="success" sx={{ mb: 2 }}>{docSuccess}</Alert>}
+
+                    <form onSubmit={submitDocument}>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                          <TextField
+                            select
+                            label="Document Type"
+                            name="document_type"
+                            value={newDocForm.document_type}
+                            onChange={handleDocChange}
+                            fullWidth
+                            size="small"
+                          >
+                            <MenuItem value="license">Driver's License</MenuItem>
+                            <MenuItem value="medical">Medical Card</MenuItem>
+                            <MenuItem value="insurance">Insurance Policy</MenuItem>
+                            <MenuItem value="certification">Special Certification</MenuItem>
+                          </TextField>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <TextField
+                            label="Document Number"
+                            name="document_no"
+                            value={newDocForm.document_no}
+                            onChange={handleDocChange}
+                            required
+                            fullWidth
+                            size="small"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Issue Date"
+                            type="date"
+                            name="issue_date"
+                            value={newDocForm.issue_date}
+                            onChange={handleDocChange}
+                            required
+                            fullWidth
+                            size="small"
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <TextField
+                            label="Expiry Date"
+                            type="date"
+                            name="expiry_date"
+                            value={newDocForm.expiry_date}
+                            inputProps={{ min: newDocForm.issue_date }}
+                            onChange={handleDocChange}
+                            required
+                            fullWidth
+                            size="small"
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <TextField
+                            label="Upload Scan/Image"
+                            type="file"
+                            name="documentFile"
+                            inputProps={{ accept: "image/*,.pdf" }}
+                            required
+                            fullWidth
+                            size="small"
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            color="secondary"
+                            disabled={docUploading}
+                            fullWidth
+                          >
+                            {docUploading ? "Uploading..." : "Upload Document"}
+                          </Button>
+                        </Grid>
+                      </Grid>
+                    </form>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
           )}
         </Box>
 
         {/* ================= MODALS ================= */}
 
         {/* START TRIP MODAL */}
-        {isStartTripModalOpen && tripToStart && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <h2 style={{ ...styles.modalTitle, color: "#3498db" }}>
-                Start Trip
-              </h2>
-              <p
-                style={{
-                  color: "#7f8c8d",
-                  fontSize: "15px",
-                  marginBottom: "20px",
-                }}
-              >
-                Are you ready to begin your trip to{" "}
-                <strong>{tripToStart.destination}</strong>? This will activate
-                live GPS tracking.
-              </p>
-              {startTripError && (
-                <div style={styles.errorBanner}>{startTripError}</div>
-              )}
-              {startTripSuccess && (
-                <div style={styles.successBanner}>{startTripSuccess}</div>
-              )}
-              <div style={styles.modalActionRow}>
-                <button
-                  type="button"
-                  onClick={() => setIsStartTripModalOpen(false)}
-                  style={styles.cancelBtn}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmStartTrip}
-                  style={{ ...styles.submitBtn, backgroundColor: "#3498db" }}
-                >
-                  Yes, Start Trip
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Dialog open={isStartTripModalOpen && !!tripToStart} onClose={() => setIsStartTripModalOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ color: 'info.main', fontWeight: 700 }}>Start Trip</DialogTitle>
+          <DialogContent>
+            <Typography color="text.secondary" mb={2}>
+              Are you ready to begin your trip to <strong>{tripToStart?.destination}</strong>? This will activate live GPS tracking.
+            </Typography>
+            {startTripError && <Alert severity="error" sx={{ mb: 2 }}>{startTripError}</Alert>}
+            {startTripSuccess && <Alert severity="success" sx={{ mb: 2 }}>{startTripSuccess}</Alert>}
+          </DialogContent>
+          <DialogActions sx={{ p: 2, pt: 0 }}>
+            <Button onClick={() => setIsStartTripModalOpen(false)} color="inherit">Cancel</Button>
+            <Button onClick={confirmStartTrip} variant="contained" color="info">Yes, Start Trip</Button>
+          </DialogActions>
+        </Dialog>
 
         {/* COMPLETE TRIP MODAL */}
-        {isCompleteTripModalOpen && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <h2 style={{ ...styles.modalTitle, color: "#2ecc71" }}>
-                Complete Trip
-              </h2>
-              <p
-                style={{
-                  color: "#7f8c8d",
-                  fontSize: "15px",
-                  marginBottom: "20px",
-                }}
-              >
-                Are you sure you have arrived and want to complete this trip? This
-                will stop live tracking.
-              </p>
-              {completeTripError && (
-                <div style={styles.errorBanner}>{completeTripError}</div>
-              )}
-              {completeTripSuccess && (
-                <div style={styles.successBanner}>{completeTripSuccess}</div>
-              )}
-              <div style={styles.modalActionRow}>
-                <button
-                  type="button"
-                  onClick={() => setIsCompleteTripModalOpen(false)}
-                  style={styles.cancelBtn}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmCompleteTrip}
-                  style={{ ...styles.submitBtn, backgroundColor: "#2ecc71" }}
-                >
-                  Yes, Complete
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Dialog open={isCompleteTripModalOpen} onClose={() => setIsCompleteTripModalOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ color: 'success.main', fontWeight: 700 }}>Complete Trip</DialogTitle>
+          <DialogContent>
+            <Typography color="text.secondary" mb={2}>
+              Are you sure you have arrived and want to complete this trip? This will stop live tracking.
+            </Typography>
+            {completeTripError && <Alert severity="error" sx={{ mb: 2 }}>{completeTripError}</Alert>}
+            {completeTripSuccess && <Alert severity="success" sx={{ mb: 2 }}>{completeTripSuccess}</Alert>}
+          </DialogContent>
+          <DialogActions sx={{ p: 2, pt: 0 }}>
+            <Button onClick={() => setIsCompleteTripModalOpen(false)} color="inherit">Cancel</Button>
+            <Button onClick={confirmCompleteTrip} variant="contained" color="success">Yes, Complete</Button>
+          </DialogActions>
+        </Dialog>
 
         {/* FUEL MODAL */}
-        {isFuelModalOpen && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <h2 style={styles.modalTitle}>Log Fuel Purchase</h2>
-              {fuelError && <div style={styles.errorBanner}>{fuelError}</div>}
-              {fuelSuccess && (
-                <div style={styles.successBanner}>{fuelSuccess}</div>
-              )}
-              <form onSubmit={submitFuelLog} style={styles.form}>
-                <div>
-                  <label style={styles.label}>Station Name</label>
-                  <input
-                    type="text"
-                    name="stationName"
-                    value={fuelForm.stationName}
-                    onChange={handleFuelChange}
-                    required
-                    style={styles.input}
-                  />
-                </div>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Liters Filled</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="liters"
-                      value={fuelForm.liters}
-                      onChange={handleFuelChange}
-                      required
-                      style={styles.input}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Total Cost (৳)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="totalCost"
-                      value={fuelForm.totalCost}
-                      onChange={handleFuelChange}
-                      required
-                      style={styles.input}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label style={styles.label}>Current Odometer (km)</label>
-                  <input
-                    type="number"
-                    name="odometer"
-                    value={fuelForm.odometer}
-                    onChange={handleFuelChange}
-                    required
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.modalActionRow}>
-                  <button
-                    type="button"
-                    onClick={() => setIsFuelModalOpen(false)}
-                    style={styles.cancelBtn}
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" style={styles.submitBtn}>
-                    Submit Log
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <Dialog open={isFuelModalOpen} onClose={() => setIsFuelModalOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontWeight: 700 }}>Log Fuel Purchase</DialogTitle>
+          <form onSubmit={submitFuelLog}>
+            <DialogContent dividers>
+              {fuelError && <Alert severity="error" sx={{ mb: 2 }}>{fuelError}</Alert>}
+              {fuelSuccess && <Alert severity="success" sx={{ mb: 2 }}>{fuelSuccess}</Alert>}
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField label="Station Name" name="stationName" value={fuelForm.stationName} onChange={handleFuelChange} required fullWidth />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField label="Liters Filled" type="number" inputProps={{ step: "0.01" }} name="liters" value={fuelForm.liters} onChange={handleFuelChange} required fullWidth />
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField label="Total Cost (৳)" type="number" inputProps={{ step: "0.01" }} name="totalCost" value={fuelForm.totalCost} onChange={handleFuelChange} required fullWidth />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField label="Current Odometer (km)" type="number" name="odometer" value={fuelForm.odometer} onChange={handleFuelChange} required fullWidth />
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button onClick={() => setIsFuelModalOpen(false)} color="inherit">Cancel</Button>
+              <Button type="submit" variant="contained" color="primary">Submit Log</Button>
+            </DialogActions>
+          </form>
+        </Dialog>
 
         {/* INCIDENT MODAL */}
-        {isIncidentModalOpen && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <h2 style={{ ...styles.modalTitle, color: "#c0392b" }}>
-                Report Incident
-              </h2>
-              {incidentError && (
-                <div style={styles.errorBanner}>{incidentError}</div>
-              )}
-              {incidentSuccess && (
-                <div style={styles.successBanner}>{incidentSuccess}</div>
-              )}
-              <form onSubmit={submitIncidentLog} style={styles.form}>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Incident Type</label>
-                    <select
-                      name="type"
-                      value={incidentForm.type}
-                      onChange={handleIncidentChange}
-                      style={styles.input}
-                    >
-                      <option value="accident">Accident</option>
-                      <option value="breakdown">Breakdown</option>
-                      <option value="traffic_violation">Traffic Violation</option>
-                      <option value="theft">Theft</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Severity</label>
-                    <select
-                      name="severity"
-                      value={incidentForm.severity}
-                      onChange={handleIncidentChange}
-                      style={styles.input}
-                    >
-                      <option value="minor">Minor</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="severe">Severe</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label style={styles.label}>Description of Incident</label>
-                  <textarea
-                    name="description"
-                    value={incidentForm.description}
-                    onChange={handleIncidentChange}
-                    required
-                    style={styles.textarea}
-                  />
-                </div>
-                <div>
-                  <label style={styles.label}>
-                    Reported To (Authority/Police)
-                  </label>
-                  <input
-                    type="text"
-                    name="reportedTo"
-                    value={incidentForm.reportedTo}
-                    onChange={handleIncidentChange}
-                    style={styles.input}
-                  />
-                </div>
-                <div>
-                  <label style={styles.label}>Attach Photo (Optional)</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.modalActionRow}>
-                  <button
-                    type="button"
-                    onClick={() => setIsIncidentModalOpen(false)}
-                    style={styles.cancelBtn}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    style={{ ...styles.submitBtn, backgroundColor: "#e74c3c" }}
-                  >
-                    Submit Report
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <Dialog open={isIncidentModalOpen} onClose={() => setIsIncidentModalOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Report Incident</DialogTitle>
+          <form onSubmit={submitIncidentLog}>
+            <DialogContent dividers>
+              {incidentError && <Alert severity="error" sx={{ mb: 2 }}>{incidentError}</Alert>}
+              {incidentSuccess && <Alert severity="success" sx={{ mb: 2 }}>{incidentSuccess}</Alert>}
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <TextField select label="Incident Type" name="type" value={incidentForm.type} onChange={handleIncidentChange} fullWidth>
+                    <MenuItem value="accident">Accident</MenuItem>
+                    <MenuItem value="breakdown">Breakdown</MenuItem>
+                    <MenuItem value="traffic_violation">Traffic Violation</MenuItem>
+                    <MenuItem value="theft">Theft</MenuItem>
+                    <MenuItem value="other">Other</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField select label="Severity" name="severity" value={incidentForm.severity} onChange={handleIncidentChange} fullWidth>
+                    <MenuItem value="minor">Minor</MenuItem>
+                    <MenuItem value="moderate">Moderate</MenuItem>
+                    <MenuItem value="severe">Severe</MenuItem>
+                    <MenuItem value="critical">Critical</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField label="Description of Incident" name="description" value={incidentForm.description} onChange={handleIncidentChange} required fullWidth multiline rows={3} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField label="Reported To (Authority/Police)" name="reportedTo" value={incidentForm.reportedTo} onChange={handleIncidentChange} fullWidth />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField label="Attach Photo (Optional)" type="file" name="incidentImage" inputProps={{ accept: "image/*" }} fullWidth InputLabelProps={{ shrink: true }} />
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button onClick={() => setIsIncidentModalOpen(false)} disabled={incidentUploading} color="inherit">Cancel</Button>
+              <Button type="submit" disabled={incidentUploading} variant="contained" color="error">
+                {incidentUploading ? "Uploading..." : "Submit Report"}
+              </Button>
+            </DialogActions>
+          </form>
+        </Dialog>
 
         {/* MAINTENANCE MODAL */}
-        {isMaintenanceModalOpen && (
-          <div style={styles.modalOverlay}>
-            <div style={styles.modalContainer}>
-              <h2 style={{ ...styles.modalTitle, color: "#e67e22" }}>
-                Request Maintenance
-              </h2>
-              {maintenanceError && (
-                <div style={styles.errorBanner}>{maintenanceError}</div>
-              )}
-              {maintenanceSuccess && (
-                <div style={styles.successBanner}>{maintenanceSuccess}</div>
-              )}
-              <form onSubmit={submitMaintenanceRequest} style={styles.form}>
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Service Type</label>
-                    <select
-                      name="serviceType"
-                      value={maintenanceForm.serviceType}
-                      onChange={handleMaintenanceChange}
-                      style={styles.input}
-                    >
-                      <option value="repair">Repair</option>
-                      <option value="routine">Routine Service</option>
-                      <option value="inspection">Inspection</option>
-                      <option value="emergency">Emergency Breakdown</option>
-                    </select>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Current Odometer</label>
-                    <input
-                      type="number"
-                      name="odometer"
-                      value={maintenanceForm.odometer}
-                      onChange={handleMaintenanceChange}
-                      required
-                      style={styles.input}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label style={styles.label}>Issue Description</label>
-                  <textarea
-                    name="description"
-                    value={maintenanceForm.description}
-                    onChange={handleMaintenanceChange}
-                    required
-                    style={styles.textarea}
-                  />
-                </div>
-                <div>
-                  <label style={styles.label}>
-                    Preferred Workshop (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    name="workshop"
-                    value={maintenanceForm.workshop}
-                    onChange={handleMaintenanceChange}
-                    style={styles.input}
-                  />
-                </div>
-                <div style={styles.modalActionRow}>
-                  <button
-                    type="button"
-                    onClick={() => setIsMaintenanceModalOpen(false)}
-                    style={styles.cancelBtn}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    style={{ ...styles.submitBtn, backgroundColor: "#f39c12" }}
-                  >
-                    Submit Request
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <Dialog open={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ color: 'warning.main', fontWeight: 700 }}>Request Maintenance</DialogTitle>
+          <form onSubmit={submitMaintenanceRequest}>
+            <DialogContent dividers>
+              {maintenanceError && <Alert severity="error" sx={{ mb: 2 }}>{maintenanceError}</Alert>}
+              {maintenanceSuccess && <Alert severity="success" sx={{ mb: 2 }}>{maintenanceSuccess}</Alert>}
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <TextField select label="Service Type" name="serviceType" value={maintenanceForm.serviceType} onChange={handleMaintenanceChange} fullWidth>
+                    <MenuItem value="repair">Repair</MenuItem>
+                    <MenuItem value="routine">Routine Service</MenuItem>
+                    <MenuItem value="inspection">Inspection</MenuItem>
+                    <MenuItem value="emergency">Emergency Breakdown</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={6}>
+                  <TextField label="Current Odometer" type="number" name="odometer" value={maintenanceForm.odometer} onChange={handleMaintenanceChange} required fullWidth />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField label="Issue Description" name="description" value={maintenanceForm.description} onChange={handleMaintenanceChange} required fullWidth multiline rows={3} />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField label="Preferred Workshop (Optional)" name="workshop" value={maintenanceForm.workshop} onChange={handleMaintenanceChange} fullWidth />
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button onClick={() => setIsMaintenanceModalOpen(false)} color="inherit">Cancel</Button>
+              <Button type="submit" variant="contained" color="warning">Submit Request</Button>
+            </DialogActions>
+          </form>
+        </Dialog>
       </Box>
     </Box>
   );
 }
-
-
-
-
-
-// --- CENTRALIZED STATIC STYLES ---
-const styles = {
-  // App Layout & Utils
-  loadingScreen: { padding: "20px", textAlign: "center" },
-  appContainer: {
-    display: "flex",
-    height: "100vh",
-    backgroundColor: "#f4f7f6",
-    fontFamily: "sans-serif",
-  },
-  mainContent: { flex: 1, padding: "30px", overflowY: "auto" },
-  mutedText: { color: "#7f8c8d" },
-  flexBetween: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  flexBetweenAlignTop: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  errorBanner: {
-    backgroundColor: "#ffe6e6",
-    color: "#cc0000",
-    padding: "10px",
-    borderRadius: "4px",
-    border: "1px solid #cc0000",
-    marginBottom: "15px",
-    fontSize: "14px",
-  },
-  successBanner: {
-    backgroundColor: "#e8f8f5",
-    color: "#27ae60",
-    padding: "10px",
-    borderRadius: "4px",
-    border: "1px solid #27ae60",
-    marginBottom: "15px",
-    fontSize: "14px",
-  },
-
-  // Sidebar
-  sidebar: {
-    width: "260px",
-    backgroundColor: "#2c3e50",
-    color: "white",
-    display: "flex",
-    flexDirection: "column",
-  },
-  sidebarHeader: { padding: "20px", borderBottom: "1px solid #34495e" },
-  sidebarTitle: { margin: 0, fontSize: "22px" },
-  sidebarSubtitle: { margin: "5px 0 0 0", fontSize: "14px", color: "#bdc3c7" },
-  sidebarCompany: {
-    margin: "2px 0 0 0",
-    fontSize: "12px",
-    color: "#3498db",
-    fontWeight: "bold",
-  },
-  navContainer: {
-    flex: 1,
-    padding: "20px 0",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
-  navSectionTitle: {
-    padding: "0 20px",
-    fontSize: "12px",
-    color: "#7f8c8d",
-    textTransform: "uppercase",
-    fontWeight: "bold",
-  },
-  navSectionTitleFlex: {
-    padding: "10px 20px 0 20px",
-    fontSize: "12px",
-    color: "#7f8c8d",
-    textTransform: "uppercase",
-    fontWeight: "bold",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  lockedBadge: {
-    color: "#e74c3c",
-    fontSize: "10px",
-    backgroundColor: "rgba(231, 76, 60, 0.2)",
-    padding: "2px 6px",
-    borderRadius: "4px",
-  },
-  logoutContainer: { padding: "20px" },
-  logoutBtn: {
-    width: "100%",
-    padding: "12px",
-    backgroundColor: "#c0392b",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-
-  // Alerts
-  alertBoxDanger: {
-    backgroundColor: "#f8d7da",
-    color: "#721c24",
-    padding: "15px",
-    borderRadius: "8px",
-    marginBottom: "30px",
-    borderLeft: "5px solid #f5c6cb",
-  },
-  alertBoxWarning: {
-    backgroundColor: "#fff3cd",
-    color: "#856404",
-    padding: "15px",
-    borderRadius: "8px",
-    marginBottom: "30px",
-    borderLeft: "5px solid #ffeeba",
-  },
-
-  // Dashboard - Active Trip
-  dashboardSection: { marginBottom: "40px" },
-  sectionHeader: {
-    marginTop: 0,
-    color: "#2c3e50",
-    borderBottom: "2px solid #ecf0f1",
-    paddingBottom: "10px",
-  },
-  activeTripCard: {
-    backgroundColor: "white",
-    padding: "25px",
-    borderRadius: "12px",
-    borderLeft: "6px solid #2ecc71",
-    boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-  },
-  tripRouteTitle: { margin: "0 0 10px 0", fontSize: "20px" },
-  tripDetailText: { margin: "5px 0", color: "#7f8c8d" },
-  inProgressBadge: {
-    backgroundColor: "#e8f8f5",
-    color: "#27ae60",
-    padding: "6px 12px",
-    borderRadius: "20px",
-    fontSize: "14px",
-    fontWeight: "bold",
-  },
-  tripActionRow: { marginTop: "20px", display: "flex", gap: "10px" },
-  completeTripBtn: {
-    padding: "12px 25px",
-    backgroundColor: "#2ecc71",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
-  noTripCard: {
-    backgroundColor: "#fff5f5",
-    padding: "30px",
-    borderRadius: "12px",
-    textAlign: "center",
-    color: "#c0392b",
-    border: "2px dashed #e74c3c",
-  },
-  noTripTitle: { margin: "0 0 10px 0" },
-  noTripText: { margin: 0 },
-
-  // Dashboard - Future Trips
-  futureTripsGrid: { display: "grid", gap: "15px" },
-  futureTripCard: {
-    backgroundColor: "white",
-    padding: "20px",
-    borderRadius: "8px",
-    borderLeft: "4px solid #3498db",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  futureTripRoute: { margin: "0 0 5px 0", fontSize: "16px" },
-  futureTripDetail: { margin: 0, fontSize: "13px", color: "#7f8c8d" },
-  startBtn: {
-    padding: "10px 20px",
-    backgroundColor: "#3498db",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
-
-  // Profile View
-  profileContainer: { display: "flex", gap: "30px", alignItems: "flex-start" },
-  docList: { display: "flex", flexDirection: "column", gap: "15px" },
-  docCard: {
-    border: "1px solid #eee",
-    padding: "20px",
-    borderRadius: "8px",
-    backgroundColor: "white",
-  },
-  docTitle: { fontSize: "18px", textTransform: "uppercase", color: "#2c3e50" },
-  expiredBadge: { color: "#e74c3c", fontWeight: "bold", marginRight: "15px" },
-  iconBtn: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "18px",
-    padding: 0,
-  },
-  docSubtitle: {
-    fontSize: "15px",
-    color: "#7f8c8d",
-    display: "block",
-    marginTop: "5px",
-  },
-  docDates: {
-    display: "flex",
-    gap: "20px",
-    marginTop: "10px",
-    fontSize: "14px",
-  },
-  formsColumn: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "20px",
-    flex: 1,
-  },
-  card: {
-    backgroundColor: "white",
-    padding: "25px",
-    borderRadius: "12px",
-    boxShadow: "0 4px 6px rgba(0,0,0,0.05)",
-  },
-  cardHeader: { marginTop: 0, color: "#2c3e50", marginBottom: "15px" },
-
-  // General Forms & Modals
-  form: { display: "flex", flexDirection: "column", gap: "15px" },
-  label: {
-    display: "block",
-    fontSize: "14px",
-    color: "#7f8c8d",
-    marginBottom: "5px",
-    fontWeight: "bold",
-  },
-  input: {
-    width: "100%",
-    padding: "10px",
-    borderRadius: "6px",
-    border: "1px solid #ccc",
-    boxSizing: "border-box",
-  },
-  textarea: {
-    width: "100%",
-    padding: "10px",
-    borderRadius: "6px",
-    border: "1px solid #ccc",
-    boxSizing: "border-box",
-    minHeight: "80px",
-    resize: "vertical",
-  },
-  primaryBtn: {
-    padding: "12px",
-    backgroundColor: "#34495e",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    marginTop: "10px",
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100vw",
-    height: "100vh",
-    backgroundColor: "rgba(0,0,0,0.7)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
-    padding: "20px",
-    boxSizing: "border-box",
-  },
-  modalContainer: {
-    backgroundColor: "white",
-    padding: "25px",
-    borderRadius: "12px",
-    width: "100%",
-    maxWidth: "450px",
-    maxHeight: "90vh",
-    overflowY: "auto",
-  },
-  modalTitle: { marginTop: 0, color: "#2c3e50", marginBottom: "15px" },
-  modalActionRow: { display: "flex", gap: "10px", marginTop: "10px" },
-  cancelBtn: {
-    flex: 1,
-    padding: "12px",
-    backgroundColor: "#ecf0f1",
-    color: "#7f8c8d",
-    border: "none",
-    borderRadius: "6px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  },
-  submitBtn: {
-    flex: 1,
-    padding: "12px",
-    color: "white",
-    border: "none",
-    borderRadius: "6px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    backgroundColor: "#3498db",
-  },
-};
 
 export default DriverDashboard;

@@ -102,6 +102,7 @@ function OwnerDashboard() {
   const [managersError, setManagersError] = useState("");
 
   // We will eventually fetch real data here
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
   const [stats, setStats] = useState({
     totalVehicles: 0,
     activeDrivers: 0,
@@ -247,6 +248,16 @@ function OwnerDashboard() {
     };
 
     fetchCompanyContext();
+
+    const fetchProfileStatus = async () => {
+      try {
+        const accountData = await apiFetch('/api/auth/account');
+        if (!accountData.full_name || !accountData.phone || !accountData.address) {
+          setProfileIncomplete(true);
+        }
+      } catch (err) { }
+    };
+    fetchProfileStatus();
 
     // 3. Create an async function to fetch the secure data
     const fetchDashboardData = async () => {
@@ -440,7 +451,7 @@ function OwnerDashboard() {
               {userRole}
             </Typography>
             <IconButton onClick={handleNotificationsClick}>
-              <Badge badgeContent={stats?.alerts || 0} color="error">
+              <Badge badgeContent={(stats?.alerts || 0) + (profileIncomplete ? 1 : 0)} color="error">
                 <NotificationsIcon />
               </Badge>
             </IconButton>
@@ -453,7 +464,17 @@ function OwnerDashboard() {
             >
               <Box p={2} minWidth={260}>
                 <Typography variant="subtitle1" fontWeight={700} gutterBottom>Notifications</Typography>
-                {stats?.alerts > 0 ? (
+                {profileIncomplete && (
+                  <Button
+                    fullWidth
+                    color="inherit"
+                    sx={{ justifyContent: "flex-start", textTransform: "none", textAlign: "left", color: "warning.main", mb: 1 }}
+                    onClick={() => { handleNotificationsClose(); navigate("/dashboard/settings"); }}
+                  >
+                    ⚠️ Action Required: Please complete your profile information (Full Name, Phone, and Address).
+                  </Button>
+                )}
+                {stats?.alerts > 0 && (
                   <Button
                     fullWidth
                     sx={{ justifyContent: "flex-start", textTransform: "none" }}
@@ -461,7 +482,8 @@ function OwnerDashboard() {
                   >
                     ⚠️ You have {stats.alerts} system alert(s).
                   </Button>
-                ) : (
+                )}
+                {(!stats?.alerts || stats.alerts === 0) && !profileIncomplete && (
                   <Typography variant="body2" color="text.secondary">No new notifications.</Typography>
                 )}
               </Box>

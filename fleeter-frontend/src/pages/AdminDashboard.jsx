@@ -25,7 +25,8 @@ import {
   TableRow,
   Chip,
   Button,
-  Tooltip
+  Tooltip,
+  Popover
 } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
 import NotificationsIcon from "@mui/icons-material/Notifications";
@@ -39,6 +40,11 @@ function AdminDashboard() {
   const navigate = useNavigate();
   const { mode, toggleTheme } = useThemeSettings();
   const [currentTab, setCurrentTab] = useState("overview");
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
+  const handleNotificationsClick = (event) => setNotificationAnchorEl(event.currentTarget);
+  const handleNotificationsClose = () => setNotificationAnchorEl(null);
+  const isNotificationsOpen = Boolean(notificationAnchorEl);
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
 
   const [totalUsers, setTotalUsers] = useState(0);
   const [totalAdmins, setTotalAdmins] = useState(0);
@@ -49,6 +55,13 @@ function AdminDashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
+      try {
+        const accountData = await apiFetch('/api/auth/account');
+        if (!accountData.full_name || !accountData.phone || !accountData.address) {
+          setProfileIncomplete(true);
+        }
+      } catch (err) { }
+
       try {
         const users = await apiFetch("/api/admin/users");
         setUsersList(users);
@@ -115,11 +128,34 @@ function AdminDashboard() {
         <AppBar position="static" color="default" elevation={1}>
           <Toolbar>
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>System Administration</Typography>
-            <IconButton color="inherit">
-              <Badge badgeContent={0} color="error">
+            <IconButton color="inherit" onClick={handleNotificationsClick}>
+              <Badge badgeContent={profileIncomplete ? 1 : 0} color="error">
                 <NotificationsIcon />
               </Badge>
             </IconButton>
+            <Popover
+              open={isNotificationsOpen}
+              anchorEl={notificationAnchorEl}
+              onClose={handleNotificationsClose}
+              anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+              transformOrigin={{ vertical: "top", horizontal: "right" }}
+            >
+              <Box p={2} minWidth={260}>
+                <Typography variant="subtitle1" fontWeight={700} gutterBottom>Notifications</Typography>
+                {profileIncomplete ? (
+                  <Button
+                    fullWidth
+                    color="inherit"
+                    sx={{ justifyContent: "flex-start", textTransform: "none", textAlign: "left", color: "warning.main" }}
+                    onClick={() => { handleNotificationsClose(); navigate("/dashboard/settings"); }}
+                  >
+                    ⚠️ Action Required: Please complete your profile information.
+                  </Button>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">No new notifications.</Typography>
+                )}
+              </Box>
+            </Popover>
             <IconButton color="inherit" onClick={() => navigate("/dashboard/settings")}>
               <SettingsIcon />
             </IconButton>

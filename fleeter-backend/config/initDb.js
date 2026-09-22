@@ -211,7 +211,8 @@ const initializeDatabase = async () => {
         damage_cost NUMERIC(10,2) DEFAULT 0.00 CHECK (damage_cost >= 0),
         reported_to VARCHAR(100),
         logged_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL,
-        resolved BOOLEAN DEFAULT FALSE
+        resolved BOOLEAN DEFAULT FALSE,
+        image_url TEXT
       );
 
       -- 12. DRIVER_DOCUMENT
@@ -223,6 +224,7 @@ const initializeDatabase = async () => {
         issue_date DATE NOT NULL,
         expiry_date DATE NOT NULL,
         alert_triggered BOOLEAN DEFAULT FALSE,
+        document_url TEXT,
         CHECK (expiry_date >= issue_date)
       );
 
@@ -235,6 +237,7 @@ const initializeDatabase = async () => {
         issue_date DATE NOT NULL,
         expiry_date DATE NOT NULL,
         alert_triggered BOOLEAN DEFAULT FALSE,
+        document_url TEXT,
         CHECK (expiry_date >= issue_date)
       );
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -13,6 +13,8 @@ import {
   FormControl,
   InputLabel,
   Divider,
+  Stack,
+  Link,
 } from "@mui/material";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import { apiFetch } from "../utils/api";
@@ -26,6 +28,7 @@ function Register() {
   });
   const [message, setMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -35,6 +38,7 @@ function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
+    setLoading(true);
     try {
       await apiFetch("/api/auth/register", {
         method: "POST",
@@ -46,6 +50,7 @@ function Register() {
     } catch (error) {
       setIsSuccess(false);
       setMessage(error.message || "Network error. Is the backend running?");
+      setLoading(false);
     }
   };
 
@@ -61,96 +66,118 @@ function Register() {
         py: 4,
       }}
     >
-      <Container maxWidth="xs">
+      <Container component="main" maxWidth="xs">
         {/* Logo */}
-        <Box display="flex" alignItems="center" justifyContent="center" mb={3} gap={1}>
-          <LocalShippingIcon color="primary" sx={{ fontSize: 32 }} />
-          <Typography variant="h5" fontWeight={800} color="primary" letterSpacing={1}>
+        <Box display="flex" alignItems="center" justifyContent="center" mb={4} gap={1}>
+          <LocalShippingIcon color="primary" sx={{ fontSize: 40 }} />
+          <Typography variant="h4" fontWeight={800} color="primary" letterSpacing={1}>
             FLEETER
           </Typography>
         </Box>
 
-        <Paper elevation={0} sx={{ p: 4, border: 1, borderColor: "divider" }}>
-          <Typography variant="h5" fontWeight={700} mb={0.5}>
-            Create an Account
-          </Typography>
-          <Typography variant="body2" color="text.secondary" mb={3}>
-            Start managing your fleet today.
-          </Typography>
+        <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+          {/* Header with consistent margin-bottom */}
+          <Box textAlign="center" mb={4}>
+            <Typography variant="h5" fontWeight="bold" mb={2}>
+              Create an Account
+            </Typography>
+            <Typography variant="body2" color="text.secondary" >
+              Start managing your fleet today.
+            </Typography>
+          </Box>
 
           {message && (
-            <Alert severity={isSuccess ? "success" : "error"} sx={{ mb: 2 }}>
+            <Alert severity={isSuccess ? "success" : "error"} sx={{ mb: 3 }}>
               {message}
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
-            <TextField
-              name="username"
-              label="Username"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              fullWidth
-              autoComplete="username"
-            />
-            <TextField
-              type="email"
-              name="email"
-              label="Email Address"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              fullWidth
-              autoComplete="email"
-            />
-            <TextField
-              type="password"
-              name="password"
-              label="Password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              fullWidth
-              autoComplete="new-password"
-            />
-            <FormControl fullWidth>
-              <InputLabel>Role</InputLabel>
-              <Select
-                name="role"
-                value={formData.role}
-                label="Role"
+          <Box component="form" onSubmit={handleSubmit}>
+            {/* Stack ensures perfectly even spacing between all form elements */}
+            <Stack spacing={3} sx={{ pt: 2 }}>
+              <TextField
+                variant="outlined"
+                name="username"
+                label="Username"
+                value={formData.username}
                 onChange={handleChange}
-              >
-                <MenuItem value="driver">Driver</MenuItem>
-                <MenuItem value="manager">Manager / Dispatcher</MenuItem>
-                <MenuItem value="owner">Fleet Owner</MenuItem>
-              </Select>
-            </FormControl>
+                required
+                fullWidth
+                autoComplete="username"
+              />
+              <TextField
+                variant="outlined"
+                type="email"
+                name="email"
+                label="Email Address"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                fullWidth
+                autoComplete="email"
+              />
+              <TextField
+                variant="outlined"
+                type="password"
+                name="password"
+                label="Password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                fullWidth
+                autoComplete="new-password"
+              />
 
-            <Button type="submit" variant="contained" size="large" fullWidth>
-              Sign Up
-            </Button>
+              <FormControl fullWidth variant="outlined">
+                <InputLabel>Role</InputLabel>
+                <Select
+                  name="role"
+                  value={formData.role}
+                  label="Role"
+                  onChange={handleChange}
+                >
+                  <MenuItem value="driver">Driver</MenuItem>
+                  <MenuItem value="manager">Manager / Dispatcher</MenuItem>
+                  <MenuItem value="owner">Fleet Owner</MenuItem>
+                </Select>
+              </FormControl>
+
+              <Button
+                type="submit"
+                variant="contained"
+                size="large"
+                fullWidth
+                disableElevation
+                disabled={loading || isSuccess}
+                sx={{ py: 1.5, fontWeight: "bold", mt: 1 }}
+              >
+                {loading && !isSuccess ? "Signing Up..." : "Sign Up"}
+              </Button>
+            </Stack>
           </Box>
 
           <Divider sx={{ my: 3 }} />
 
           <Box textAlign="center">
-            <Typography variant="body2" color="text.secondary" display="inline">
+            <Typography variant="body2" color="text.secondary">
               Already have an account?{" "}
-            </Typography>
-            <Link to="/login" style={{ textDecoration: "none" }}>
-              <Typography variant="body2" fontWeight={700} color="primary" display="inline">
+              <Link component={RouterLink} to="/login" underline="hover" color="primary" fontWeight="bold">
                 Sign In
-              </Typography>
-            </Link>
+              </Link>
+            </Typography>
           </Box>
         </Paper>
 
-        <Box textAlign="center" mt={2}>
-          <Button onClick={() => navigate("/")} size="small" color="inherit">
-            ← Back to Home
-          </Button>
+        <Box textAlign="center" mt={3}>
+          <Link
+            component={RouterLink}
+            to="/"
+            underline="hover"
+            color="text.secondary"
+            variant="body2"
+          >
+            &larr; Back to Home
+          </Link>
         </Box>
       </Container>
     </Box>

@@ -1,12 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
+const upload = require("../middleware/upload");
 const { verifyToken, authorizeRole } = require("../middleware/authMiddleware");
 const bcrypt = require("bcrypt");
 
 // Middleware to resolve driver_id for the authenticated user
 // This prevents us from having to run this query in every single route
 const attachDriverId = async (req, res, next) => {
+
   try {
     const driverQuery = await pool.query(
       "SELECT driver_id FROM Driver WHERE user_id = $1",
@@ -299,7 +301,7 @@ router.post("/log-fuel", async (req, res) => {
 });
 
 // POST /api/driver/log-incident
-router.post("/log-incident", async (req, res) => {
+router.post("/log-incident", upload.single('incidentImage'), async (req, res) => {
   const { trip_id, type, severity, description, reported_to } = req.body;
 
   // Input Validation
@@ -310,6 +312,9 @@ router.post("/log-incident", async (req, res) => {
   }
   if (!req.driver_id)
     return res.status(403).json({ error: "Driver profile missing." });
+
+  // Determine the image path if a file was uploaded
+  const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
   try {
     // Cross-user access block: Ensure the trip actually belongs to this driver
@@ -323,13 +328,17 @@ router.post("/log-incident", async (req, res) => {
         .json({ error: "Forbidden: You are not assigned to this trip." });
     }
 
+    // Insert into DB with the new image_url column
     await pool.query(
-      `INSERT INTO Incident (trip_id, incident_date, type, description, severity, reported_to, logged_by)
-       VALUES ($1, NOW(), $2, $3, $4, $5, $6)`,
-      [trip_id, type, description, severity, reported_to, req.user.user_id],
+      `INSERT INTO Incident (trip_id, incident_date, type, description, severity, reported_to, logged_by, image_url)
+       VALUES ($1, NOW(), $2, $3, $4, $5, $6, $7)`,
+      [trip_id, type, description, severity, reported_to, req.user.user_id, image_url],
     );
 
-    res.status(201).json({ message: "Incident reported successfully" });
+    res.status(201).json({
+      message: "Incident reported successfully",
+      image_url: image_url
+    });
   } catch (error) {
     console.error("Error inserting incident:", error);
     res.status(500).json({ error: "Database error while reporting incident." });

@@ -1,398 +1,367 @@
 import React, { useEffect, useState } from "react";
 import { apiFetch } from "../utils/api";
+import {
+  Box,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  Button,
+  Chip,
+  Alert,
+  CircularProgress,
+  Avatar,
+  TextField,
+  Paper,
+  IconButton
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import DeleteIcon from "@mui/icons-material/Delete";
+import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import PersonIcon from "@mui/icons-material/Person";
+import DescriptionIcon from "@mui/icons-material/Description";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 function VehicleDetails({ vehicleId, onBack }) {
   const [vehicle, setVehicle] = useState(null);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [showDocuments, setShowDocuments] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFeedback, setUploadFeedback] = useState({ message: "", isError: false });
+
   useEffect(() => {
-    const fetchVehicle = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         setError("");
-
-        // 2. Replaced raw fetch with centralized apiFetch utility
-        const data = await apiFetch(`/api/vehicles/${vehicleId}`);
-        setVehicle(data);
+        const [vehicleData, docsData] = await Promise.all([
+          apiFetch(`/api/vehicles/${vehicleId}`),
+          apiFetch(`/api/vehicles/${vehicleId}/documents`).catch(() => [])
+        ]);
+        setVehicle(vehicleData);
+        setDocuments(docsData);
       } catch (err) {
         console.error("Error loading vehicle:", err);
-        // Catch 403, 404, or 500 errors and set them to state
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchVehicle();
+    fetchData();
   }, [vehicleId]);
+
+  const deleteDocument = async (documentId) => {
+    if (!window.confirm("Are you sure you want to delete this document?")) return;
+    try {
+      await apiFetch(`/api/vehicles/${vehicleId}/documents/${documentId}`, {
+        method: "DELETE",
+      });
+      setDocuments(documents.filter((doc) => doc.document_id !== documentId));
+    } catch (err) {
+      alert(`Failed to delete: ${err.message}`);
+    }
+  };
+
+  const handleDocumentSubmit = async (e) => {
+    e.preventDefault();
+    setUploading(true);
+    setUploadFeedback({ message: "", isError: false });
+
+    const formElement = e.target;
+    const formData = new FormData(formElement);
+
+    try {
+      const data = await apiFetch(`/api/vehicles/${vehicleId}/documents`, {
+        method: "POST",
+        body: formData,
+      });
+
+      setUploadFeedback({ message: "Document successfully added!", isError: false });
+      formElement.reset();
+
+      if (data.document) {
+        setDocuments((prev) => [data.document, ...prev]);
+        setShowDocuments(true);
+      }
+    } catch (err) {
+      console.error("Upload failed:", err);
+      setUploadFeedback({ message: err.message || "Upload failed", isError: true });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (loading) {
     return (
-      <div
-        style={{
-          backgroundColor: "white",
-          padding: "30px",
-          borderRadius: "10px",
-          border: "1px solid #e0e0e0",
-          textAlign: "center",
-          color: "#7f8c8d",
-        }}
-      >
-        Loading vehicle details...
-      </div>
+      <Box sx={{ p: 4, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <CircularProgress sx={{ mb: 2 }} />
+        <Typography color="text.secondary">Loading vehicle details...</Typography>
+      </Box>
     );
   }
 
-  // 3. Render the explicit error message if the fetch failed
   if (error || !vehicle) {
     return (
-      <div
-        style={{
-          backgroundColor: "white",
-          padding: "30px",
-          borderRadius: "10px",
-          border: "1px solid #e0e0e0",
-        }}
-      >
-        <button
-          onClick={onBack}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            color: "#3498db",
-            cursor: "pointer",
-            fontSize: "14px",
-            marginBottom: "20px",
-          }}
-        >
-          ← Back to Vehicles
-        </button>
-
-        <h2>Vehicle Unavailable</h2>
-        {/* Visible Error Feedback Box */}
-        {error ? (
-          <div
-            style={{
-              backgroundColor: "#ffe6e6",
-              color: "#cc0000",
-              padding: "15px",
-              borderRadius: "5px",
-              border: "1px solid #cc0000",
-            }}
-          >
-            <strong>Error:</strong> {error}
-          </div>
-        ) : (
-          <p style={{ color: "#7f8c8d" }}>
-            We couldn't find the requested vehicle.
-          </p>
-        )}
-      </div>
+      <Box>
+        <Button startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ mb: 3 }}>
+          Back to Vehicles
+        </Button>
+        <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+          <CardContent sx={{ p: 4 }}>
+            <Typography variant="h5" fontWeight={700} gutterBottom>
+              Vehicle Unavailable
+            </Typography>
+            {error ? (
+              <Alert severity="error">{error}</Alert>
+            ) : (
+              <Typography color="text.secondary">We couldn't find the requested vehicle.</Typography>
+            )}
+          </CardContent>
+        </Card>
+      </Box>
     );
   }
 
   const statusColors = {
-    good: "#2ecc71",
-    needs_service: "#f1c40f",
-    in_maintenance: "#e67e22",
-    retired: "#95a5a6",
+    good: "success",
+    needs_service: "warning",
+    in_maintenance: "warning",
+    retired: "default",
   };
-
-  const statusColor = statusColors[vehicle.condition_status] || "#7f8c8d";
+  const statusColor = statusColors[vehicle.condition_status] || "default";
 
   return (
-    <div>
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        style={{
-          background: "none",
-          border: "none",
-          padding: 0,
-          color: "#3498db",
-          cursor: "pointer",
-          fontSize: "14px",
-          marginBottom: "15px",
-        }}
-      >
-        ← Back to Vehicles
-      </button>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3, pb: 4 }}>
+      <Box>
+        <Button startIcon={<ArrowBackIcon />} onClick={onBack}>
+          Back to Vehicles
+        </Button>
+      </Box>
 
       {/* Profile Header */}
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "10px",
-          border: "1px solid #e0e0e0",
-          padding: "25px",
-          marginBottom: "20px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "20px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "18px",
-            }}
-          >
-            {/* Vehicle Icon */}
-            <div
-              style={{
-                width: "65px",
-                height: "65px",
-                borderRadius: "12px",
-                backgroundColor: "#3498db",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "30px",
-              }}
-            >
-              🚛
-            </div>
-
-            <div>
-              <h1
-                style={{
-                  margin: 0,
-                  color: "#2c3e50",
-                  fontSize: "26px",
-                }}
-              >
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider", overflow: "visible" }}>
+        <CardContent sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2.5 }}>
+            <Avatar sx={{ width: 72, height: 72, bgcolor: "primary.main", borderRadius: 2 }}>
+              <LocalShippingIcon fontSize="large" />
+            </Avatar>
+            <Box>
+              <Typography variant="h4" fontWeight={700} color="text.primary">
                 {vehicle.registration_no}
-              </h1>
-
-              <p
-                style={{
-                  margin: "5px 0 0",
-                  color: "#7f8c8d",
-                  fontSize: "15px",
-                }}
-              >
+              </Typography>
+              <Typography variant="subtitle1" color="text.secondary">
                 {vehicle.brand || "Unknown Brand"} {vehicle.model || ""}
-              </p>
-            </div>
-          </div>
-
-          {/* Status */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              backgroundColor: `${statusColor}15`,
-              padding: "8px 14px",
-              borderRadius: "20px",
-              color: statusColor,
-              fontWeight: "600",
-              fontSize: "14px",
-            }}
-          >
-            <span
-              style={{
-                width: "9px",
-                height: "9px",
-                borderRadius: "50%",
-                backgroundColor: statusColor,
-              }}
-            />
-
-            {vehicle.condition_status ? vehicle.condition_status.replace("_", " ") : "Unknown"}
-          </div>
-        </div>
-      </div>
+              </Typography>
+            </Box>
+          </Box>
+          <Chip
+            label={vehicle.condition_status ? vehicle.condition_status.replace("_", " ") : "Unknown"}
+            color={statusColor}
+            sx={{ fontWeight: 600, textTransform: "capitalize", px: 1 }}
+          />
+        </CardContent>
+      </Card>
 
       {/* Basic Information */}
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "10px",
-          border: "1px solid #e0e0e0",
-          padding: "25px",
-          marginBottom: "20px",
-        }}
-      >
-        <h2
-          style={{
-            margin: "0 0 20px",
-            color: "#2c3e50",
-            fontSize: "19px",
-          }}
-        >
-          Vehicle Information
-        </h2>
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h6" fontWeight={700} mb={3}>Vehicle Information</Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Vehicle ID" value={vehicle.vehicle_id} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Registration Number" value={vehicle.registration_no} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Vehicle Type" value={vehicle.type} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Brand" value={vehicle.brand} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Model" value={vehicle.model} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Manufacturing Year" value={vehicle.year} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Capacity" value={vehicle.capacity} /></Grid>
+            <Grid item xs={12} sm={6} md={3}><InfoItem label="Fuel Type" value={vehicle.fuel_type} /></Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "20px",
-          }}
-        >
-          <InfoItem label="Vehicle ID" value={vehicle.vehicle_id} />
-          <InfoItem
-            label="Registration Number"
-            value={vehicle.registration_no}
-          />
-          <InfoItem label="Vehicle Type" value={vehicle.type} />
-          <InfoItem label="Brand" value={vehicle.brand} />
-          <InfoItem label="Model" value={vehicle.model} />
-          <InfoItem label="Manufacturing Year" value={vehicle.year} />
-          <InfoItem label="Capacity" value={vehicle.capacity} />
-          <InfoItem label="Fuel Type" value={vehicle.fuel_type} />
-        </div>
-      </div>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          {/* Current Assignment */}
+          <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" fontWeight={700} mb={3}>Current Assignment</Typography>
+              <Paper elevation={0} sx={{ display: "flex", alignItems: "center", gap: 2, p: 2, bgcolor: "action.hover", borderRadius: 2 }}>
+                <Avatar sx={{ bgcolor: "background.paper", color: "text.secondary" }}>
+                  <PersonIcon />
+                </Avatar>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">CURRENT DRIVER</Typography>
+                  <Typography variant="body1" fontWeight={600} color="text.primary">
+                    {vehicle.driver_name || "Unassigned"}
+                  </Typography>
+                </Box>
+              </Paper>
+            </CardContent>
+          </Card>
+        </Grid>
 
-      {/* Current Assignment */}
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "10px",
-          border: "1px solid #e0e0e0",
-          padding: "25px",
-          marginBottom: "20px",
-        }}
-      >
-        <h2
-          style={{
-            margin: "0 0 20px",
-            color: "#2c3e50",
-            fontSize: "19px",
-          }}
-        >
-          Current Assignment
-        </h2>
+        <Grid item xs={12} md={6}>
+          {/* Service Information */}
+          <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
+            <CardContent sx={{ p: 3 }}>
+              <Typography variant="h6" fontWeight={700} mb={3}>Service Information</Typography>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6}>
+                  <InfoItem label="Last Service Date" value={vehicle.last_service_date ? new Date(vehicle.last_service_date).toLocaleDateString() : "Never Serviced"} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <InfoItem label="Availability Status" value={vehicle.availability_status?.replace("_", " ")} sx={{ textTransform: "capitalize" }} />
+                </Grid>
+              </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "15px",
-            padding: "15px",
-            backgroundColor: "#f8f9fa",
-            borderRadius: "8px",
-          }}
-        >
-          <div
-            style={{
-              width: "45px",
-              height: "45px",
-              borderRadius: "50%",
-              backgroundColor: "#ecf0f1",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "20px",
-            }}
-          >
-            👤
-          </div>
+      {/* Document Viewer (Collapsible) */}
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: showDocuments ? 3 : 0 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={700}>Vehicle Documents</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {documents.length} document{documents.length !== 1 ? 's' : ''} on file.
+              </Typography>
+            </Box>
+            <Button variant="outlined" onClick={() => setShowDocuments(!showDocuments)}>
+              {showDocuments ? "Hide Documents" : "View Documents"}
+            </Button>
+          </Box>
 
-          <div>
-            <div
-              style={{
-                fontSize: "14px",
-                color: "#7f8c8d",
-                marginBottom: "3px",
-              }}
-            >
-              Current Driver
-            </div>
+          {showDocuments && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
+              {documents.length === 0 ? (
+                <Typography color="text.secondary" fontStyle="italic">No documents uploaded yet.</Typography>
+              ) : (
+                documents.map(doc => {
+                  const isExpired = new Date(doc.expiry_date) < new Date();
+                  const hasAlert = doc.alert_triggered || isExpired;
+                  const borderColor = hasAlert ? "error.main" : "success.main";
 
-            <div
-              style={{
-                fontWeight: "600",
-                color: "#2c3e50",
-              }}
-            >
-              {vehicle.driver_name || "Unassigned"}
-            </div>
-          </div>
-        </div>
-      </div>
+                  return (
+                    <Paper key={doc.document_id} elevation={0} sx={{ border: 1, borderColor: "divider", borderLeft: 6, borderLeftColor: borderColor, p: 2, borderRadius: 2, display: "flex", gap: 3, alignItems: "flex-start", flexWrap: { xs: "wrap", sm: "nowrap" } }}>
+                      {/* Document Image Thumbnail */}
+                      <Box sx={{ width: 120, height: 120, flexShrink: 0, borderRadius: 1, overflow: "hidden", bgcolor: "action.hover", border: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {doc.document_url ? (
+                          doc.document_url.toLowerCase().endsWith('.pdf') ? (
+                            <Box sx={{ textAlign: "center", color: "text.secondary" }}>
+                              <DescriptionIcon sx={{ fontSize: 40, mb: 1 }} />
+                              <Typography variant="caption" display="block">PDF</Typography>
+                            </Box>
+                          ) : (
+                            <Box component="img" src={`http://localhost:5000${doc.document_url}`} alt={doc.document_type} sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          )
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">No Image</Typography>
+                        )}
+                      </Box>
 
-      {/* Service Information */}
-      <div
-        style={{
-          backgroundColor: "white",
-          borderRadius: "10px",
-          border: "1px solid #e0e0e0",
-          padding: "25px",
-        }}
-      >
-        <h2
-          style={{
-            margin: "0 0 20px",
-            color: "#2c3e50",
-            fontSize: "19px",
-          }}
-        >
-          Service Information
-        </h2>
+                      {/* Document Details */}
+                      <Box sx={{ flex: 1, width: "100%" }}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                          <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: "uppercase" }}>
+                            {doc.document_type.replace("_", " ")}
+                          </Typography>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                            {isExpired && (
+                              <Chip label="EXPIRED" color="error" size="small" sx={{ fontWeight: 700 }} />
+                            )}
+                            <IconButton onClick={() => deleteDocument(doc.document_id)} color="error" size="small">
+                              <DeleteIcon />
+                            </IconButton>
+                          </Box>
+                        </Box>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "20px",
-          }}
-        >
-          {/* Dynamically derived last_service_date from the updated backend query */}
-          <InfoItem
-            label="Last Service Date"
-            value={
-              vehicle.last_service_date
-                ? new Date(vehicle.last_service_date).toLocaleDateString()
-                : "Never Serviced"
-            }
-          />
+                        <Grid container spacing={2}>
+                          <Grid item xs={6} sm={3}><InfoItem label="Doc Number" value={doc.document_no} /></Grid>
+                          <Grid item xs={6} sm={3}><InfoItem label="Alert" value={doc.alert_triggered ? "Yes" : "No"} /></Grid>
+                          <Grid item xs={6} sm={3}><InfoItem label="Issue Date" value={new Date(doc.issue_date).toLocaleDateString()} /></Grid>
+                          <Grid item xs={6} sm={3}><InfoItem label="Expiry Date" value={new Date(doc.expiry_date).toLocaleDateString()} /></Grid>
+                        </Grid>
 
-          <InfoItem label="Condition Status" value={vehicle.condition_status?.replace("_", " ")} />
-          <InfoItem label="Availability Status" value={vehicle.availability_status?.replace("_", " ")} />
-        </div>
-      </div>
-    </div>
+                        {doc.document_url && (
+                          <Button
+                            href={`http://localhost:5000${doc.document_url}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            startIcon={<OpenInNewIcon />}
+                            size="small"
+                            sx={{ mt: 2 }}
+                          >
+                            Open Document
+                          </Button>
+                        )}
+                      </Box>
+                    </Paper>
+                  );
+                })
+              )}
+            </Box>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Upload Document Section */}
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h6" fontWeight={700} mb={3}>Upload New Document</Typography>
+
+          <form onSubmit={handleDocumentSubmit}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField label="Document Type" name="document_type" placeholder="e.g., Registration, Insurance" required fullWidth size="small" />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField label="Document Number" name="document_no" placeholder="Document Number" required fullWidth size="small" />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField label="Issue Date" name="issue_date" type="date" required fullWidth size="small" InputLabelProps={{ shrink: true }} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField label="Expiry Date" name="expiry_date" type="date" required fullWidth size="small" InputLabelProps={{ shrink: true }} />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField label="Upload Scan/Image" name="documentFile" type="file" inputProps={{ accept: "image/*,.pdf" }} required fullWidth size="small" InputLabelProps={{ shrink: true }} />
+              </Grid>
+              <Grid item xs={12}>
+                <Button type="submit" variant="contained" color="primary" disabled={uploading} fullWidth>
+                  {uploading ? "Uploading..." : "Save Document"}
+                </Button>
+              </Grid>
+            </Grid>
+          </form>
+
+          {uploadFeedback.message && (
+            <Alert severity={uploadFeedback.isError ? "error" : "success"} sx={{ mt: 2 }}>
+              {uploadFeedback.message}
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
 
-/* Reusable information field */
-function InfoItem({ label, value }) {
+function InfoItem({ label, value, sx }) {
   return (
-    <div>
-      <div
-        style={{
-          fontSize: "12px",
-          color: "#95a5a6",
-          textTransform: "uppercase",
-          fontWeight: "600",
-          marginBottom: "6px",
-          letterSpacing: "0.3px",
-        }}
-      >
+    <Box>
+      <Typography variant="overline" color="text.secondary" display="block" lineHeight={1.2} mb={0.5}>
         {label}
-      </div>
-
-      <div
-        style={{
-          fontSize: "15px",
-          color: "#2c3e50",
-          fontWeight: "500",
-        }}
-      >
+      </Typography>
+      <Typography variant="body1" fontWeight={500} color="text.primary" sx={sx}>
         {value !== null && value !== undefined && value !== "" ? value : "—"}
-      </div>
-    </div>
+      </Typography>
+    </Box>
   );
 }
 
 export default VehicleDetails;
+

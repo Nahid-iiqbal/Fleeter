@@ -1,26 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { apiFetch } from "../utils/api";
-
-const cardStyle = {
-  backgroundColor: "white",
-  borderRadius: "8px",
-  border: "1px solid #e0e0e0",
-  padding: "24px",
-  marginBottom: "20px",
-};
-
-const labelStyle = {
-  fontSize: "12px",
-  color: "#7f8c8d",
-  textTransform: "uppercase",
-  marginBottom: "6px",
-};
-
-const valueStyle = {
-  fontSize: "16px",
-  color: "#2c3e50",
-  fontWeight: "500",
-};
+import {
+  Box,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  Button,
+  Chip,
+  Alert,
+  CircularProgress,
+  Avatar,
+  Paper
+} from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 function ManagerDetails({ managerId, onBack }) {
   const [manager, setManager] = useState(null);
@@ -46,106 +39,106 @@ function ManagerDetails({ managerId, onBack }) {
   }, [managerId]);
 
   if (loading) {
-    return <div style={{ padding: "30px" }}>Loading manager profile...</div>;
+    return (
+      <Box sx={{ p: 4, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <CircularProgress sx={{ mb: 2 }} />
+        <Typography color="text.secondary">Loading manager profile...</Typography>
+      </Box>
+    );
   }
 
   if (error || !manager) {
     return (
-      <div style={{ padding: "30px" }}>
-        <button onClick={onBack} style={backButtonStyle}>
-          ← Back to Managers
-        </button>
-        <div style={cardStyle}>
-          <h2 style={{ marginTop: 0 }}>Manager Unavailable</h2>
-          <p style={{ color: error ? "#cc0000" : "#7f8c8d" }}>
-            {error || "This manager could not be found."}
-          </p>
-        </div>
-      </div>
+      <Box>
+        <Button startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ mb: 3 }}>
+          Back to Managers
+        </Button>
+        <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+          <CardContent sx={{ p: 4 }}>
+            <Typography variant="h5" fontWeight={700} gutterBottom>
+              Manager Unavailable
+            </Typography>
+            {error ? (
+              <Alert severity="error">{error}</Alert>
+            ) : (
+              <Typography color="text.secondary">This manager could not be found.</Typography>
+            )}
+          </CardContent>
+        </Card>
+      </Box>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "#f4f7f6" }}>
-      <main style={{ padding: "30px", maxWidth: "1200px", margin: "0 auto" }}>
-        <button onClick={onBack} style={backButtonStyle}>
-          ← Back to Managers
-        </button>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3, pb: 4 }}>
+      {/* Header */}
+      <Paper elevation={0} sx={{ borderBottom: 1, borderColor: "divider", p: 3, mx: -3, mt: -3, mb: 1, borderRadius: 0, bgcolor: "background.paper", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700} color="text.primary">Manager Profile</Typography>
+          <Typography variant="body2" color="text.secondary">Manager #{manager.manager_id}</Typography>
+        </Box>
+      </Paper>
 
-        <div style={cardStyle}>
-          <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
-            <div style={avatarStyle}>
+      <Box>
+        <Button startIcon={<ArrowBackIcon />} onClick={onBack}>
+          Back
+        </Button>
+      </Box>
+
+      {/* Identity Card */}
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2.5 }}>
+            <Avatar sx={{ width: 70, height: 70, bgcolor: "primary.main", fontSize: "1.75rem", fontWeight: 700 }}>
               {manager.full_name?.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h1 style={{ margin: 0, color: "#2c3e50" }}>{manager.full_name}</h1>
-              <p style={{ margin: "6px 0 0", color: "#7f8c8d" }}>
+            </Avatar>
+            <Box>
+              <Typography variant="h5" fontWeight={700} color="text.primary">
+                {manager.full_name}
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
                 Manager #{manager.manager_id}
-              </p>
-            </div>
-          </div>
-        </div>
+              </Typography>
+            </Box>
+          </Box>
+          <Chip
+            label={manager.is_active ? "Active" : "Inactive"}
+            color={manager.is_active ? "success" : "default"}
+            sx={{ fontWeight: 700, px: 1, fontSize: "0.875rem" }}
+          />
+        </CardContent>
+      </Card>
 
-        <div style={cardStyle}>
-          <h2 style={{ marginTop: 0, color: "#2c3e50" }}>Manager Information</h2>
-          <div style={gridStyle}>
-            <ProfileField label="Full Name" value={manager.full_name} />
-            <ProfileField label="Employee ID" value={manager.employee_id} />
-            <ProfileField label="Department" value={manager.department} />
-            <ProfileField label="Phone" value={manager.phone} />
-            <ProfileField label="Username" value={manager.username} />
-            <ProfileField label="Email" value={manager.email} />
-            <ProfileField
-              label="Account Status"
-              value={manager.is_active ? "Active" : "Inactive"}
-            />
-            <ProfileField
-              label="Joined Date"
-              value={manager.created_at?.split("T")[0]}
-            />
-          </div>
-        </div>
-      </main>
-    </div>
+      {/* Information Card */}
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h6" fontWeight={700} mb={3}>Manager Information</Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Full Name" value={manager.full_name} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Employee ID" value={manager.employee_id} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Department" value={manager.department} sx={{ textTransform: "capitalize" }} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Phone" value={manager.phone} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Username" value={manager.username || "Not linked"} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Email" value={manager.email} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Joined Date" value={manager.created_at ? new Date(manager.created_at).toLocaleDateString() : null} /></Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
 
-function ProfileField({ label, value }) {
+function InfoItem({ label, value, sx }) {
   return (
-    <div>
-      <div style={labelStyle}>{label}</div>
-      <div style={valueStyle}>{value || "Not provided"}</div>
-    </div>
+    <Box>
+      <Typography variant="overline" color="text.secondary" display="block" lineHeight={1.2} mb={0.5}>
+        {label}
+      </Typography>
+      <Typography variant="body1" fontWeight={500} color="text.primary" sx={sx}>
+        {value !== null && value !== undefined && value !== "" ? value : "Not provided"}
+      </Typography>
+    </Box>
   );
 }
-
-const gridStyle = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "25px",
-};
-
-const avatarStyle = {
-  width: "70px",
-  height: "70px",
-  borderRadius: "50%",
-  backgroundColor: "#3498db",
-  color: "white",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: "28px",
-  fontWeight: "bold",
-};
-
-const backButtonStyle = {
-  background: "none",
-  border: "none",
-  padding: 0,
-  color: "#3498db",
-  cursor: "pointer",
-  fontSize: "14px",
-  marginBottom: "20px",
-};
 
 export default ManagerDetails;

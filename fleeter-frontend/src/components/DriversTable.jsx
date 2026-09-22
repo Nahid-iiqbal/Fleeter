@@ -1,24 +1,40 @@
 import React, { useEffect, useState } from "react";
 import { apiFetch } from "../utils/api";
-
-const tableHeaderStyle = {
-  textAlign: "left",
-  padding: "12px",
-  borderBottom: "2px solid #ddd",
-  color: "#555",
-};
-
-const tableCellStyle = {
-  padding: "12px",
-  borderBottom: "1px solid #eee",
-};
+import {
+  Box,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  TextField,
+  Button,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControlLabel,
+  Checkbox,
+  Grid,
+  MenuItem,
+  InputAdornment,
+  Autocomplete,
+  Alert,
+  CircularProgress
+} from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 const getDriverStatusColor = (status) => {
   const normalizedStatus = String(status || "").toLowerCase().replaceAll("_", " ");
-  if (normalizedStatus === "available") return "#15803d";
-  if (normalizedStatus === "dispatched") return "#6b7280";
-  if (normalizedStatus === "on leave") return "#dc2626";
-  return "inherit";
+  if (normalizedStatus === "available") return "success";
+  if (normalizedStatus === "dispatched") return "default";
+  if (normalizedStatus === "on leave") return "error";
+  return "default";
 };
 
 function DriversTable({
@@ -47,6 +63,7 @@ function DriversTable({
     cargo_type: "cargo",
     notes: "",
   });
+
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const filteredDrivers = drivers.filter((driver) =>
     [
@@ -136,277 +153,287 @@ function DriversTable({
     }));
   };
 
-  const updateTripResourceSearch = (event, resourceType) => {
-    const value = event.target.value;
-    const resources = resourceType === "vehicle" ? vehicles : routes;
-    const selectedResource = resources.find((resource) => {
-      const label = resourceType === "vehicle"
-        ? getVehicleLabel(resource)
-        : getRouteLabel(resource);
-      return label === value;
-    });
-
-    if (resourceType === "vehicle") setVehicleSearch(value);
-    else setRouteSearch(value);
-
-    setTripForm((current) => ({
-      ...current,
-      [`${resourceType}_id`]: selectedResource ? selectedResource[`${resourceType}_id`] : "",
-    }));
-  };
-
   return (
-    <div
-      style={{
-        backgroundColor: "white",
-        padding: "20px",
-        borderRadius: "8px",
-        border: "1px solid #e0e0e0",
-      }}
-    >
+    <Paper elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden", bgcolor: "background.paper" }}>
       {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-        }}
-      >
-        <h2 style={{ margin: 0 }}>Driver Management</h2>
+      <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider", gap: 2, flexWrap: "wrap" }}>
+        <Typography variant="h6" fontWeight={700}>
+          Driver Management
+        </Typography>
 
-        <input
-          type="search"
-          placeholder="Search drivers"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          aria-label="Search drivers"
-          style={{ padding: "8px 10px", border: "1px solid #ccc", borderRadius: "5px", flex: 1, margin: "0 16px" }}
-        />
-
-        <button
-          onClick={onRefresh}
-          disabled={driversLoading}
-          style={{
-            padding: "8px 14px",
-            border: "none",
-            borderRadius: "5px",
-            backgroundColor: "#3498db",
-            color: "white",
-            cursor: driversLoading ? "not-allowed" : "pointer",
-          }}
-        >
-          {driversLoading ? "Refreshing..." : "Refresh"}
-        </button>
-      </div>
+        <Box sx={{ display: "flex", gap: 2, flexGrow: 1, justifyContent: "flex-end", maxWidth: { xs: "100%", md: "600px" } }}>
+          <TextField
+            size="small"
+            placeholder="Search drivers..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={onRefresh}
+            disabled={driversLoading}
+            startIcon={driversLoading ? <CircularProgress size={16} color="inherit" /> : <RefreshIcon />}
+            sx={{ whiteSpace: "nowrap" }}
+          >
+            Refresh
+          </Button>
+        </Box>
+      </Box>
 
       {/* Visible Error Feedback Box */}
       {error && (
-        <div
-          style={{
-            backgroundColor: "#ffe6e6",
-            color: "#cc0000",
-            border: "1px solid #cc0000",
-            padding: "10px",
-            marginBottom: "20px",
-            borderRadius: "4px",
-          }}
-        >
-          <strong>Error:</strong> {error}
-        </div>
+        <Box sx={{ p: 2 }}>
+          <Alert severity="error">{error}</Alert>
+        </Box>
       )}
 
       {/* Loading & Empty States */}
-      {driversLoading ? (
-        <p>Loading drivers...</p>
-      ) : drivers.length === 0 && !error ? (
-        <p>No drivers found.</p>
-      ) : filteredDrivers.length === 0 ? (
-        <p>No drivers match your search.</p>
-      ) : (
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-          }}
-        >
-          <thead>
-            <tr>
-              <th style={tableHeaderStyle}>ID</th>
-              <th style={tableHeaderStyle}>Name</th>
-              <th style={tableHeaderStyle}>License Document</th>
-              <th style={tableHeaderStyle}>Account</th>
-              <th style={tableHeaderStyle}>Phone</th>
-              <th style={tableHeaderStyle}>Status</th>
-              <th style={tableHeaderStyle}>Joined</th>
-              <th style={tableHeaderStyle}>Actions</th>
-            </tr>
-          </thead>
+      <Box sx={{ width: "100%", overflowX: "auto" }}>
+        {driversLoading ? (
+          <Box sx={{ p: 4, textAlign: "center", color: "text.secondary" }}>
+            <CircularProgress size={32} sx={{ mb: 2 }} />
+            <Typography>Loading drivers...</Typography>
+          </Box>
+        ) : drivers.length === 0 && !error ? (
+          <Box sx={{ p: 4, textAlign: "center", color: "text.secondary" }}>
+            <Typography>No drivers found.</Typography>
+          </Box>
+        ) : filteredDrivers.length === 0 ? (
+          <Box sx={{ p: 4, textAlign: "center", color: "text.secondary" }}>
+            <Typography>No drivers match your search.</Typography>
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table sx={{ minWidth: 800 }}>
+              <TableHead sx={{ bgcolor: "background.default" }}>
+                <TableRow>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>License Document</TableCell>
+                  <TableCell>Account</TableCell>
+                  <TableCell>Phone</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Joined</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredDrivers.map((driver) => (
+                  <TableRow key={driver.driver_id} hover>
+                    <TableCell>{driver.driver_id}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="text"
+                        color="primary"
+                        onClick={() => onDriverClick(driver.driver_id)}
+                        sx={{ fontWeight: 600, p: 0, minWidth: "auto", textTransform: "none", textAlign: "left" }}
+                      >
+                        {driver.full_name}
+                      </Button>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{driver.document_no || "Not provided"}</Typography>
+                      {driver.document_type && (
+                        <Typography variant="caption" color="text.secondary">
+                          Type: {driver.document_type.replaceAll("_", " ")}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{driver.username || driver.email || "Not linked"}</Typography>
+                      {driver.email && driver.username && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {driver.email}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>{driver.phone}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={driver.status}
+                        color={getDriverStatusColor(driver.status)}
+                        size="small"
+                        sx={{ fontWeight: 600, textTransform: "capitalize" }}
+                      />
+                    </TableCell>
+                    <TableCell>{driver.joined_date ? new Date(driver.joined_date).toLocaleDateString() : "N/A"}</TableCell>
+                    <TableCell align="right">
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        size="small"
+                        onClick={() => {
+                          setTripForm((current) => ({
+                            ...current,
+                            departure_time: getDefaultDepartureTime(),
+                          }));
+                          setAssigningDriver(driver);
+                        }}
+                        sx={{ whiteSpace: "nowrap" }}
+                      >
+                        Assign trip
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
 
-          <tbody>
-            {filteredDrivers.map((driver) => (
-              <tr key={driver.driver_id}>
-                <td style={tableCellStyle}>{driver.driver_id}</td>
+      {/* Assign Trip Dialog */}
+      <Dialog open={!!assigningDriver} onClose={closeAssignment} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Typography variant="h6" fontWeight={700}>Assign trip</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Driver: {assigningDriver?.full_name}
+          </Typography>
+        </DialogTitle>
+        <form onSubmit={submitAssignment}>
+          <DialogContent dividers>
+            {tripError && (
+              <Alert severity="error" sx={{ mb: 2 }}>{tripError}</Alert>
+            )}
 
-                <td style={tableCellStyle}>
-                  <button
-                    onClick={() => onDriverClick(driver.driver_id)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      padding: 0,
-                      color: "#3498db",
-                      cursor: "pointer",
-                      fontSize: "inherit",
-                      fontWeight: "600",
-                    }}
-                  >
-                    {driver.full_name}
-                  </button>
-                </td>
-
-                <td style={tableCellStyle}>
-                  {driver.document_no || "Not provided"}
-                  {driver.document_type && (
-                    <>
-                      <br />
-                      <small>
-                        Type: {driver.document_type.replaceAll("_", " ")}
-                      </small>
-                    </>
-                  )}
-                </td>
-
-                <td style={tableCellStyle}>
-                  {driver.username || driver.email || "Not linked"}
-                  {driver.email && driver.username && (
-                    <>
-                      <br />
-                      <small>{driver.email}</small>
-                    </>
-                  )}
-                </td>
-
-                <td style={tableCellStyle}>{driver.phone}</td>
-
-                <td style={{ ...tableCellStyle, color: getDriverStatusColor(driver.status), fontWeight: "600" }}>
-                  {driver.status}
-                </td>
-
-                <td style={tableCellStyle}>{driver.joined_date}</td>
-
-                <td style={tableCellStyle}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTripForm((current) => ({
-                        ...current,
-                        departure_time: getDefaultDepartureTime(),
-                      }));
-                      setAssigningDriver(driver);
-                    }}
-                    style={assignButtonStyle}
-                  >
-                    Assign trip
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {assigningDriver && (
-        <div style={modalBackdropStyle} role="presentation" onMouseDown={(event) => {
-          if (event.target === event.currentTarget) closeAssignment();
-        }}>
-          <div style={modalStyle} role="dialog" aria-modal="true" aria-labelledby="assign-trip-title">
-            <div style={modalHeaderStyle}>
-              <div>
-                <h2 id="assign-trip-title" style={{ margin: 0 }}>Assign trip</h2>
-                <p style={{ margin: "6px 0 0", color: "#667085" }}>
-                  Driver: {assigningDriver.full_name}
-                </p>
-              </div>
-              <button type="button" onClick={closeAssignment} style={closeButtonStyle} aria-label="Close assign trip dialog">
-                X
-              </button>
-            </div>
-
-            {tripError && <div style={formErrorStyle}>{tripError}</div>}
             {tripLoading && routes.length === 0 && vehicles.length === 0 ? (
-              <p>Loading trip options...</p>
+              <Box sx={{ textAlign: "center", p: 3 }}>
+                <CircularProgress />
+                <Typography mt={1}>Loading trip options...</Typography>
+              </Box>
             ) : (
-              <form onSubmit={submitAssignment}>
-                <label style={fieldStyle}>
-                  Search vehicles
-                  <input type="search" value={vehicleSearch} onChange={(event) => updateTripResourceSearch(event, "vehicle")} placeholder="Search by registration, brand, or model" list="driver-trip-vehicle-options" required style={inputStyle} />
-                  <datalist id="driver-trip-vehicle-options">
-                    {vehicles.map((vehicle) => <option key={vehicle.vehicle_id} value={getVehicleLabel(vehicle)} />)}
-                  </datalist>
-                </label>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
 
-                <label style={fieldStyle}>
-                  Search routes
-                  <input type="search" value={routeSearch} onChange={(event) => updateTripResourceSearch(event, "route")} placeholder="Search by route, origin, or destination" list="driver-trip-route-options" disabled={tripForm.custom_route} required={!tripForm.custom_route} style={inputStyle} />
-                  <datalist id="driver-trip-route-options">
-                    {routes.map((route) => <option key={route.route_id} value={getRouteLabel(route)} />)}
-                  </datalist>
-                </label>
+                <Autocomplete
+                  options={vehicles}
+                  getOptionLabel={getVehicleLabel}
+                  inputValue={vehicleSearch}
+                  onInputChange={(_, newInputValue) => setVehicleSearch(newInputValue)}
+                  onChange={(_, newValue) => {
+                    setTripForm(prev => ({ ...prev, vehicle_id: newValue ? String(newValue.vehicle_id) : "" }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Search vehicles" placeholder="Registration, brand, or model" required />
+                  )}
+                />
 
-                <label style={checkboxStyle}>
-                  <input type="checkbox" name="custom_route" checked={tripForm.custom_route} onChange={updateTripField} />
-                  Add custom trip addresses as a route
-                </label>
+                <Autocomplete
+                  options={routes}
+                  getOptionLabel={getRouteLabel}
+                  inputValue={routeSearch}
+                  onInputChange={(_, newInputValue) => setRouteSearch(newInputValue)}
+                  onChange={(_, newValue) => {
+                    setTripForm(prev => ({ ...prev, route_id: newValue ? String(newValue.route_id) : "" }));
+                  }}
+                  disabled={tripForm.custom_route}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Search routes" placeholder="Route name, origin, or destination" required={!tripForm.custom_route} />
+                  )}
+                />
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="custom_route"
+                      checked={tripForm.custom_route}
+                      onChange={updateTripField}
+                    />
+                  }
+                  label="Add custom trip addresses as a route"
+                />
 
                 {tripForm.custom_route && (
                   <>
-                    <label style={fieldStyle}>
-                      Route name
-                      <input name="route_name" value={tripForm.route_name} onChange={updateTripField} required maxLength="100" style={inputStyle} />
-                    </label>
-                    <div style={twoColumnStyle}>
-                      <label style={fieldStyle}>
-                        Origin address
-                        <input name="origin_address" value={tripForm.origin_address} onChange={updateTripField} required style={inputStyle} />
-                      </label>
-                      <label style={fieldStyle}>
-                        Destination address
-                        <input name="destination_address" value={tripForm.destination_address} onChange={updateTripField} required style={inputStyle} />
-                      </label>
-                    </div>
+                    <TextField
+                      label="Route name"
+                      name="route_name"
+                      value={tripForm.route_name}
+                      onChange={updateTripField}
+                      required
+                      inputProps={{ maxLength: 100 }}
+                      fullWidth
+                    />
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Origin address"
+                          name="origin_address"
+                          value={tripForm.origin_address}
+                          onChange={updateTripField}
+                          required
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          label="Destination address"
+                          name="destination_address"
+                          value={tripForm.destination_address}
+                          onChange={updateTripField}
+                          required
+                          fullWidth
+                        />
+                      </Grid>
+                    </Grid>
                   </>
                 )}
 
-                <label style={fieldStyle}>
-                  Departure time
-                  <input type="datetime-local" name="departure_time" value={tripForm.departure_time} onChange={updateTripField} required style={inputStyle} />
-                </label>
+                <TextField
+                  label="Departure time"
+                  type="datetime-local"
+                  name="departure_time"
+                  value={tripForm.departure_time}
+                  onChange={updateTripField}
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                />
 
-                <label style={fieldStyle}>
-                  Cargo or passengers
-                  <select name="cargo_type" value={tripForm.cargo_type} onChange={updateTripField} required style={inputStyle}>
-                    <option value="cargo">Cargo</option>
-                    <option value="passengers">Passengers</option>
-                  </select>
-                </label>
-                <label style={fieldStyle}>
-                  Notes
-                  <textarea name="notes" value={tripForm.notes} onChange={updateTripField} rows="3" style={inputStyle} />
-                </label>
+                <TextField
+                  label="Cargo or passengers"
+                  select
+                  name="cargo_type"
+                  value={tripForm.cargo_type}
+                  onChange={updateTripField}
+                  required
+                  fullWidth
+                >
+                  <MenuItem value="cargo">Cargo</MenuItem>
+                  <MenuItem value="passengers">Passengers</MenuItem>
+                </TextField>
 
-                <div style={modalActionsStyle}>
-                  <button type="button" onClick={closeAssignment} style={secondaryButtonStyle}>Cancel</button>
-                  <button type="submit" disabled={tripLoading} style={primaryButtonStyle}>
-                    {tripLoading ? "Assigning..." : "Assign trip"}
-                  </button>
-                </div>
-              </form>
+                <TextField
+                  label="Notes"
+                  name="notes"
+                  value={tripForm.notes}
+                  onChange={updateTripField}
+                  multiline
+                  rows={3}
+                  fullWidth
+                />
+              </Box>
             )}
-          </div>
-        </div>
-      )}
-    </div>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, px: 3 }}>
+            <Button onClick={closeAssignment} color="inherit" variant="outlined">
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" color="primary" disabled={tripLoading}>
+              {tripLoading ? "Assigning..." : "Assign trip"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+    </Paper>
   );
 }
 
@@ -423,28 +450,5 @@ function getVehicleLabel(vehicle) {
 function getRouteLabel(route) {
   return route ? `${route.route_name}: ${route.origin} to ${route.destination}` : "";
 }
-
-const inputStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "9px 10px",
-  marginTop: "6px",
-  border: "1px solid #cbd5e1",
-  borderRadius: "5px",
-  font: "inherit",
-};
-
-const fieldStyle = { display: "block", marginBottom: "14px", color: "#344054", fontSize: "14px", fontWeight: "600" };
-const twoColumnStyle = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "14px" };
-const checkboxStyle = { display: "flex", gap: "8px", alignItems: "center", margin: "4px 0 16px", color: "#344054", fontSize: "14px" };
-const assignButtonStyle = { padding: "7px 10px", border: "none", borderRadius: "5px", backgroundColor: "#16a085", color: "white", cursor: "pointer", whiteSpace: "nowrap" };
-const modalBackdropStyle = { position: "fixed", inset: 0, zIndex: 10, backgroundColor: "rgba(15, 23, 42, 0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" };
-const modalStyle = { backgroundColor: "white", borderRadius: "8px", width: "min(620px, 100%)", maxHeight: "90vh", overflowY: "auto", padding: "24px", boxShadow: "0 20px 50px rgba(15, 23, 42, 0.25)" };
-const modalHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px" };
-const closeButtonStyle = { border: "none", background: "transparent", color: "#667085", cursor: "pointer", fontSize: "16px", fontWeight: "700" };
-const formErrorStyle = { backgroundColor: "#fff1f2", color: "#be123c", border: "1px solid #fecdd3", borderRadius: "5px", padding: "10px", marginBottom: "16px" };
-const modalActionsStyle = { display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" };
-const secondaryButtonStyle = { padding: "9px 14px", border: "1px solid #cbd5e1", borderRadius: "5px", backgroundColor: "white", color: "#344054", cursor: "pointer" };
-const primaryButtonStyle = { padding: "9px 14px", border: "none", borderRadius: "5px", backgroundColor: "#16a085", color: "white", cursor: "pointer" };
 
 export default DriversTable;

@@ -160,7 +160,7 @@ router.post("/logout", verifyToken, async (req, res) => {
 router.get("/account", verifyToken, async (req, res) => {
   try {
     const userQuery = await db.query(
-      "SELECT username, email, theme, notifications_enabled FROM User_Account WHERE user_id = $1",
+      "SELECT username, email, full_name, phone, address, theme, notifications_enabled FROM User_Account WHERE user_id = $1",
       [req.user.user_id]
     );
     if (userQuery.rows.length === 0) return res.status(404).json({ error: "User not found" });
@@ -173,7 +173,7 @@ router.get("/account", verifyToken, async (req, res) => {
 
 // PUT /api/auth/account
 router.put("/account", verifyToken, async (req, res) => {
-  const { username, email, password, theme, notifications_enabled } = req.body;
+  const { username, email, full_name, phone, address, password, theme, notifications_enabled } = req.body;
 
   if (!username || !email) {
     return res.status(400).json({ error: "Username and email are required." });
@@ -184,13 +184,13 @@ router.put("/account", verifyToken, async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       const password_hash = await bcrypt.hash(password, salt);
       await db.query(
-        "UPDATE User_Account SET username = $1, email = $2, password_hash = $3, theme = $4, notifications_enabled = $5 WHERE user_id = $6",
-        [username, email, password_hash, theme || 'light', notifications_enabled !== false, req.user.user_id]
+        "UPDATE User_Account SET username = $1, email = $2, full_name = $3, phone = $4, address = $5, password_hash = $6, theme = $7, notifications_enabled = $8 WHERE user_id = $9",
+        [username, email, full_name || null, phone || null, address || null, password_hash, theme || 'light', notifications_enabled !== false, req.user.user_id]
       );
     } else {
       await db.query(
-        "UPDATE User_Account SET username = $1, email = $2, theme = $3, notifications_enabled = $4 WHERE user_id = $5",
-        [username, email, theme || 'light', notifications_enabled !== false, req.user.user_id]
+        "UPDATE User_Account SET username = $1, email = $2, full_name = $3, phone = $4, address = $5, theme = $6, notifications_enabled = $7 WHERE user_id = $8",
+        [username, email, full_name || null, phone || null, address || null, theme || 'light', notifications_enabled !== false, req.user.user_id]
       );
     }
     res.json({ message: "Account updated successfully", theme, notifications_enabled });

@@ -1,17 +1,23 @@
 const express = require("express");
 const router = express.Router();
-
+const upload = require("../middleware/upload");
 const pool = require("../config/db");
-// Assuming authMiddleware attaches the decoded JWT to req.user
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, authorizeRole } = require("../middleware/authMiddleware");
+
+// Helper to get owner_id
+const getOwnerId = async (userId) => {
+  const res = await pool.query(
+    "SELECT owner_id FROM Owner_Profile WHERE user_id = $1 UNION SELECT owner_id FROM Manager_Profile WHERE user_id = $1",
+    [userId],
+  );
+  return res.rows.length ? res.rows[0].owner_id : null;
+};
 
 // GET /api/vehicles
 router.get("/", verifyToken, async (req, res) => {
   try {
-    // 1. Extract the authenticated user's ID
     const userId = req.user.user_id;
 
-    // 2. Enforce object-level ownership and fix 3NF last_service_date derivation
     const result = await pool.query(
       `
       SELECT
@@ -45,15 +51,12 @@ router.get("/", verifyToken, async (req, res) => {
       ORDER BY v.vehicle_id ASC
     `,
       [userId],
-    ); // Parameterized query to prevent SQL injection
+    );
 
     res.json(result.rows);
   } catch (error) {
     console.error("Error fetching vehicles:", error);
-
-    res.status(500).json({
-      message: "Failed to fetch vehicles",
-    });
+    res.status(500).json({ message: "Failed to fetch vehicles" });
   }
 });
 
@@ -63,7 +66,6 @@ router.get("/:vehicleId", verifyToken, async (req, res) => {
     const { vehicleId } = req.params;
     const userId = req.user.user_id;
 
-    // 1. Parameterize both the vehicle ID and the user's ID
     const result = await pool.query(
       `
       SELECT
@@ -100,97 +102,187 @@ router.get("/:vehicleId", verifyToken, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        message: "Vehicle not found or you do not have permission to view it",
-      });
+      return res.status(404).json({ message: "Vehicle not found or you do not have permission to view it" });
     }
 
     res.json(result.rows[0]);
   } catch (error) {
     console.error("Error fetching vehicle:", error);
-
-    res.status(500).json({
-      message: "Failed to fetch vehicle",
-    });
+    res.status(500).json({ message: "Failed to fetch vehicle" });
   }
 });
-
-// Add these to your existing routes/vehicles.js
-const { authorizeRole } = require("../middleware/authMiddleware");
-
-// Helper to get owner_id
-const getOwnerId = async (userId) => {
-  const res = await pool.query(
-    "SELECT owner_id FROM Owner_Profile WHERE user_id = $1 UNION SELECT owner_id FROM Manager_Profile WHERE user_id = $1",
-    [userId],
-  );
-  return res.rows.length ? res.rows[0].owner_id : null;
-};
 
 // POST /api/vehicles (Create new vehicle)
-router.post("/", authorizeRole("owner", "manager"), async (req, res) => {
-  const { registration_no, brand, type, model, year, capacity, fuel_type } =
-    req.body;
+router.post(
+  "/",
+  verifyToken, // <-- ADDED
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    const { registration_no, brand, type, model, year, capacity, fuel_type } = req.body;
 
-  // 1. Input Validation (400 Bad Request)
-  if (!registration_no || !type) {
-    return res
-      .status(400)
-      .json({ message: "Registration number and type are required." });
-  }
+    if (!registration_no || !type) {
+      return res.status(400).json({ message: "Registration number and type are required." });
+    }
 
-  try {
-    const ownerId = await getOwnerId(req.user.user_id);
-    if (!ownerId)
-      return res.status(403).json({ message: "Owner profile required." });
+    try {
+      const ownerId = await getOwnerId(req.user.user_id);
+      if (!ownerId) return res.status(403).json({ message: "Owner profile required." });
 
-    // 2. Parameterized Query (SQL Injection Prevention)
-    const result = await pool.query(
-      `
-            INSERT INTO Vehicle (owner_id, registration_no, brand, type, model, year, capacity, fuel_type)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING *
+      const result = await pool.query(
+        `
+        INSERT INTO Vehicle (owner_id, registration_no, brand, type, model, year, capacity, fuel_type)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING *
         `,
-      [ownerId, registration_no, brand, type, model, year, capacity, fuel_type],
-    );
+        [ownerId, registration_no, brand, type, model, year, capacity, fuel_type],
+      );
 
-    // 3. REST Convention: 201 Created
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    if (error.code === "23505")
-      return res
-        .status(409)
-        .json({ message: "Registration number already exists." });
-    res.status(500).json({ message: "Server error creating vehicle." });
+      res.status(201).json(result.rows[0]);
+    } catch (error) {
+      if (error.code === "23505")
+        return res.status(409).json({ message: "Registration number already exists." });
+      res.status(500).json({ message: "Server error creating vehicle." });
+    }
   }
-});
+);
 
 // DELETE /api/vehicles/:vehicleId (Delete vehicle)
 router.delete(
   "/:vehicleId",
+  verifyToken, // <-- ADDED
   authorizeRole("owner", "manager"),
   async (req, res) => {
     try {
       const ownerId = await getOwnerId(req.user.user_id);
 
-      // Object-Level Ownership Check: Must match vehicle_id AND owner_id
       const result = await pool.query(
         "DELETE FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2 RETURNING *",
         [req.params.vehicleId, ownerId],
       );
 
       if (result.rowCount === 0) {
-        return res
-          .status(404)
-          .json({ message: "Vehicle not found or unauthorized." });
+        return res.status(404).json({ message: "Vehicle not found or unauthorized." });
       }
 
-      // REST Convention: 204 No Content for successful deletion
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Server error deleting vehicle." });
     }
-  },
+  }
+);
+
+// GET /api/vehicles/:vehicleId/documents (Fetch all documents for a vehicle)
+router.get(
+  "/:vehicleId/documents",
+  verifyToken, // <-- ADDED
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    try {
+      const { vehicleId } = req.params;
+      const ownerId = await getOwnerId(req.user.user_id);
+
+      const vehicleCheck = await pool.query(
+        "SELECT 1 FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2",
+        [vehicleId, ownerId]
+      );
+
+      if (vehicleCheck.rowCount === 0) {
+        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
+      }
+
+      const result = await pool.query(
+        "SELECT * FROM Vehicle_Document WHERE vehicle_id = $1 ORDER BY expiry_date DESC",
+        [vehicleId]
+      );
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      res.status(500).json({ message: "Failed to fetch documents" });
+    }
+  }
+);
+
+// POST /api/vehicles/:vehicleId/documents (Upload Vehicle Document)
+router.post(
+  "/:vehicleId/documents",
+  verifyToken, // <-- ADDED
+  authorizeRole("owner", "manager"),
+  upload.single("documentFile"),
+  async (req, res) => {
+    const { vehicleId } = req.params;
+    const { document_type, document_no, issue_date, expiry_date } = req.body;
+
+    if (!document_type || !document_no || !issue_date || !expiry_date) {
+      return res.status(400).json({ message: "All document fields are required." });
+    }
+
+    try {
+      const ownerId = await getOwnerId(req.user.user_id);
+
+      const vehicleCheck = await pool.query(
+        "SELECT 1 FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2",
+        [vehicleId, ownerId]
+      );
+
+      if (vehicleCheck.rowCount === 0) {
+        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
+      }
+
+      const document_url = req.file ? `/uploads/${req.file.filename}` : null;
+
+      const result = await pool.query(
+        `INSERT INTO Vehicle_Document
+         (vehicle_id, document_type, document_no, issue_date, expiry_date, document_url)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [vehicleId, document_type, document_no, issue_date, expiry_date, document_url]
+      );
+
+      res.status(201).json({
+        message: "Vehicle document uploaded successfully",
+        document: result.rows[0]
+      });
+    } catch (error) {
+      console.error("Error uploading vehicle document:", error);
+      res.status(500).json({ message: "Server error uploading document." });
+    }
+  }
+);
+
+// DELETE /api/vehicles/:vehicleId/documents/:documentId (Delete Vehicle Document)
+router.delete(
+  "/:vehicleId/documents/:documentId",
+  verifyToken, // <-- ADDED
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    try {
+      const { vehicleId, documentId } = req.params;
+      const ownerId = await getOwnerId(req.user.user_id);
+
+      const vehicleCheck = await pool.query(
+        "SELECT 1 FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2",
+        [vehicleId, ownerId]
+      );
+
+      if (vehicleCheck.rowCount === 0) {
+        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
+      }
+
+      const result = await pool.query(
+        "DELETE FROM Vehicle_Document WHERE document_id = $1 AND vehicle_id = $2 RETURNING *",
+        [documentId, vehicleId]
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Document not found." });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Server error deleting document." });
+    }
+  }
 );
 
 module.exports = router;
