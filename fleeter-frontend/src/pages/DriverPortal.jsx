@@ -131,7 +131,7 @@ function DriverDashboard() {
   const [showDocuments, setShowDocuments] = useState(false);
 
   const [newDocForm, setNewDocForm] = useState({
-    document_type: "license",
+    document_type: "driving_license",
     document_no: "",
     issue_date: "",
     expiry_date: "",
@@ -187,28 +187,29 @@ function DriverDashboard() {
     return () => window.clearInterval(approvalCheck);
   }, [driverStats.hasCompany, fetchDriverData, loading]);
 
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      setDocsLoading(true);
-      try {
-        const data = await apiFetch("/api/driver/documents");
-        if (Array.isArray(data)) {
-          setDriverDocs(data);
-          const alertsCount = data.filter(
-            (d) => d.alert_triggered || new Date(d.expiry_date) < new Date(),
-          ).length;
-          setDriverStats((prev) => ({ ...prev, alerts: alertsCount }));
-        }
-      } catch (error) {
-        console.error("Failed to load documents", error);
-        setDriverDocs([]);
-      } finally {
-        setDocsLoading(false);
+  // --- FETCH DOCUMENTS ---
+  const fetchDocuments = useCallback(async () => {
+    setDocsLoading(true);
+    try {
+      const data = await apiFetch("/api/driver/documents");
+      if (Array.isArray(data)) {
+        setDriverDocs(data);
+        const alertsCount = data.filter(
+          (d) => d.alert_triggered || new Date(d.expiry_date) < new Date(),
+        ).length;
+        setDriverStats((prev) => ({ ...prev, alerts: alertsCount }));
       }
-    };
+    } catch (error) {
+      console.error("Failed to load documents", error);
+      setDriverDocs([]);
+    } finally {
+      setDocsLoading(false);
+    }
+  }, []);
 
-    if (currentView === "documents") fetchDocuments();
-  }, [currentView]);
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
 
   const currentTrips = driverStats.trips.filter((t) => t.status === "in_progress");
   const futureTrips = driverStats.trips.filter((t) => t.status === "scheduled");
@@ -495,13 +496,58 @@ function DriverDashboard() {
             </IconButton>
           </Toolbar>
         </AppBar>
-        <Box maxWidth="900px" mx="auto" p={4}>
-          <Typography variant="overline" color="text.secondary">Driver account setup</Typography>
-          <Typography variant="h4" gutterBottom fontWeight={700}>Join a company</Typography>
-          <Typography variant="body1" color="text.secondary" gutterBottom mb={4}>
-            Your driver dashboard will be available after a company approves your request.
-          </Typography>
-          <CompanyRequests joinOnly />
+        <Box maxWidth="900px" mx="auto" p={{ xs: 2, sm: 4 }}>
+          {docsLoading ? (
+            <Typography color="text.secondary">Preparing your account setup...</Typography>
+          ) : !driverDocs.some((doc) => doc.document_type === "driving_license" && doc.document_no && doc.issue_date && doc.expiry_date) ? (
+            <Box sx={{ maxWidth: 680, mx: "auto" }}>
+              <Typography variant="overline" color="primary.main" fontWeight={700}>
+                Step 2 of 3 · Driver verification
+              </Typography>
+              <Typography variant="h3" sx={{ mt: 1, mb: 1, fontWeight: 800 }}>
+                Add your driver&apos;s licence
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                Upload your driver&apos;s licence before requesting access to a company. You can add or update other documents from the Documents tab later.
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1, mb: 3 }}>
+                {["Name entered", "Driver's licence", "Company request"].map((step, index) => (
+                  <Box key={step} sx={{ flex: 1, borderTop: "4px solid", borderColor: index === 0 ? "primary.main" : "divider", pt: 1 }}>
+                    <Typography variant="caption" fontWeight={700} color={index === 1 ? "primary.main" : "text.secondary"}>
+                      {step}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+              <Box sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, bgcolor: "background.paper", boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)" }}>
+                {docError && <div style={styles.errorBanner}>{docError}</div>}
+                <form onSubmit={submitDocument} style={styles.form}>
+                  <input type="hidden" name="document_type" value="driving_license" />
+                  <div style={styles.fixedDocumentType}>
+                    <span style={styles.label}>Required document</span>
+                    <strong>Driver&apos;s licence</strong>
+                  </div>
+                  <div>
+                    <label style={styles.label}>Document number</label>
+                    <input type="text" name="document_no" value={newDocForm.document_no} onChange={handleDocChange} required style={styles.input} />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
+                    <div>
+                      <label style={styles.label}>Issue date</label>
+                      <input type="date" name="issue_date" value={newDocForm.issue_date} onChange={handleDocChange} required style={styles.input} />
+                    </div>
+                    <div>
+                      <label style={styles.label}>Expiry date</label>
+                      <input type="date" name="expiry_date" value={newDocForm.expiry_date} min={newDocForm.issue_date} onChange={handleDocChange} required style={styles.input} />
+                    </div>
+                  </div>
+                  <button type="submit" style={{ ...styles.primaryBtn, backgroundColor: "#0284c7" }}>
+                    Save document and continue
+                  </button>
+                </form>
+              </Box>
+            </Box>
+          ) : <CompanyRequests joinOnly />}
         </Box>
       </Box>
     );

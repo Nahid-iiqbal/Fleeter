@@ -20,8 +20,9 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
-function CompanyRequests({ joinOnly = false, showJoinRequest = true }) {
+function CompanyRequests({ joinOnly = false, showJoinRequest = true, requiresDocuments }) {
   const role = localStorage.getItem("role");
+  const documentVerificationRequired = requiresDocuments ?? role === "driver";
   const [companies, setCompanies] = useState([]);
   const [mine, setMine] = useState([]);
   const [pending, setPending] = useState([]);
@@ -29,12 +30,13 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [licenseComplete, setLicenseComplete] = useState(false);
 
   const loadRequests = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const [availableCompanies, ownRequests, pendingRequests] = await Promise.all([
+      const [availableCompanies, ownRequests, pendingRequests, driverDocuments] = await Promise.all([
         role === "manager" || role === "driver"
           ? apiFetch("/api/company/companies")
           : Promise.resolve([]),
@@ -44,27 +46,37 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true }) {
         role === "owner" || role === "manager"
           ? apiFetch("/api/company/requests/pending")
           : Promise.resolve([]),
+        documentVerificationRequired ? apiFetch("/api/driver/documents") : Promise.resolve([]),
       ]);
       setCompanies(availableCompanies);
       setMine(ownRequests);
       setPending(pendingRequests);
+      setLicenseComplete(
+        !documentVerificationRequired || driverDocuments.some(
+          (document) => document.document_type === "driving_license"
+            && document.document_no
+            && document.issue_date
+            && document.expiry_date,
+        ),
+      );
     } catch (requestError) {
       setError(requestError.message || "Unable to load company requests.");
     } finally {
       setLoading(false);
     }
-  }, [role]);
+  }, [documentVerificationRequired, role]);
 
   useEffect(() => {
     loadRequests();
   }, [loadRequests]);
 
-  const pendingRequest = mine.find((request) => request.status === "pending");
-  const requestLocked = Boolean(pendingRequest);
+  const activeRequest = mine.find((request) => ["pending", "approved"].includes(request.status));
+  const hasOnlyRejectedRequests = mine.every((request) => request.status === "rejected");
+  const canRequest = licenseComplete && hasOnlyRejectedRequests && !activeRequest;
 
   const submitRequest = async (event) => {
     event.preventDefault();
-    if (!selectedCompany || requestLocked) return;
+    if (!selectedCompany || !canRequest) return;
 
     try {
       await apiFetch("/api/company/requests", {

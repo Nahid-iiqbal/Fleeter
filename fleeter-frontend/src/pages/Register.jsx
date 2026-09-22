@@ -21,6 +21,8 @@ import { apiFetch } from "../utils/api";
 
 function Register() {
   const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
     username: "",
     email: "",
     password: "",
