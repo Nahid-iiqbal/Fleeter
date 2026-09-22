@@ -20,6 +20,14 @@ async function migrate() {
     `);
     console.log("Added notifications_enabled column.");
 
+    await client.query(`
+      ALTER TABLE User_Account
+      ADD COLUMN IF NOT EXISTS full_name VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS phone VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS address TEXT;
+    `);
+    console.log("Added profile columns.");
+
     await client.query("COMMIT");
     console.log("Migration completed successfully.");
   } catch (error) {

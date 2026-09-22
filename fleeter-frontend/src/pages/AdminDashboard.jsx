@@ -63,7 +63,7 @@ function AdminDashboard() {
       } catch (err) { }
 
       try {
-        const users = await apiFetch("/api/admin/users");
+        const users = await apiFetch("/api/admin/roster");
         setUsersList(users);
 
         setTotalUsers(users.length);
@@ -183,29 +183,29 @@ function AdminDashboard() {
           {currentTab === "overview" && (
             <Box>
               <Typography variant="h4" gutterBottom>System Overview</Typography>
-              <Grid container spacing={3} mb={3}>
-                <Grid item xs={12} md={3}>
-                  <Paper sx={{ p: 3, borderTop: 5, borderColor: 'success.main', boxShadow: 1 }}>
+              <Grid container spacing={3} mb={3} alignItems="stretch">
+                <Grid item xs={12} sm={6} md={3} sx={{ display: "flex" }}>
+                  <Paper sx={{ p: 3, width: "100%", minHeight: 150, display: "flex", flexDirection: "column", justifyContent: "center", borderTop: 5, borderColor: 'success.main', boxShadow: 1 }}>
                     <Typography variant="overline" color="text.secondary">Site State</Typography>
                     <Typography variant="h5" fontWeight="bold" color="success.main">🟢 Online</Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} md={3}>
-                  <Paper sx={{ p: 3, borderTop: 5, borderColor: 'info.main', boxShadow: 1 }}>
+                <Grid item xs={12} sm={6} md={3} sx={{ display: "flex" }}>
+                  <Paper sx={{ p: 3, width: "100%", minHeight: 150, display: "flex", flexDirection: "column", justifyContent: "center", borderTop: 5, borderColor: 'info.main', boxShadow: 1 }}>
                     <Typography variant="overline" color="text.secondary">Total Users</Typography>
                     <Typography variant="h4" fontWeight="bold" color="text.primary">{totalUsers}</Typography>
                     <Typography variant="caption" color="text.secondary">{totalAdmins} Site Admins</Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} md={3}>
-                  <Paper sx={{ p: 3, borderTop: 5, borderColor: 'secondary.main', boxShadow: 1 }}>
+                <Grid item xs={12} sm={6} md={3} sx={{ display: "flex" }}>
+                  <Paper sx={{ p: 3, width: "100%", minHeight: 150, display: "flex", flexDirection: "column", justifyContent: "center", borderTop: 5, borderColor: 'secondary.main', boxShadow: 1 }}>
                     <Typography variant="overline" color="text.secondary">Registered Companies</Typography>
                     <Typography variant="h4" fontWeight="bold" color="text.primary">{totalOwners}</Typography>
                     <Typography variant="caption" color="text.secondary">Active Fleet Owners</Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} md={3}>
-                  <Paper sx={{ p: 3, borderTop: 5, borderColor: 'warning.main', boxShadow: 1 }}>
+                <Grid item xs={12} sm={6} md={3} sx={{ display: "flex" }}>
+                  <Paper sx={{ p: 3, width: "100%", minHeight: 150, display: "flex", flexDirection: "column", justifyContent: "center", borderTop: 5, borderColor: 'warning.main', boxShadow: 1 }}>
                     <Typography variant="overline" color="text.secondary">Registered Drivers</Typography>
                     <Typography variant="h4" fontWeight="bold" color="text.primary">{totalDrivers}</Typography>
                     <Typography variant="caption" color="text.secondary">Across all fleets</Typography>

@@ -144,10 +144,6 @@ function DriverDashboard() {
   const fetchDriverData = useCallback(async () => {
     try {
       const data = await apiFetch("/api/driver/trips");
-      const accountData = await apiFetch("/api/auth/account");
-      if (!accountData.full_name || !accountData.phone || !accountData.address) {
-        setProfileIncomplete(true);
-      }
       const hasCompany = Boolean(data.companyName && data.companyName !== "Unassigned");
 
       setDriverStats({
@@ -158,6 +154,15 @@ function DriverDashboard() {
         driverProfileMissing: data.driverProfileMissing,
         hasCompany,
       });
+
+      try {
+        const accountData = await apiFetch("/api/auth/account");
+        setProfileIncomplete(
+          !accountData.full_name || !accountData.phone || !accountData.address,
+        );
+      } catch (accountError) {
+        console.error("Failed to load account profile:", accountError);
+      }
 
       return hasCompany;
     } catch (error) {

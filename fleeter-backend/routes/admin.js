@@ -6,20 +6,9 @@ const { verifyToken } = require("../middleware/authMiddleware");
 // GET /api/admin/roster
 router.get('/roster', verifyToken, async (req, res) => {
   try {
-    // Ensure the requester is an admin
-    router.get('/roster', verifyToken, async (req, res) => {
-      try {
-        if (req.user.role !== 'admin') {
-          return res.status(403).json({ error: 'Unauthorized. Site Admins only.' });
-        }
-
-        const rosterQuery = await pool.query(`...`);
-        res.json(rosterQuery.rows);
-      } catch (error) {
-        console.error('Error fetching universal roster:', error);
-        res.status(500).json({ error: 'Failed to fetch roster.' });
-      }
-    });
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized. Site Admins only.' });
+    }
 
     const rosterQuery = await pool.query(`
       SELECT
@@ -29,7 +18,7 @@ router.get('/roster', verifyToken, async (req, res) => {
       FROM User_Account u
       LEFT JOIN Owner_Profile o ON u.user_id = o.user_id
       LEFT JOIN Driver d ON u.user_id = d.user_id
-      ORDER BY u.created_at DESC
+      ORDER BY u.user_id ASC, u.created_at DESC
     `);
 
     res.json(rosterQuery.rows);
