@@ -335,6 +335,24 @@ router.post(
       return res.status(400).json({ message: "Choose exactly one company per request." });
     }
 
+    if (requestedRole === "driver") {
+      const documentCheck = await pool.query(
+        `SELECT 1
+         FROM Driver d
+         JOIN Driver_Document dd ON dd.driver_id = d.driver_id
+         WHERE d.user_id = $1
+           AND dd.document_type = 'driving_license'
+           AND dd.document_no IS NOT NULL
+           AND dd.issue_date IS NOT NULL
+           AND dd.expiry_date IS NOT NULL
+         LIMIT 1`,
+        [req.user.user_id],
+      );
+      if (documentCheck.rowCount === 0) {
+        return res.status(403).json({ message: "Add a complete driver document before requesting a company." });
+      }
+    }
+
     const uniqueOwnerIds = [...new Set(ownerIds)];
     const client = await pool.connect();
     try {
@@ -351,13 +369,13 @@ router.post(
       const existing = await client.query(
         `
           SELECT request_id FROM Company_Request
-          WHERE requester_user_id = $1 AND status = 'pending'
+          WHERE requester_user_id = $1 AND status IN ('pending', 'approved')
         `,
         [req.user.user_id],
       );
       if (existing.rowCount > 0) {
         await client.query("ROLLBACK");
-        return res.status(409).json({ message: "Cancel your current pending request before requesting another company." });
+        return res.status(409).json({ message: "You already have a pending or approved company request." });
       }
 
       const result = await client.query(

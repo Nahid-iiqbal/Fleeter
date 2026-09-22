@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../utils/api";
 
-function CompanyRequests({ joinOnly = false, showJoinRequest = true }) {
+function CompanyRequests({ joinOnly = false, showJoinRequest = true, requiresDocuments }) {
   const role = localStorage.getItem("role");
+  const documentVerificationRequired = requiresDocuments ?? role === "driver";
   const [companies, setCompanies] = useState([]);
   const [mine, setMine] = useState([]);
   const [pending, setPending] = useState([]);
@@ -10,12 +11,13 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [licenseComplete, setLicenseComplete] = useState(false);
 
   const loadRequests = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
-      const [availableCompanies, ownRequests, pendingRequests] = await Promise.all([
+      const [availableCompanies, ownRequests, pendingRequests, driverDocuments] = await Promise.all([
         role === "manager" || role === "driver"
           ? apiFetch("/api/company/companies")
           : Promise.resolve([]),
@@ -25,27 +27,37 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true }) {
         role === "owner" || role === "manager"
           ? apiFetch("/api/company/requests/pending")
           : Promise.resolve([]),
+        documentVerificationRequired ? apiFetch("/api/driver/documents") : Promise.resolve([]),
       ]);
       setCompanies(availableCompanies);
       setMine(ownRequests);
       setPending(pendingRequests);
+      setLicenseComplete(
+        !documentVerificationRequired || driverDocuments.some(
+          (document) => document.document_type === "driving_license"
+            && document.document_no
+            && document.issue_date
+            && document.expiry_date,
+        ),
+      );
     } catch (requestError) {
       setError(requestError.message || "Unable to load company requests.");
     } finally {
       setLoading(false);
     }
-  }, [role]);
+  }, [documentVerificationRequired, role]);
 
   useEffect(() => {
     loadRequests();
   }, [loadRequests]);
 
-  const pendingRequest = mine.find((request) => request.status === "pending");
-  const requestLocked = Boolean(pendingRequest);
+  const activeRequest = mine.find((request) => ["pending", "approved"].includes(request.status));
+  const hasOnlyRejectedRequests = mine.every((request) => request.status === "rejected");
+  const canRequest = licenseComplete && hasOnlyRejectedRequests && !activeRequest;
 
   const submitRequest = async (event) => {
     event.preventDefault();
-    if (!selectedCompany || requestLocked) return;
+    if (!selectedCompany || !canRequest) return;
 
     try {
       await apiFetch("/api/company/requests", {
@@ -87,35 +99,50 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true }) {
       {error && <p style={{ color: "#c0392b" }}>{error}</p>}
 
       {showJoinRequest && (role === "manager" || role === "driver") && (
-        <section style={sectionStyle}>
-          <div style={requestPanelStyle}>
-            <div style={joinHeaderStyle}>
-              <div>
-                <h2 style={{ margin: 0 }}>Make a request</h2>
-                <p style={{ margin: "6px 0 0", color: "#64748b" }}>Send one request and wait for the company&apos;s response.</p>
+        <section style={requestStepSectionStyle}>
+          <div style={{ ...requestStepCardStyle, opacity: canRequest ? 1 : 0.72 }}>
+            <div style={requestIntroStyle}>
+              <div style={requestProgressStyle}>
+                {documentVerificationRequired && <div style={{ ...requestProgressStepStyle, borderColor: "#16a34a", color: "#16a34a" }}>1. Name entered</div>}
+                {documentVerificationRequired && <div style={{ ...requestProgressStepStyle, borderColor: licenseComplete ? "#16a34a" : "#0284c7", color: licenseComplete ? "#16a34a" : "#0284c7" }}>2. Driver&apos;s licence</div>}
+                <div style={{ ...requestProgressStepStyle, borderColor: canRequest ? "#0284c7" : "#cbd5e1", color: canRequest ? "#0284c7" : "#64748b" }}>{documentVerificationRequired ? "3" : "2"}. Company request</div>
               </div>
-              <span style={requestLocked ? lockedBadgeStyle : openBadgeStyle}>{requestLocked ? "Request pending" : "Ready to request"}</span>
+              <div>
+                <div style={requestEyebrowStyle}>{documentVerificationRequired ? "Step 3 of 3" : "Step 2 of 2"} · Company access</div>
+                <h2 style={requestTitleStyle}>Send a company request</h2>
+                <p style={requestDescriptionStyle}>Choose a company and send your request for approval.</p>
+              </div>
             </div>
-            {requestLocked && (
-              <div style={pendingNoticeStyle}>
-                <strong>Your request is under review.</strong>
-                <span>You can request another company after cancelling the pending request below.</span>
+            {documentVerificationRequired && !licenseComplete && (
+              <div style={lockedNoticeStyle}>
+                <strong>Driver&apos;s licence required</strong>
+                <span>Finish uploading a complete driver&apos;s licence before sending a company request.</span>
               </div>
             )}
-            <form onSubmit={submitRequest} style={{ display: "grid", gap: "14px" }}>
-              <select value={selectedCompany} onChange={(event) => setSelectedCompany(event.target.value)} disabled={requestLocked} required>
-                <option value="">Choose a company</option>
-                {companies.map((company) => (
-                  <option key={company.owner_id} value={company.owner_id}>
-                    {company.company_name || `Company ${company.owner_id}`}
-                  </option>
-                ))}
-              </select>
-              <textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Message (optional)" rows="3" />
-              <button type="submit" style={{ ...buttonStyle, opacity: selectedCompany && !requestLocked ? 1 : 0.55 }} disabled={!selectedCompany || requestLocked}>Send request</button>
-            </form>
+            {activeRequest && (
+              <div style={pendingNoticeStyle}>
+                <strong>Your request is {activeRequest.status === "approved" ? "accepted" : "under review"}.</strong>
+                <span>You can send another request only after all previous requests are rejected.</span>
+              </div>
+            )}
+            <fieldset disabled={!canRequest} style={fieldsetStyle}>
+              <form onSubmit={submitRequest} style={{ display: "grid", gap: "14px" }}>
+                <label style={fieldLabelStyle}>Company</label>
+                <select value={selectedCompany} onChange={(event) => setSelectedCompany(event.target.value)} style={requestInputStyle} required>
+                  <option value="">Choose a company</option>
+                  {companies.map((company) => (
+                    <option key={company.owner_id} value={company.owner_id}>
+                      {company.company_name || `Company ${company.owner_id}`}
+                    </option>
+                  ))}
+                </select>
+                <label style={fieldLabelStyle}>Message <span style={{ fontWeight: 400, color: "#94a3b8" }}>Optional</span></label>
+                <textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Add a short note to the company" rows="4" style={requestInputStyle} />
+                <button type="submit" style={{ ...requestButtonStyle, opacity: selectedCompany && canRequest ? 1 : 0.55 }} disabled={!selectedCompany || !canRequest}>Send request</button>
+              </form>
+            </fieldset>
           </div>
-          <div style={requestPanelStyle}>
+          <div style={{ ...requestPanelStyle, marginTop: "22px" }}>
             <div style={requestsHeaderStyle}>
               <div>
                 <h2 style={{ margin: 0 }}>Your requests</h2>
@@ -131,48 +158,51 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true }) {
             <RequestList requests={mine} empty="No requests sent yet." onCancel={cancelRequest} />
           </div>
         </section>
-      )}
+      )
+      }
 
-      {!joinOnly && (role === "owner" || role === "manager") && (
-        <section style={sectionStyle}>
-          <div style={requestsHeaderStyle}>
-            <div>
-              <h2 style={{ margin: 0 }}>Pending Requests</h2>
-              {role === "manager" && <p style={{ margin: "6px 0 0" }}>Managers can approve driver requests only.</p>}
+      {
+        !joinOnly && (role === "owner" || role === "manager") && (
+          <section style={sectionStyle}>
+            <div style={requestsHeaderStyle}>
+              <div>
+                <h2 style={{ margin: 0 }}>Pending Requests</h2>
+                {role === "manager" && <p style={{ margin: "6px 0 0" }}>Managers can approve driver requests only.</p>}
+              </div>
+              <button type="button" onClick={loadRequests} disabled={loading} style={refreshButtonStyle}>
+                {loading ? "Refreshing..." : "Refresh"}
+              </button>
             </div>
-            <button type="button" onClick={loadRequests} disabled={loading} style={refreshButtonStyle}>
-              {loading ? "Refreshing..." : "Refresh"}
-            </button>
-          </div>
-          {pending.map((request) => (
-            <div key={request.request_id} style={pendingRequestStyle}>
-              <div style={requestIdentityStyle}>
-                <Avatar name={request.full_name || request.username} image={request.profile_image} />
-                <div style={{ minWidth: 0 }}>
-                  <strong style={requestNameStyle}>{request.full_name || request.username}</strong>
-                  <span style={roleLabelStyle}>{request.requested_role}</span>
-                  <div style={mutedTextStyle}>{request.email}</div>
-                  {(request.phone || request.employee_id || request.department) && (
-                    <div style={mutedTextStyle}>
-                      {[request.phone, request.employee_id && `ID ${request.employee_id}`, request.department].filter(Boolean).join(" · ")}
-                    </div>
-                  )}
+            {pending.map((request) => (
+              <div key={request.request_id} style={pendingRequestStyle}>
+                <div style={requestIdentityStyle}>
+                  <Avatar name={request.full_name || request.username} image={request.profile_image} />
+                  <div style={{ minWidth: 0 }}>
+                    <strong style={requestNameStyle}>{request.full_name || request.username}</strong>
+                    <span style={roleLabelStyle}>{request.requested_role}</span>
+                    <div style={mutedTextStyle}>{request.email}</div>
+                    {(request.phone || request.employee_id || request.department) && (
+                      <div style={mutedTextStyle}>
+                        {[request.phone, request.employee_id && `ID ${request.employee_id}`, request.department].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={requestDetailsStyle}>
+                  <div style={requestMetaStyle}>Sent {formatDateTime(request.created_at)}</div>
+                  {request.message && <div style={noteStyle}><strong>Note</strong><span>{request.message}</span></div>}
+                </div>
+                <div style={requestActionsStyle}>
+                  <button onClick={() => decide(request.request_id, "approve")} style={buttonStyle}>Approve</button>
+                  <button onClick={() => decide(request.request_id, "reject")} style={rejectButtonStyle}>Reject</button>
                 </div>
               </div>
-              <div style={requestDetailsStyle}>
-                <div style={requestMetaStyle}>Sent {formatDateTime(request.created_at)}</div>
-                {request.message && <div style={noteStyle}><strong>Note</strong><span>{request.message}</span></div>}
-              </div>
-              <div style={requestActionsStyle}>
-                <button onClick={() => decide(request.request_id, "approve")} style={buttonStyle}>Approve</button>
-                <button onClick={() => decide(request.request_id, "reject")} style={rejectButtonStyle}>Reject</button>
-              </div>
-            </div>
-          ))}
-          {pending.length === 0 && <p>No pending requests.</p>}
-        </section>
-      )}
-    </div>
+            ))}
+            {pending.length === 0 && <p>No pending requests.</p>}
+          </section>
+        )
+      }
+    </div >
   );
 }
 
@@ -229,6 +259,9 @@ const requestPanelStyle = {
   backgroundColor: "#f8fafc",
 };
 
+const requestStepSectionStyle = { display: "grid", gap: "20px", backgroundColor: "transparent", padding: 0, border: 0 };
+const requestStepCardStyle = { maxWidth: "680px", width: "100%", boxSizing: "border-box", margin: "0 auto", padding: "24px", border: "1px solid #e2e8f0", borderRadius: "12px", backgroundColor: "white", boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)" };
+
 const requestStyle = {
   display: "flex",
   justifyContent: "space-between",
@@ -250,10 +283,18 @@ const requestMetaStyle = { color: "#475569", fontSize: "13px", fontWeight: 600 }
 const noteStyle = { display: "grid", gap: "2px", padding: "8px 10px", borderRadius: "5px", backgroundColor: "#f8fafc", color: "#475569", fontSize: "13px", overflowWrap: "anywhere" };
 const requestActionsStyle = { display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: "8px" };
 
-const joinHeaderStyle = { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", marginBottom: "18px" };
+const requestIntroStyle = { display: "grid", gap: "18px", marginBottom: "22px" };
+const requestProgressStyle = { display: "flex", gap: "10px" };
+const requestProgressStepStyle = { flex: 1, borderTop: "4px solid", paddingTop: "8px", fontSize: "12px", fontWeight: 700 };
+const requestEyebrowStyle = { color: "#0284c7", fontSize: "12px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" };
+const requestTitleStyle = { margin: "6px 0 0", fontSize: "30px", color: "#0f172a" };
+const requestDescriptionStyle = { margin: "8px 0 0", color: "#64748b" };
+const fieldLabelStyle = { color: "#334155", fontSize: "13px", fontWeight: 700, marginBottom: "-8px" };
+const requestInputStyle = { width: "100%", boxSizing: "border-box", padding: "12px 13px", border: "1px solid #cbd5e1", borderRadius: "8px", backgroundColor: "white", color: "#0f172a", font: "inherit" };
+const fieldsetStyle = { border: 0, padding: 0, margin: 0, minWidth: 0 };
+const requestButtonStyle = { padding: "13px 16px", border: 0, borderRadius: "8px", backgroundColor: "#0284c7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: "15px" };
+const lockedNoticeStyle = { display: "grid", gap: "4px", padding: "14px 16px", marginBottom: "16px", borderLeft: "4px solid #94a3b8", borderRadius: "6px", backgroundColor: "#f1f5f9", color: "#475569" };
 const pendingNoticeStyle = { display: "grid", gap: "4px", padding: "14px 16px", marginBottom: "16px", borderLeft: "4px solid #f59e0b", borderRadius: "6px", backgroundColor: "#fffbeb", color: "#92400e" };
-const openBadgeStyle = { padding: "6px 10px", borderRadius: "999px", backgroundColor: "#dcfce7", color: "#166534", fontSize: "12px", fontWeight: 700, whiteSpace: "nowrap" };
-const lockedBadgeStyle = { ...openBadgeStyle, backgroundColor: "#fef3c7", color: "#92400e" };
 const requestsHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "8px" };
 const headerActionsStyle = { display: "flex", alignItems: "center", gap: "10px" };
 const countStyle = { display: "grid", placeItems: "center", minWidth: "28px", height: "28px", borderRadius: "999px", backgroundColor: "#e0edff", color: "#1d4ed8", fontWeight: 700 };

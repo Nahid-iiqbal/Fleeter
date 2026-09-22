@@ -19,6 +19,8 @@ import { apiFetch } from "../utils/api";
 
 function Register() {
   const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
     username: "",
     email: "",
     password: "",
@@ -85,6 +87,28 @@ function Register() {
           )}
 
           <Box component="form" onSubmit={handleSubmit} display="flex" flexDirection="column" gap={2}>
+            {(formData.role === "driver" || formData.role === "manager") && (
+              <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2}>
+                <TextField
+                  name="firstName"
+                  label="First name"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  required
+                  fullWidth
+                  autoComplete="given-name"
+                />
+                <TextField
+                  name="lastName"
+                  label="Last name"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  required
+                  fullWidth
+                  autoComplete="family-name"
+                />
+              </Box>
+            )}
             <TextField
               name="username"
               label="Username"

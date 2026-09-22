@@ -351,10 +351,15 @@ function OwnerDashboard() {
             </IconButton>
           </Toolbar>
         </AppBar>
-        <Box maxWidth="900px" mx="auto" p={4}>
-          <Typography variant="h4" gutterBottom>Join a company</Typography>
+        <Box maxWidth="900px" mx="auto" p={{ xs: 2, sm: 4 }}>
+          <Typography variant="overline" color="primary.main" fontWeight={700}>
+            Step 2 of 2 · Manager onboarding
+          </Typography>
+          <Typography variant="h4" gutterBottom sx={{ mt: 1, fontWeight: 800 }}>
+            Join a company
+          </Typography>
           <Typography variant="body1" color="text.secondary" gutterBottom>
-            You need an approved company membership before dashboard access is enabled.
+            Your name is saved. Choose a company and send a request for manager access.
           </Typography>
           <CompanyRequests joinOnly />
         </Box>

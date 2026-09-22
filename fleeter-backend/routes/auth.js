@@ -83,10 +83,14 @@ router.post("/login", authLimiter, async (req, res) => {
 
 // POST /api/fleeter/auth/register
 router.post("/register", authLimiter, async (req, res) => {
-  const { username, email, password, role } = req.body;
+  const { firstName, lastName, username, email, password, role } = req.body;
 
   const ALLOWED_USER_ROLES = ["driver", "owner", "manager"];
   const registeredRole = ALLOWED_USER_ROLES.includes(role) ? role : "driver";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  if ((registeredRole === "driver" || registeredRole === "manager") && (!firstName?.trim() || !lastName?.trim())) {
+    return res.status(400).json({ error: "First name and last name are required." });
+  }
   try {
     // 1. Check if the user (email or username) already exists
     const userExists = await db.query(
@@ -117,12 +121,12 @@ router.post("/register", authLimiter, async (req, res) => {
     } else if (registeredRole === "manager") {
       await db.query(
         "INSERT INTO Manager_Profile (user_id, full_name) VALUES ($1, $2)",
-        [newUser.rows[0].user_id, username],
+        [newUser.rows[0].user_id, fullName],
       );
     } else if (registeredRole === "driver") {
       await db.query(
         "INSERT INTO Driver (user_id, full_name, joined_date) VALUES ($1, $2, CURRENT_DATE)",
-        [newUser.rows[0].user_id, username],
+        [newUser.rows[0].user_id, fullName],
       );
     }
 
