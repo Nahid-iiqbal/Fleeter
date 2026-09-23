@@ -191,6 +191,7 @@ const initializeDatabase = async () => {
         logged_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL
       );
 
+      -- TABLE FOR SYSTEM ALERTS
       CREATE TABLE System_Alert (
         alert_id SERIAL PRIMARY KEY,
         owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
