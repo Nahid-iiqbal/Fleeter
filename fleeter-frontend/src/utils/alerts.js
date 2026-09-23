@@ -2,6 +2,7 @@ export function getAlertTypeColor(type) {
   switch (type) {
     case 'incident':
     case 'driver_document_expired':
+    case 'driver_document_missing':
     case 'vehicle_document_expired':
     case 'document_expired':
       return 'error';
@@ -22,6 +23,8 @@ export function getAlertTypeLabel(type) {
       return 'Maintenance';
     case 'driver_document_expired':
       return 'Driver document expired';
+    case 'driver_document_missing':
+      return 'Driver document missing';
     case 'vehicle_document_expired':
       return 'Vehicle document expired';
     case 'document_expired':

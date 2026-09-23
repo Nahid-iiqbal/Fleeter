@@ -108,4 +108,30 @@ router.get("/:driverId", verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/drivers/:driverId/documents - documents visible to the driver's company
+router.get("/:driverId/documents", verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+        SELECT dd.document_id, dd.driver_id, dd.document_type, dd.document_no,
+          dd.issue_date, dd.expiry_date, dd.alert_triggered, dd.document_url
+        FROM Driver_Document dd
+        JOIN Driver d ON d.driver_id = dd.driver_id
+        WHERE d.driver_id = $1
+          AND ($2 = 'admin' OR d.owner_id = COALESCE(
+            (SELECT owner_id FROM Owner_Profile WHERE user_id = $3),
+            (SELECT owner_id FROM Manager_Profile WHERE user_id = $3)
+          ))
+        ORDER BY dd.expiry_date ASC, dd.document_id DESC
+      `,
+      [req.params.driverId, req.user.role, req.user.user_id],
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching driver documents:", error);
+    res.status(500).json({ message: "Failed to fetch driver documents" });
+  }
+});
+
 module.exports = router;

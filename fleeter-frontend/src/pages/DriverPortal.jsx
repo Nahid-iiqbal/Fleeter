@@ -50,6 +50,8 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import AccountSettings from '../components/AccountSettings';
 import { useThemeSettings } from '../context/ThemeSettingsContext';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 // Fix for Leaflet's default marker icons in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -130,6 +132,11 @@ function DriverDashboard() {
   const [driverDocs, setDriverDocs] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
+  const [documentBeingEdited, setDocumentBeingEdited] = useState(null);
+  const [editDocumentForm, setEditDocumentForm] = useState(null);
+  const [editDocumentFile, setEditDocumentFile] = useState(null);
+  const [editDocumentError, setEditDocumentError] = useState("");
+  const [editDocumentSaving, setEditDocumentSaving] = useState(false);
 
   const [newDocForm, setNewDocForm] = useState({
     document_type: "driving_license",
@@ -312,13 +319,64 @@ function DriverDashboard() {
     };
   }, [activeTrip]);
 
-  const deleteDocument = async (documentId) => {
-    if (!window.confirm("Are you sure you want to delete this document?")) return;
+  const openDocumentEditor = (document) => {
+    setDocumentBeingEdited(document);
+    setEditDocumentForm({
+      document_type: document.document_type,
+      document_no: document.document_no,
+      issue_date: document.issue_date,
+      expiry_date: document.expiry_date,
+    });
+    setEditDocumentFile(null);
+    setEditDocumentError("");
+  };
+
+  const closeDocumentEditor = () => {
+    setDocumentBeingEdited(null);
+    setEditDocumentForm(null);
+    setEditDocumentFile(null);
+    setEditDocumentError("");
+  };
+
+  const handleEditDocumentChange = (event) => {
+    setEditDocumentForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+  };
+
+  const saveDocumentEdits = async (event) => {
+    event.preventDefault();
+    setEditDocumentError("");
+    setEditDocumentSaving(true);
+    const formData = new FormData();
+    Object.entries(editDocumentForm).forEach(([key, value]) => formData.append(key, value));
+    if (editDocumentFile) formData.append("documentFile", editDocumentFile);
+
     try {
-      await apiFetch(`/api/driver/documents/${documentId}`, { method: "DELETE" });
-      setDriverDocs(driverDocs.filter((doc) => doc.document_id !== documentId));
+      const data = await apiFetch(`/api/driver/documents/${documentBeingEdited.document_id}`, {
+        method: "PUT",
+        body: formData,
+      });
+      setDriverDocs((documents) => documents.map((document) => (
+        document.document_id === data.document.document_id ? data.document : document
+      )));
+      closeDocumentEditor();
     } catch (error) {
-      alert(`Failed to delete: ${error.message}`);
+      setEditDocumentError(error.message || "Failed to update document.");
+    } finally {
+      setEditDocumentSaving(false);
+    }
+  };
+
+  const deleteDocument = async () => {
+    if (!documentBeingEdited || !window.confirm("Are you sure you want to delete this document?")) return;
+    setEditDocumentError("");
+    setEditDocumentSaving(true);
+    try {
+      await apiFetch(`/api/driver/documents/${documentBeingEdited.document_id}`, { method: "DELETE" });
+      setDriverDocs((documents) => documents.filter((document) => document.document_id !== documentBeingEdited.document_id));
+      closeDocumentEditor();
+    } catch (error) {
+      setEditDocumentError(`Failed to delete: ${error.message}`);
+      setEditDocumentSaving(false);
     }
   };
 
@@ -424,7 +482,7 @@ function DriverDashboard() {
     formData.append("trip_id", activeTrip?.trip_id);
 
     try {
-      const response = await fetch("/api/driver/log-incident", {
+      const response = await fetch("http://localhost:5000/api/driver/log-incident", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -432,7 +490,7 @@ function DriverDashboard() {
         body: formData,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (response.ok) {
         setIncidentSuccess("Incident reported successfully.");
@@ -904,8 +962,8 @@ function DriverDashboard() {
                                       {isExpired && (
                                         <Chip label="EXPIRED" color="error" size="small" sx={{ fontWeight: 700 }} />
                                       )}
-                                      <IconButton onClick={() => deleteDocument(doc.document_id)} color="error" size="small">
-                                        <Typography fontSize={18}>🗑️</Typography>
+                                      <IconButton onClick={() => openDocumentEditor(doc)} color="primary" size="small" aria-label="Edit document">
+                                        <EditIcon fontSize="small" />
                                       </IconButton>
                                     </Box>
                                   </Box>
@@ -1046,6 +1104,54 @@ function DriverDashboard() {
         {/* ================= MODALS ================= */}
 
         {/* START TRIP MODAL */}
+        <Dialog open={!!documentBeingEdited} onClose={closeDocumentEditor} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontWeight: 700 }}>Edit Document</DialogTitle>
+          <form onSubmit={saveDocumentEdits}>
+            <DialogContent dividers>
+              {editDocumentError && <Alert severity="error" sx={{ mb: 2 }}>{editDocumentError}</Alert>}
+              {editDocumentForm && (
+                <Stack spacing={2}>
+                  <TextField
+                    select
+                    label="Document Type"
+                    name="document_type"
+                    value={editDocumentForm.document_type}
+                    onChange={handleEditDocumentChange}
+                    fullWidth
+                  >
+                    <MenuItem value="driving_license">Driver&apos;s License</MenuItem>
+                    <MenuItem value="medical">Medical Card</MenuItem>
+                    <MenuItem value="insurance">Insurance Policy</MenuItem>
+                    <MenuItem value="certification">Special Certification</MenuItem>
+                  </TextField>
+                  <TextField label="Document Number" name="document_no" value={editDocumentForm.document_no} onChange={handleEditDocumentChange} required fullWidth />
+                  <TextField label="Issue Date" type="date" name="issue_date" value={editDocumentForm.issue_date} onChange={handleEditDocumentChange} required fullWidth InputLabelProps={{ shrink: true }} />
+                  <TextField label="Expiry Date" type="date" name="expiry_date" value={editDocumentForm.expiry_date} onChange={handleEditDocumentChange} required fullWidth InputLabelProps={{ shrink: true }} />
+                  <TextField
+                    label="Replace Scan/Image (optional)"
+                    type="file"
+                    inputProps={{ accept: "image/*,.pdf" }}
+                    onChange={(event) => setEditDocumentFile(event.target.files?.[0] || null)}
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Stack>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ p: 2, justifyContent: "space-between" }}>
+              <Button color="error" startIcon={<DeleteIcon />} onClick={deleteDocument} disabled={editDocumentSaving}>
+                Delete
+              </Button>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button onClick={closeDocumentEditor} disabled={editDocumentSaving}>Cancel</Button>
+                <Button type="submit" variant="contained" disabled={editDocumentSaving}>
+                  {editDocumentSaving ? "Saving..." : "Save changes"}
+                </Button>
+              </Box>
+            </DialogActions>
+          </form>
+        </Dialog>
+
         <Dialog open={isStartTripModalOpen && !!tripToStart} onClose={() => setIsStartTripModalOpen(false)} maxWidth="sm" fullWidth>
           <DialogTitle sx={{ color: 'info.main', fontWeight: 700 }}>Start Trip</DialogTitle>
           <DialogContent>

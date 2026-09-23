@@ -64,6 +64,24 @@ function AlertsTable({ alerts, alertsLoading, onRefresh, onAlertClick, onResolve
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" fontWeight={600}>{alert.about || alert.title || 'System alert'}</Typography>
+                  {alert.metadata?.driver_name && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      Driver: {alert.metadata.driver_name}
+                    </Typography>
+                  )}
+                  {alert.metadata?.document_type && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      Document: {alert.metadata.document_type.replaceAll('_', ' ')}
+                    </Typography>
+                  )}
+                  {alert.metadata?.issue_date && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      Issued: {new Date(alert.metadata.issue_date).toLocaleDateString()}
+                    </Typography>
+                  )}
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    Expiry: {alert.metadata?.expiry_date ? new Date(alert.metadata.expiry_date).toLocaleDateString() : 'Missing'}
+                  </Typography>
                   {alert.description && (
                     <Typography variant="caption" color="text.secondary">
                       {alert.description}

@@ -15,11 +15,14 @@ import {
   Paper
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import DescriptionIcon from "@mui/icons-material/Description";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 function DriverDetails({ driverId, onBack }) {
   const navigate = useNavigate();
 
   const [driver, setDriver] = useState(null);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -28,8 +31,12 @@ function DriverDetails({ driverId, onBack }) {
       try {
         setLoading(true);
         setError("");
-        const data = await apiFetch(`/api/drivers/${driverId}`);
+        const [data, documentData] = await Promise.all([
+          apiFetch(`/api/drivers/${driverId}`),
+          apiFetch(`/api/drivers/${driverId}/documents`),
+        ]);
         setDriver(data);
+        setDocuments(documentData);
       } catch (err) {
         console.error("Error loading driver:", err);
         setError(err.message || "Unable to load driver information.");
@@ -145,6 +152,55 @@ function DriverDetails({ driverId, onBack }) {
             <Grid item xs={12} sm={6} md={3}><InfoItem label="Issue Date" value={driver.document_issue_date} /></Grid>
             <Grid item xs={12} sm={6} md={3}><InfoItem label="Expiry Date" value={driver.document_expiry_date} /></Grid>
           </Grid>
+        </CardContent>
+      </Card>
+
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3 }}>
+          <Typography variant="h6" fontWeight={700} mb={3}>Driver Documents</Typography>
+          {documents.length === 0 ? (
+            <Typography color="text.secondary" fontStyle="italic">No documents uploaded.</Typography>
+          ) : (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {documents.map((document) => {
+                const expired = new Date(document.expiry_date) < new Date();
+                return (
+                  <Paper key={document.document_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider", borderLeft: 6, borderLeftColor: expired ? "error.main" : "success.main", display: "flex", gap: 2, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <Box sx={{ width: 100, height: 100, flexShrink: 0, borderRadius: 1, overflow: "hidden", bgcolor: "action.hover", border: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {document.document_url ? (
+                        document.document_url.toLowerCase().endsWith(".pdf") ? (
+                          <Box sx={{ textAlign: "center", color: "text.secondary" }}>
+                            <DescriptionIcon sx={{ fontSize: 32 }} />
+                            <Typography variant="caption" display="block">PDF</Typography>
+                          </Box>
+                        ) : (
+                          <Box component="img" src={`http://localhost:5000${document.document_url}`} alt={document.document_type} sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        )
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">No file</Typography>
+                      )}
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 220 }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
+                        <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: "capitalize" }}>
+                          {document.document_type?.replaceAll("_", " ")}
+                        </Typography>
+                        {expired && <Chip label="Expired" color="error" size="small" />}
+                      </Box>
+                      <Typography variant="body2" color="text.secondary">Number: {document.document_no}</Typography>
+                      <Typography variant="body2" color="text.secondary">Issued: {document.issue_date}</Typography>
+                      <Typography variant="body2" color={expired ? "error.main" : "success.main"} fontWeight={700}>Expires: {document.expiry_date}</Typography>
+                      {document.document_url && (
+                        <Button href={`http://localhost:5000${document.document_url}`} target="_blank" rel="noopener noreferrer" startIcon={<OpenInNewIcon />} size="small" sx={{ mt: 1 }}>
+                          Open document
+                        </Button>
+                      )}
+                    </Box>
+                  </Paper>
+                );
+              })}
+            </Box>
+          )}
         </CardContent>
       </Card>
 
