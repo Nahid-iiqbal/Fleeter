@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { apiFetch } from "../utils/api";
 import {
   Box,
@@ -56,7 +57,8 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true, requiresDoc
           (document) => document.document_type === "driving_license"
             && document.document_no
             && document.issue_date
-            && document.expiry_date,
+            && document.expiry_date
+            && document.document_url,
         ),
       );
     } catch (requestError) {
@@ -255,7 +257,15 @@ function CompanyRequests({ joinOnly = false, showJoinRequest = true, requiresDoc
                       <CustomAvatar name={request.full_name || request.username} image={request.profile_image} />
                       <Box>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Typography fontWeight={600}>{request.full_name || request.username}</Typography>
+                          {request.profile_id ? (
+                            <Link to={getRequestProfileLink(request)} style={{ textDecoration: "none", color: "inherit" }}>
+                              <Typography fontWeight={600} sx={{ '&:hover': { textDecoration: 'underline' } }}>
+                                {request.full_name || request.username}
+                              </Typography>
+                            </Link>
+                          ) : (
+                            <Typography fontWeight={600}>{request.full_name || request.username}</Typography>
+                          )}
                           <Chip size="small" label={request.requested_role} color="primary" variant="outlined" sx={{ height: 20, fontSize: "0.7rem", textTransform: "capitalize" }} />
                         </Box>
                         <Typography variant="body2" color="text.secondary">{request.email}</Typography>
@@ -350,6 +360,12 @@ function RequestList({ requests, empty, onCancel }) {
       ))}
     </Stack>
   );
+}
+
+function getRequestProfileLink(request) {
+  if (!request?.profile_id) return null;
+  const profilePath = request.requested_role === "driver" ? "drivers" : "managers";
+  return `/dashboard/${profilePath}/${request.profile_id}`;
 }
 
 function formatDateTime(value) {

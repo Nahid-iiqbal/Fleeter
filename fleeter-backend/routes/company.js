@@ -59,6 +59,228 @@ const getCompanyId = async (userId) => {
   return result.rows[0]?.owner_id || null;
 };
 
+const ensureSystemAlertTable = async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS System_Alert (
+      alert_id SERIAL PRIMARY KEY,
+      owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
+      alert_type VARCHAR(40) NOT NULL,
+      reference_type VARCHAR(40) NOT NULL,
+      reference_id INT NOT NULL,
+      title VARCHAR(200) NOT NULL,
+      about VARCHAR(200) NOT NULL,
+      description TEXT,
+      severity VARCHAR(20) DEFAULT 'medium',
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      deadline TIMESTAMPTZ,
+      resolved BOOLEAN DEFAULT FALSE,
+      resolved_at TIMESTAMPTZ,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      UNIQUE (owner_id, alert_type, reference_type, reference_id)
+    )
+  `);
+};
+
+const normalizeAlertStatus = (alert) => {
+  if (alert.resolved) return "resolved";
+  if (alert.deadline && new Date(alert.deadline) < new Date()) return "deadline expired";
+  return "needs to be resolved";
+};
+
+const buildAlertRecord = ({
+  ownerId,
+  alertType,
+  referenceType,
+  referenceId,
+  title,
+  about,
+  description,
+  severity = "medium",
+  deadline = null,
+  metadata = {},
+}) => ({
+  owner_id: ownerId,
+  alert_type: alertType,
+  reference_type: referenceType,
+  reference_id: referenceId,
+  title,
+  about,
+  description,
+  severity,
+  deadline,
+  metadata,
+});
+
+const upsertCompanyAlerts = async (companyId) => {
+  await ensureSystemAlertTable();
+
+  const alerts = [];
+
+  const incidentRows = await pool.query(
+    `
+      SELECT i.incident_id, i.type, i.description, i.severity, i.incident_date AS created_at,
+             t.vehicle_id, d.full_name AS driver_name,
+             CONCAT('Incident on trip #', t.trip_id) AS title,
+             CONCAT('Vehicle ', v.registration_no, ' · ', d.full_name) AS about
+      FROM Incident i
+      JOIN Trip t ON t.trip_id = i.trip_id
+      JOIN Vehicle v ON v.vehicle_id = t.vehicle_id
+      JOIN Driver d ON d.driver_id = t.driver_id
+      WHERE t.owner_id = $1 AND i.resolved = FALSE
+    `,
+    [companyId],
+  );
+
+  incidentRows.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "incident",
+    referenceType: "incident",
+    referenceId: row.incident_id,
+    title: row.title,
+    about: row.about,
+    description: row.description || "An incident was reported and requires follow-up.",
+    severity: row.severity || "high",
+    metadata: { trip_id: row.trip_id || null, vehicle_id: row.vehicle_id || null, driver_name: row.driver_name || null },
+  })));
+
+  const maintenanceRows = await pool.query(
+    `
+      SELECT m.maintenance_id, m.service_date AS created_at, m.service_type, m.description,
+             v.registration_no, m.next_due_date AS deadline
+      FROM Maintenance m
+      JOIN Vehicle v ON v.vehicle_id = m.vehicle_id
+      WHERE v.owner_id = $1
+    `,
+    [companyId],
+  );
+
+  maintenanceRows.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "maintenance",
+    referenceType: "maintenance",
+    referenceId: row.maintenance_id,
+    title: `Maintenance needed for ${row.registration_no}`,
+    about: row.service_type,
+    description: row.description || `Maintenance is needed for vehicle ${row.registration_no}.`,
+    severity: "medium",
+    deadline: row.deadline ? new Date(row.deadline).toISOString() : null,
+    metadata: { vehicle_registration: row.registration_no, service_type: row.service_type },
+  })));
+
+  const driverDocRows = await pool.query(
+    `
+      SELECT dd.document_id, dd.document_type, dd.expiry_date AS deadline,
+             d.full_name, d.driver_id, v.registration_no AS vehicle_registration
+      FROM Driver_Document dd
+      JOIN Driver d ON d.driver_id = dd.driver_id
+      WHERE d.owner_id = $1 AND dd.expiry_date < CURRENT_DATE
+    `,
+    [companyId],
+  );
+
+  driverDocRows.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "driver_document_expired",
+    referenceType: "driver_document",
+    referenceId: row.document_id,
+    title: `${row.full_name} driver document expired`,
+    about: row.document_type,
+    description: `The ${row.document_type} for ${row.full_name} expired on ${new Date(row.deadline).toISOString().split("T")[0]}.`,
+    severity: "high",
+    deadline: new Date(row.deadline).toISOString(),
+    metadata: { driver_id: row.driver_id, document_type: row.document_type },
+  })));
+
+  const vehicleDocRows = await pool.query(
+    `
+      SELECT vd.document_id, vd.document_type, vd.expiry_date AS deadline,
+             v.vehicle_id, v.registration_no
+      FROM Vehicle_Document vd
+      JOIN Vehicle v ON v.vehicle_id = vd.vehicle_id
+      WHERE v.owner_id = $1 AND vd.expiry_date < CURRENT_DATE
+    `,
+    [companyId],
+  );
+
+  vehicleDocRows.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "vehicle_document_expired",
+    referenceType: "vehicle_document",
+    referenceId: row.document_id,
+    title: `Vehicle document expired for ${row.registration_no}`,
+    about: row.document_type,
+    description: `The ${row.document_type} for vehicle ${row.registration_no} expired on ${new Date(row.deadline).toISOString().split("T")[0]}.`,
+    severity: "high",
+    deadline: new Date(row.deadline).toISOString(),
+    metadata: { vehicle_id: row.vehicle_id, document_type: row.document_type },
+  })));
+
+  const refuelRows = await pool.query(
+    `
+      SELECT fl.fuel_id, fl.refuel_time AS created_at, v.registration_no, fl.station_name,
+             fl.odometer_km
+      FROM Fuel_Log fl
+      JOIN Vehicle v ON v.vehicle_id = fl.vehicle_id
+      WHERE v.owner_id = $1
+      ORDER BY fl.refuel_time DESC
+    `,
+    [companyId],
+  );
+
+  refuelRows.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "refuel",
+    referenceType: "fuel_log",
+    referenceId: row.fuel_id,
+    title: `Vehicle refuelled - ${row.registration_no}`,
+    about: row.station_name || "Fueling station",
+    description: `The vehicle ${row.registration_no} was refuelled. Mark as resolved once the check is complete.`,
+    severity: "low",
+    metadata: { vehicle_registration: row.registration_no, odometer_km: row.odometer_km || null },
+  })));
+
+  if (alerts.length === 0) {
+    return [];
+  }
+
+  for (const alert of alerts) {
+    await pool.query(
+      `
+        INSERT INTO System_Alert (
+          owner_id, alert_type, reference_type, reference_id, title, about,
+          description, severity, deadline, resolved, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
+        ON CONFLICT (owner_id, alert_type, reference_type, reference_id) DO NOTHING
+      `,
+      [
+        alert.owner_id,
+        alert.alert_type,
+        alert.reference_type,
+        alert.reference_id,
+        alert.title,
+        alert.about,
+        alert.description || null,
+        alert.severity,
+        alert.deadline,
+        false,
+        JSON.stringify(alert.metadata || {}),
+      ],
+    );
+  }
+
+  const result = await pool.query(
+    `
+      SELECT *
+      FROM System_Alert
+      WHERE owner_id = $1
+      ORDER BY resolved ASC, created_at DESC
+    `,
+    [companyId],
+  );
+
+  return result.rows;
+};
+
 // GET /api/company/routes - active routes belonging to the current company
 router.get("/routes", authorizeRole("owner", "manager"), async (req, res) => {
   try {
@@ -298,6 +520,122 @@ router.get("/managers/:managerId", authorizeRole("owner"), async (req, res) => {
   }
 });
 
+// GET /api/company/alerts - company-wide alert list
+router.get("/alerts", authorizeRole("owner", "manager"), async (req, res) => {
+  try {
+    const companyId = await getCompanyId(req.user.user_id);
+    if (!companyId) {
+      return res.json([]);
+    }
+
+    await ensureSystemAlertTable();
+    let result = await pool.query(
+      `
+        SELECT *,
+               CASE
+                 WHEN resolved THEN 'resolved'
+                 WHEN deadline IS NOT NULL AND deadline < NOW() THEN 'deadline expired'
+                 ELSE 'needs to be resolved'
+               END AS status
+        FROM System_Alert
+        WHERE owner_id = $1
+        ORDER BY resolved ASC, created_at DESC
+      `,
+      [companyId],
+    );
+
+    if (result.rows.length === 0) {
+      const generated = await upsertCompanyAlerts(companyId);
+      result = generated;
+    }
+
+    const rows = result.rows.map((row) => ({
+      ...row,
+      alert_id: row.alert_id,
+      alert_type: row.alert_type,
+      title: row.title,
+      about: row.about,
+      description: row.description,
+      created_at: row.created_at,
+      deadline: row.deadline,
+      status: normalizeAlertStatus(row),
+    }));
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching company alerts:", error);
+    res.status(500).json({ message: "No Alerts to show." });
+  }
+});
+
+router.get("/alerts/:alertType/:alertId", authorizeRole("owner", "manager"), async (req, res) => {
+  try {
+    const companyId = await getCompanyId(req.user.user_id);
+    if (!companyId) {
+      return res.status(403).json({ message: "Company membership required." });
+    }
+
+    await ensureSystemAlertTable();
+    const result = await pool.query(
+      `
+        SELECT *
+        FROM System_Alert
+        WHERE owner_id = $1
+          AND alert_type = $2
+          AND alert_id = $3
+      `,
+      [companyId, req.params.alertType, Number(req.params.alertId)],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Alert not found." });
+    }
+
+    const row = result.rows[0];
+    res.json({
+      ...row,
+      status: normalizeAlertStatus(row),
+      alert_id: row.alert_id,
+      alert_type: row.alert_type,
+    });
+  } catch (error) {
+    console.error("Error fetching alert detail:", error);
+    res.status(500).json({ message: "Failed to fetch alert detail." });
+  }
+});
+
+router.post("/alerts/:alertType/:alertId/resolve", authorizeRole("owner", "manager"), async (req, res) => {
+  try {
+    const companyId = await getCompanyId(req.user.user_id);
+    if (!companyId) {
+      return res.status(403).json({ message: "Company membership required." });
+    }
+
+    await ensureSystemAlertTable();
+    const result = await pool.query(
+      `
+        UPDATE System_Alert
+        SET resolved = TRUE, resolved_at = NOW()
+        WHERE owner_id = $1
+          AND alert_type = $2
+          AND alert_id = $3
+          AND resolved = FALSE
+        RETURNING *
+      `,
+      [companyId, req.params.alertType, Number(req.params.alertId)],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Alert not found or already resolved." });
+    }
+
+    res.json({ message: "Alert marked as resolved.", alert: result.rows[0] });
+  } catch (error) {
+    console.error("Error resolving alert:", error);
+    res.status(500).json({ message: "Failed to resolve alert." });
+  }
+});
+
 // GET /api/company/companies - companies available to join
 router.get("/companies", async (req, res) => {
   try {
@@ -345,6 +683,7 @@ router.post(
            AND dd.document_no IS NOT NULL
            AND dd.issue_date IS NOT NULL
            AND dd.expiry_date IS NOT NULL
+           AND dd.document_url IS NOT NULL
          LIMIT 1`,
         [req.user.user_id],
       );
@@ -467,6 +806,7 @@ router.get(
                r.message, r.created_at, u.username, u.email,
                COALESCE(d.full_name, m.full_name) AS full_name,
                COALESCE(d.phone, m.phone) AS phone,
+               COALESCE(d.driver_id, m.manager_id) AS profile_id,
                m.employee_id, m.department,
                o.company_name
           FROM Company_Request r

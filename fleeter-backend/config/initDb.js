@@ -22,6 +22,7 @@ const initializeDatabase = async () => {
 
       DROP TABLE IF EXISTS telemetry_y2026m08 CASCADE;
       DROP TABLE IF EXISTS Vehicle_Telemetry CASCADE;
+      DROP TABLE IF EXISTS System_Alert CASCADE;
       DROP TABLE IF EXISTS Vehicle_Document CASCADE;
       DROP TABLE IF EXISTS Driver_Document CASCADE;
       DROP TABLE IF EXISTS Incident CASCADE;
@@ -188,6 +189,24 @@ const initializeDatabase = async () => {
         next_due_date DATE,
         next_due_km INT,
         logged_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL
+      );
+
+      CREATE TABLE System_Alert (
+        alert_id SERIAL PRIMARY KEY,
+        owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
+        alert_type VARCHAR(40) NOT NULL,
+        reference_type VARCHAR(40) NOT NULL,
+        reference_id INT NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        about VARCHAR(200) NOT NULL,
+        description TEXT,
+        severity VARCHAR(20) DEFAULT 'medium',
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        deadline TIMESTAMPTZ,
+        resolved BOOLEAN DEFAULT FALSE,
+        resolved_at TIMESTAMPTZ,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        UNIQUE (owner_id, alert_type, reference_type, reference_id)
       );
 
       -- 10. FUEL_LOG (3NF Fix: Removed total_cost)

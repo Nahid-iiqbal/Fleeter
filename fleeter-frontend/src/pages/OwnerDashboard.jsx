@@ -18,12 +18,14 @@ import PersonIcon from "@mui/icons-material/Person";
 import RouteIcon from "@mui/icons-material/Route";
 import GroupIcon from "@mui/icons-material/Group";
 import WorkIcon from "@mui/icons-material/Work";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 
 // import driver and vehicle details for the details page
 import DriverDetails from "./DriverDetails";
 import VehicleDetails from "./VehicleDetails";
 import ManagerDetails from "./ManagerDetails";
+import AlertDetails from "./AlertDetails";
 
 // import tables to show the list
 import DriversTable from "../components/DriversTable";
@@ -31,6 +33,7 @@ import TripsTable from "../components/TripsTable";
 import VehiclesTable from "../components/VehiclesTable";
 import ManagersTable from "../components/ManagersTable";
 import CompanyRequests from "../components/CompanyRequests";
+import AlertsTable from "../components/AlertsTable";
 import LiveMap from "../components/LiveMap";
 import { apiFetch } from "../utils/api";
 
@@ -77,6 +80,10 @@ function OwnerDashboard() {
     ? managerProfileMatch[1]
     : null;
 
+  const alertMatch = location.pathname.match(/^\/dashboard\/alerts\/([^/]+)\/(\d+)$/);
+  const selectedAlertType = alertMatch ? decodeURIComponent(alertMatch[1]) : null;
+  const selectedAlertId = alertMatch ? alertMatch[2] : null;
+
   const [loading, setLoading] = useState(true);
 
   // Var for fetching Drivers data
@@ -100,6 +107,10 @@ function OwnerDashboard() {
   const [managersLoaded, setManagersLoaded] = useState(false);
   const [managersLoading, setManagersLoading] = useState(false);
   const [managersError, setManagersError] = useState("");
+
+  const [alerts, setAlerts] = useState([]);
+  const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertsError, setAlertsError] = useState("");
 
   // We will eventually fetch real data here
   const [profileIncomplete, setProfileIncomplete] = useState(false);
@@ -222,6 +233,31 @@ function OwnerDashboard() {
     }
   }, []);
 
+  const fetchAlerts = useCallback(async () => {
+    try {
+      setAlertsLoading(true);
+      setAlertsError("");
+      const data = await apiFetch("/api/company/alerts");
+      setAlerts(data);
+    } catch (error) {
+      console.error("Error loading alerts:", error);
+      setAlertsError(error.message || "Failed to load alerts");
+    } finally {
+      setAlertsLoading(false);
+    }
+  }, []);
+
+  const resolveAlert = useCallback(async (alertType, alertId) => {
+    try {
+      await apiFetch(`/api/company/alerts/${encodeURIComponent(alertType)}/${alertId}/resolve`, {
+        method: "POST",
+      });
+      await fetchAlerts();
+    } catch (error) {
+      setAlertsError(error.message || "Unable to resolve alert.");
+    }
+  }, [fetchAlerts]);
+
   const refreshTripResources = useCallback(() => {
     fetchTrips();
     fetchDrivers();
@@ -320,6 +356,13 @@ function OwnerDashboard() {
     if (activeTab === "trips" && !tripsLoaded) fetchTrips();
   }, [activeTab, tripsLoaded, fetchTrips]);
 
+  useEffect(() => {
+    if (activeTab !== "alerts") {
+      return;
+    }
+    fetchAlerts();
+  }, [activeTab, fetchAlerts]);
+
   // useEffect for Vehicles data
   // Load vehicles only when the Vehicles tab is opened
   useEffect(() => {
@@ -384,6 +427,7 @@ function OwnerDashboard() {
     { label: "Vehicles", tab: "vehicles", icon: <DirectionsCarIcon /> },
     { label: "Drivers", tab: "drivers", icon: <PersonIcon /> },
     { label: "Trips", tab: "trips", icon: <RouteIcon /> },
+    { label: "Alerts", tab: "alerts", icon: <WarningAmberIcon /> },
     ...(userRole === "owner" ? [{ label: "Managers", tab: "managers", icon: <GroupIcon /> }] : []),
     { label: "Recruit", tab: "recruit", icon: <WorkIcon /> },
     { label: "Settings", tab: "settings", icon: <SettingsIcon /> },
@@ -585,6 +629,27 @@ function OwnerDashboard() {
                 onRefresh={fetchManagers}
                 onManagerClick={(id) => navigate(`/dashboard/managers/${id}`)}
               />
+            )
+          )}
+
+          {activeTab === "alerts" && (
+            selectedAlertType && selectedAlertId ? (
+              <AlertDetails
+                alertType={selectedAlertType}
+                alertId={selectedAlertId}
+                onBack={() => navigate("/dashboard/alerts")}
+              />
+            ) : (
+              <>
+                {alertsError && <Typography color="error" sx={{ mb: 2 }}>{alertsError}</Typography>}
+                <AlertsTable
+                  alerts={alerts}
+                  alertsLoading={alertsLoading}
+                  onRefresh={fetchAlerts}
+                  onAlertClick={(alertType, alertId) => navigate(`/dashboard/alerts/${encodeURIComponent(alertType)}/${alertId}`)}
+                  onResolve={resolveAlert}
+                />
+              </>
             )
           )}
 

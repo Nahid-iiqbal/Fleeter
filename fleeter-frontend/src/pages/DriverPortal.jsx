@@ -345,7 +345,7 @@ function DriverDashboard() {
     const formData = new FormData(formElement);
 
     try {
-      const response = await fetch("/api/driver/documents", {
+      const response = await fetch("http://localhost:5000/api/driver/documents", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -353,11 +353,11 @@ function DriverDashboard() {
         body: formData,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (response.ok) {
         setDocSuccess("Document added successfully!");
-        setNewDocForm({ document_type: "license", document_no: "", issue_date: "", expiry_date: "" });
+        setNewDocForm({ document_type: "driving_license", document_no: "", issue_date: "", expiry_date: "" });
         formElement.reset();
         setDriverStats((prev) => ({ ...prev, driverProfileMissing: false }));
 
@@ -367,7 +367,7 @@ function DriverDashboard() {
         }
         setTimeout(() => setDocSuccess(""), 3000);
       } else {
-        setDocError(data.message || "Failed to upload document.");
+        setDocError(data.error || data.message || "Failed to upload document.");
       }
     } catch (error) {
       setDocError("Network error: " + error.message);
@@ -505,7 +505,7 @@ function DriverDashboard() {
         <Box maxWidth="900px" mx="auto" p={{ xs: 2, sm: 4 }}>
           {docsLoading ? (
             <Typography color="text.secondary">Preparing your account setup...</Typography>
-          ) : !driverDocs.some((doc) => doc.document_type === "driving_license" && doc.document_no && doc.issue_date && doc.expiry_date) ? (
+          ) : !driverDocs.some((doc) => doc.document_type === "driving_license" && doc.document_no && doc.issue_date && doc.expiry_date && doc.document_url) ? (
             <Box sx={{ maxWidth: 680, mx: "auto" }}>
               <Typography variant="overline" color="primary.main" fontWeight={700}>
                 Step 2 of 3 · Driver verification
@@ -568,6 +568,17 @@ function DriverDashboard() {
                         InputLabelProps={{ shrink: true }}
                       />
                     </Box>
+                    <TextField
+                      variant="outlined"
+                      label="Licence scan or image"
+                      type="file"
+                      name="documentFile"
+                      inputProps={{ accept: "image/*,.pdf" }}
+                      required
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      helperText="Upload an image or PDF of your driver's licence."
+                    />
                     <Button type="submit" variant="contained" color="primary" size="large" disableElevation>
                       Save document and continue
                     </Button>
@@ -956,7 +967,7 @@ function DriverDashboard() {
                             fullWidth
                             size="small"
                           >
-                            <MenuItem value="license">Driver's License</MenuItem>
+                            <MenuItem value="driving_license">Driver's License</MenuItem>
                             <MenuItem value="medical">Medical Card</MenuItem>
                             <MenuItem value="insurance">Insurance Policy</MenuItem>
                             <MenuItem value="certification">Special Certification</MenuItem>

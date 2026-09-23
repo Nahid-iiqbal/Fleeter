@@ -383,7 +383,7 @@ router.post("/request-maintenance", async (req, res) => {
 // ==========================================
 
 // 1. POST /api/driver/documents
-router.post("/documents", async (req, res) => {
+router.post("/documents", upload.single("documentFile"), async (req, res) => {
   const { document_type, document_no, issue_date, expiry_date } = req.body;
 
   if (!document_type || !document_no || !issue_date || !expiry_date) {
@@ -405,13 +405,18 @@ router.post("/documents", async (req, res) => {
       driverId = newDriver.rows[0].driver_id;
     }
 
-    await pool.query(
-      `INSERT INTO Driver_Document (driver_id, document_type, document_no, issue_date, expiry_date)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [driverId, document_type, document_no, issue_date, expiry_date],
+    const document_url = req.file ? `/uploads/${req.file.filename}` : null;
+    const documentResult = await pool.query(
+      `INSERT INTO Driver_Document (driver_id, document_type, document_no, issue_date, expiry_date, document_url)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING document_id, driver_id, document_type, document_no, issue_date, expiry_date, alert_triggered, document_url`,
+      [driverId, document_type, document_no, issue_date, expiry_date, document_url],
     );
 
-    res.status(201).json({ message: "Document added successfully" });
+    res.status(201).json({
+      message: "Document added successfully",
+      document: documentResult.rows[0],
+    });
   } catch (error) {
     console.error("Error adding document:", error);
     res.status(500).json({ error: "Failed to add document." });
@@ -424,7 +429,7 @@ router.get("/documents", async (req, res) => {
 
   try {
     const docsQuery = await pool.query(
-      `SELECT document_id, document_type, document_no, issue_date, expiry_date, alert_triggered
+      `SELECT document_id, document_type, document_no, issue_date, expiry_date, alert_triggered, document_url
        FROM Driver_Document WHERE driver_id = $1 ORDER BY expiry_date ASC`,
       [req.driver_id],
     );
