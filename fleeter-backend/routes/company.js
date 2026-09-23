@@ -119,8 +119,10 @@ const upsertCompanyAlerts = async (companyId) => {
 
   const incidentRows = await pool.query(
     `
-      SELECT i.incident_id, i.type, i.description, i.severity, i.incident_date AS created_at,
-             t.vehicle_id, d.full_name AS driver_name,
+            SELECT i.incident_id, i.type, i.description, i.severity, i.incident_date AS created_at,
+              i.reported_to, i.damage_cost, i.image_url, t.trip_id, t.vehicle_id,
+              d.driver_id, d.full_name AS driver_name,
+              v.registration_no, v.brand, v.model,
              CONCAT('Incident on trip #', t.trip_id) AS title,
              CONCAT('Vehicle ', v.registration_no, ' · ', d.full_name) AS about
       FROM Incident i
@@ -132,90 +134,138 @@ const upsertCompanyAlerts = async (companyId) => {
     [companyId],
   );
 
-  incidentRows.rows.forEach((row) =>
-    alerts.push(
-      buildAlertRecord({
-        ownerId: companyId,
-        alertType: "incident",
-        referenceType: "incident",
-        referenceId: row.incident_id,
-        title: row.title,
-        about: row.about,
-        description:
-          row.description || "An incident was reported and requires follow-up.",
-        severity: row.severity || "high",
-        metadata: {
-          trip_id: row.trip_id || null,
-          vehicle_id: row.vehicle_id || null,
-          driver_name: row.driver_name || null,
-        },
-      }),
-    ),
-  );
+  incidentRows.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "incident",
+    referenceType: "incident",
+    referenceId: row.incident_id,
+    title: row.title,
+    about: row.about,
+    description: `Incident type: ${row.type}. Severity: ${row.severity || "not specified"}. Driver notes: ${row.description || "No driver notes provided."}${row.reported_to ? ` Reported to: ${row.reported_to}.` : ""}${row.damage_cost ? ` Damage cost: ${row.damage_cost}.` : ""}${row.image_url ? " Evidence image attached." : ""}`,
+    severity: row.severity || "high",
+    metadata: {
+      trip_id: row.trip_id || null,
+      vehicle_id: row.vehicle_id || null,
+      vehicle_name: [row.registration_no, row.brand, row.model].filter(Boolean).join(" ") || null,
+      driver_id: row.driver_id || null,
+      driver_name: row.driver_name || null,
+      incident_type: row.type,
+      reported_to: row.reported_to || null,
+      damage_cost: row.damage_cost || null,
+      image_url: row.image_url || null,
+    },
+  })));
 
   const maintenanceRows = await pool.query(
     `
-      SELECT m.maintenance_id, m.service_date AS created_at, m.service_type, m.description,
-             v.registration_no, m.next_due_date AS deadline
+            SELECT m.maintenance_id, m.service_date AS created_at, m.service_type, m.description,
+              m.cost, m.workshop, m.mechanic_name, m.odometer_km, m.next_due_km,
+              m.next_due_date AS deadline, v.vehicle_id, v.registration_no, v.brand, v.model,
+              assignment.driver_id, assignment.driver_name
       FROM Maintenance m
       JOIN Vehicle v ON v.vehicle_id = m.vehicle_id
+            LEFT JOIN LATERAL (
+         SELECT t.driver_id, d.full_name AS driver_name
+         FROM Trip t
+         JOIN Driver d ON d.driver_id = t.driver_id
+         WHERE t.vehicle_id = v.vehicle_id
+         ORDER BY (t.status = 'in_progress') DESC, t.departure_time DESC, t.trip_id DESC
+         LIMIT 1
+            ) assignment ON TRUE
       WHERE v.owner_id = $1
     `,
     [companyId],
   );
 
-  maintenanceRows.rows.forEach((row) =>
-    alerts.push(
-      buildAlertRecord({
-        ownerId: companyId,
-        alertType: "maintenance",
-        referenceType: "maintenance",
-        referenceId: row.maintenance_id,
-        title: `Maintenance needed for ${row.registration_no}`,
-        about: row.service_type,
-        description:
-          row.description ||
-          `Maintenance is needed for vehicle ${row.registration_no}.`,
-        severity: "medium",
-        deadline: row.deadline ? new Date(row.deadline).toISOString() : null,
-        metadata: {
-          vehicle_registration: row.registration_no,
-          service_type: row.service_type,
-        },
-      }),
-    ),
-  );
+  maintenanceRows.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "maintenance",
+    referenceType: "maintenance",
+    referenceId: row.maintenance_id,
+    title: `Maintenance needed for ${row.registration_no}`,
+    about: row.service_type,
+    description: `Maintenance type: ${row.service_type}. Driver notes: ${row.description || "No maintenance notes provided."}${row.workshop ? ` Workshop: ${row.workshop}.` : ""}${row.mechanic_name ? ` Mechanic: ${row.mechanic_name}.` : ""}${row.cost !== null ? ` Cost: ${row.cost}.` : ""}${row.odometer_km !== null ? ` Odometer: ${row.odometer_km} km.` : ""}${row.next_due_km !== null ? ` Next due at: ${row.next_due_km} km.` : ""}`,
+    severity: "medium",
+    deadline: row.deadline ? new Date(row.deadline).toISOString() : null,
+    metadata: {
+      vehicle_id: row.vehicle_id,
+      vehicle_name: [row.registration_no, row.brand, row.model].filter(Boolean).join(" "),
+      vehicle_registration: row.registration_no,
+      driver_id: row.driver_id || null,
+      driver_name: row.driver_name || null,
+      service_type: row.service_type,
+      workshop: row.workshop || null,
+      mechanic_name: row.mechanic_name || null,
+      cost: row.cost,
+      odometer_km: row.odometer_km,
+      next_due_km: row.next_due_km,
+    },
+  })));
 
   const driverDocRows = await pool.query(
     `
-      SELECT dd.document_id, dd.document_type, dd.expiry_date AS deadline,
-             d.full_name, d.driver_id, v.registration_no AS vehicle_registration
+      SELECT dd.document_id, dd.document_type, dd.issue_date, dd.expiry_date AS deadline,
+             d.full_name, d.driver_id
       FROM Driver_Document dd
       JOIN Driver d ON d.driver_id = dd.driver_id
-      WHERE d.owner_id = $1 AND dd.expiry_date < CURRENT_DATE
+      WHERE d.owner_id = $1
+        AND (dd.issue_date IS NULL OR dd.expiry_date IS NULL OR dd.expiry_date < CURRENT_DATE)
     `,
     [companyId],
   );
 
-  driverDocRows.rows.forEach((row) =>
-    alerts.push(
-      buildAlertRecord({
-        ownerId: companyId,
-        alertType: "driver_document_expired",
-        referenceType: "driver_document",
-        referenceId: row.document_id,
-        title: `${row.full_name} driver document expired`,
-        about: row.document_type,
-        description: `The ${row.document_type} for ${row.full_name} expired on ${new Date(row.deadline).toISOString().split("T")[0]}.`,
-        severity: "high",
-        deadline: new Date(row.deadline).toISOString(),
-        metadata: {
-          driver_id: row.driver_id,
-          document_type: row.document_type,
-        },
-      }),
-    ),
+  driverDocRows.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "driver_document_expired",
+    referenceType: "driver_document",
+    referenceId: row.document_id,
+    title: `${row.full_name} driver document expired`,
+    about: row.document_type,
+    description: `The ${row.document_type} for ${row.full_name} has missing or expired date information.`,
+    severity: "high",
+    deadline: row.deadline ? new Date(row.deadline).toISOString() : null,
+    metadata: {
+      driver_id: row.driver_id,
+      driver_name: row.full_name,
+      document_id: row.document_id,
+      document_type: row.document_type,
+      issue_date: row.issue_date,
+      expiry_date: row.deadline,
+      date_issue: row.issue_date ? null : "missing",
+      date_expiry: row.deadline ? (new Date(row.deadline) < new Date() ? "expired" : null) : "missing",
+    },
+  })));
+
+  const driversWithoutDocuments = await pool.query(
+    `
+      SELECT d.driver_id, d.full_name
+      FROM Driver d
+      LEFT JOIN Driver_Document dd ON dd.driver_id = d.driver_id
+      WHERE d.owner_id = $1 AND dd.document_id IS NULL
+    `,
+    [companyId],
   );
+
+  driversWithoutDocuments.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "driver_document_missing",
+    referenceType: "driver",
+    referenceId: row.driver_id,
+    title: `${row.full_name} has no driver document`,
+    about: "Driver licence document missing",
+    description: `No driver document has been uploaded for ${row.full_name}.`,
+    severity: "high",
+    metadata: {
+      driver_id: row.driver_id,
+      driver_name: row.full_name,
+      document_id: null,
+      document_type: "driving_license",
+      issue_date: null,
+      expiry_date: null,
+      date_issue: "missing",
+      date_expiry: "missing",
+    },
+  })));
 
   const vehicleDocRows = await pool.query(
     `
@@ -250,34 +300,41 @@ const upsertCompanyAlerts = async (companyId) => {
 
   const refuelRows = await pool.query(
     `
-      SELECT fl.fuel_id, fl.refuel_time AS created_at, v.registration_no, fl.station_name,
-             fl.odometer_km
+            SELECT fl.fuel_id, fl.refuel_time AS created_at, fl.trip_id, fl.station_name,
+              fl.liters, fl.cost_per_liter, fl.odometer_km, v.vehicle_id,
+              v.registration_no, v.brand, v.model, t.driver_id, d.full_name AS driver_name
       FROM Fuel_Log fl
       JOIN Vehicle v ON v.vehicle_id = fl.vehicle_id
+            LEFT JOIN Trip t ON t.trip_id = fl.trip_id
+            LEFT JOIN Driver d ON d.driver_id = t.driver_id
       WHERE v.owner_id = $1
       ORDER BY fl.refuel_time DESC
     `,
     [companyId],
   );
 
-  refuelRows.rows.forEach((row) =>
-    alerts.push(
-      buildAlertRecord({
-        ownerId: companyId,
-        alertType: "refuel",
-        referenceType: "fuel_log",
-        referenceId: row.fuel_id,
-        title: `Vehicle refuelled - ${row.registration_no}`,
-        about: row.station_name || "Fueling station",
-        description: `The vehicle ${row.registration_no} was refuelled. Mark as resolved once the check is complete.`,
-        severity: "low",
-        metadata: {
-          vehicle_registration: row.registration_no,
-          odometer_km: row.odometer_km || null,
-        },
-      }),
-    ),
-  );
+  refuelRows.rows.forEach((row) => alerts.push(buildAlertRecord({
+    ownerId: companyId,
+    alertType: "refuel",
+    referenceType: "fuel_log",
+    referenceId: row.fuel_id,
+    title: `Vehicle refuelled - ${row.registration_no}`,
+    about: row.station_name || "Fueling station",
+    description: `Fuel log: ${row.liters} liters at ${row.cost_per_liter} per liter. Station: ${row.station_name || "Not provided"}. Odometer: ${row.odometer_km ?? "Not provided"} km. Mark as resolved once the check is complete.`,
+    severity: "low",
+    metadata: {
+      vehicle_id: row.vehicle_id,
+      vehicle_name: [row.registration_no, row.brand, row.model].filter(Boolean).join(" "),
+      vehicle_registration: row.registration_no,
+      driver_id: row.driver_id || null,
+      driver_name: row.driver_name || null,
+      trip_id: row.trip_id || null,
+      station_name: row.station_name || null,
+      liters: row.liters,
+      cost_per_liter: row.cost_per_liter,
+      odometer_km: row.odometer_km || null,
+    },
+  })));
 
   if (alerts.length === 0) {
     return [];
@@ -290,7 +347,14 @@ const upsertCompanyAlerts = async (companyId) => {
           owner_id, alert_type, reference_type, reference_id, title, about,
           description, severity, deadline, resolved, metadata
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
-        ON CONFLICT (owner_id, alert_type, reference_type, reference_id) DO NOTHING
+        ON CONFLICT (owner_id, alert_type, reference_type, reference_id)
+        DO UPDATE SET
+          title = EXCLUDED.title,
+          about = EXCLUDED.about,
+          description = EXCLUDED.description,
+          severity = EXCLUDED.severity,
+          deadline = EXCLUDED.deadline,
+          metadata = EXCLUDED.metadata
       `,
       [
         alert.owner_id,
@@ -613,7 +677,8 @@ router.get("/alerts", authorizeRole("owner", "manager"), async (req, res) => {
     }
 
     await ensureSystemAlertTable();
-    let result = await pool.query(
+    await upsertCompanyAlerts(companyId);
+    const result = await pool.query(
       `
         SELECT *,
                CASE
@@ -627,11 +692,6 @@ router.get("/alerts", authorizeRole("owner", "manager"), async (req, res) => {
       `,
       [companyId],
     );
-
-    if (result.rows.length === 0) {
-      const generated = await upsertCompanyAlerts(companyId);
-      result = generated;
-    }
 
     const rows = result.rows.map((row) => ({
       ...row,

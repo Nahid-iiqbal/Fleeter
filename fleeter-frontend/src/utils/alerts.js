@@ -1,14 +1,15 @@
 export function getAlertTypeColor(type) {
   switch (type) {
-    case "incident":
-    case "driver_document_expired":
-    case "vehicle_document_expired":
-    case "document_expired":
-      return "error";
-    case "maintenance":
-      return "warning";
-    case "refuel":
-      return "success";
+    case 'incident':
+    case 'driver_document_expired':
+    case 'driver_document_missing':
+    case 'vehicle_document_expired':
+    case 'document_expired':
+      return 'error';
+    case 'maintenance':
+      return 'warning';
+    case 'refuel':
+      return 'success';
     default:
       return "default";
   }
@@ -16,18 +17,20 @@ export function getAlertTypeColor(type) {
 
 export function getAlertTypeLabel(type) {
   switch (type) {
-    case "incident":
-      return "Incident";
-    case "maintenance":
-      return "Maintenance";
-    case "driver_document_expired":
-      return "Driver document expired";
-    case "vehicle_document_expired":
-      return "Vehicle document expired";
-    case "document_expired":
-      return "Document expired";
-    case "refuel":
-      return "Vehicle refuelled";
+    case 'incident':
+      return 'Incident';
+    case 'maintenance':
+      return 'Maintenance';
+    case 'driver_document_expired':
+      return 'Driver document expired';
+    case 'driver_document_missing':
+      return 'Driver document missing';
+    case 'vehicle_document_expired':
+      return 'Vehicle document expired';
+    case 'document_expired':
+      return 'Document expired';
+    case 'refuel':
+      return 'Vehicle refuelled';
     default:
       return "Alert";
   }

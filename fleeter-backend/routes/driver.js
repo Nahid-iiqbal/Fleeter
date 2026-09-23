@@ -258,7 +258,9 @@ router.post("/log-fuel", async (req, res) => {
   } = req.body;
 
   // Input Validation
-  if (!vehicle_id || !liters || !cost_per_liter) {
+  const litersValue = Number(liters);
+  const costPerLiterValue = Number(cost_per_liter);
+  if (!vehicle_id || !Number.isFinite(litersValue) || litersValue <= 0 || !Number.isFinite(costPerLiterValue) || costPerLiterValue < 0) {
     return res
       .status(400)
       .json({ error: "Vehicle, liters, and cost per liter are required." });
@@ -282,21 +284,22 @@ router.post("/log-fuel", async (req, res) => {
       }
     }
 
-    await pool.query(
+    const result = await pool.query(
       `INSERT INTO Fuel_Log (vehicle_id, trip_id, logged_by, refuel_time, liters, cost_per_liter, odometer_km, station_name)
-       VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7)`,
+       VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7)
+       RETURNING *`,
       [
         vehicle_id,
         trip_id,
         req.user.user_id,
-        liters,
-        cost_per_liter,
+        litersValue,
+        costPerLiterValue,
         odometer_km,
         station_name,
       ],
     );
 
-    res.status(201).json({ message: "Fuel logged successfully" });
+    res.status(201).json({ message: "Fuel logged successfully", fuelLog: result.rows[0] });
   } catch (error) {
     console.error("Error inserting fuel log:", error);
     res.status(500).json({ error: "Database error while logging fuel." });
@@ -385,7 +388,7 @@ router.post("/request-maintenance", async (req, res) => {
       return res.status(403).json({ error: "Forbidden: Vehicle not found." });
     }
 
-    await pool.query(
+    const result = await pool.query(
       `INSERT INTO Maintenance (vehicle_id, service_date, service_type, description, cost, workshop, odometer_km, logged_by)
        VALUES ($1, CURRENT_DATE, $2, $3, 0.00, $4, $5, $6)`,
       [
@@ -398,7 +401,7 @@ router.post("/request-maintenance", async (req, res) => {
       ],
     );
 
-    res.status(201).json({ message: "Maintenance requested successfully" });
+    res.status(201).json({ message: "Maintenance requested successfully", maintenance: result.rows[0] });
   } catch (error) {
     console.error("Error inserting maintenance record:", error);
     res
@@ -490,8 +493,8 @@ router.put(
 
     try {
       let updateQuery = `
-      UPDATE Driver_Document 
-      SET 
+      UPDATE Driver_Document
+      SET
         document_type = COALESCE($1, document_type),
         document_no = COALESCE($2, document_no),
         issue_date = COALESCE($3, issue_date),
@@ -526,7 +529,93 @@ router.put(
   },
 );
 
-// 3. DELETE /api/driver/documents/:id
+// PUT /api/driver/documents/:id (Edit Driver Document)
+router.put(
+  "/documents/:id",
+  upload.single("documentFile"),
+  async (req, res) => {
+    const documentId = req.params.id;
+    if (!req.driver_id)
+      return res.status(404).json({ error: "Driver profile not found." });
+
+    const { document_type, document_no, issue_date, expiry_date } = req.body;
+    let documentUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+
+    try {
+      let updateQuery = `
+      UPDATE Driver_Document
+      SET
+        document_type = COALESCE($1, document_type),
+        document_no = COALESCE($2, document_no),
+        issue_date = COALESCE($3, issue_date),
+        expiry_date = COALESCE($4, expiry_date)
+    `;
+      let queryParams = [document_type, document_no, issue_date, expiry_date];
+
+      if (documentUrl) {
+        updateQuery += `, document_url = $5 WHERE document_id = $6 AND driver_id = $7 RETURNING *`;
+        queryParams.push(documentUrl, documentId, req.driver_id);
+      } else {
+        updateQuery += ` WHERE document_id = $5 AND driver_id = $6 RETURNING *`;
+        queryParams.push(documentId, req.driver_id);
+      }
+
+      const result = await pool.query(updateQuery, queryParams);
+
+      if (result.rowCount === 0) {
+        return res
+          .status(404)
+          .json({ error: "Document not found or you do not own it." });
+      }
+
+      res.json({
+        message: "Document updated successfully",
+        document: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error updating document:", error);
+      res.status(500).json({ error: "Failed to update document" });
+    }
+  },
+);
+
+// 3. PUT /api/driver/documents/:id
+router.put("/documents/:id", upload.single("documentFile"), async (req, res) => {
+  const { document_type, document_no, issue_date, expiry_date } = req.body;
+  if (!req.driver_id) {
+    return res.status(404).json({ error: "Driver profile not found." });
+  }
+  if (!document_type || !document_no || !issue_date || !expiry_date) {
+    return res.status(400).json({ error: "All document fields are required." });
+  }
+
+  try {
+    const documentUrl = req.file ? `/uploads/${req.file.filename}` : null;
+    const result = await pool.query(
+      `UPDATE Driver_Document
+       SET document_type = $1,
+           document_no = $2,
+           issue_date = $3,
+           expiry_date = $4,
+           document_url = COALESCE($5, document_url)
+       WHERE document_id = $6 AND driver_id = $7
+       RETURNING document_id, driver_id, document_type, document_no, issue_date,
+         expiry_date, alert_triggered, document_url`,
+      [document_type, document_no, issue_date, expiry_date, documentUrl, req.params.id, req.driver_id],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Document not found." });
+    }
+
+    res.json({ message: "Document updated successfully", document: result.rows[0] });
+  } catch (error) {
+    console.error("Error updating driver document:", error);
+    res.status(500).json({ error: "Failed to update document." });
+  }
+});
+
+// 4. DELETE /api/driver/documents/:id
 router.delete("/documents/:id", async (req, res) => {
   const documentId = req.params.id;
   if (!req.driver_id)
