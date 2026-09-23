@@ -52,7 +52,6 @@ router.get("/", verifyToken, async (req, res) => {
   }
 });
 
-
 // GET /api/drivers/:driverId
 router.get("/:driverId", verifyToken, async (req, res) => {
   try {

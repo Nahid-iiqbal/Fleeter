@@ -1,10 +1,6 @@
 import React from "react";
 import { ThemeSettingsProvider } from "./context/ThemeSettingsContext";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 // Import pages
 import Landing from "./pages/Landing";

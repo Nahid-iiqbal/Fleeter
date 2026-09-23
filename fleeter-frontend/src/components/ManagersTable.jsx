@@ -14,12 +14,18 @@ import {
   Chip,
   InputAdornment,
   CircularProgress,
-  Alert
+  Alert,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
-function ManagersTable({ managers, managersLoading, error, onRefresh, onManagerClick }) {
+function ManagersTable({
+  managers,
+  managersLoading,
+  error,
+  onRefresh,
+  onManagerClick,
+}) {
   const [searchTerm, setSearchTerm] = useState("");
   const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -41,14 +47,42 @@ function ManagersTable({ managers, managersLoading, error, onRefresh, onManagerC
   );
 
   return (
-    <Paper elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden", bgcolor: "background.paper" }}>
+    <Paper
+      elevation={0}
+      sx={{
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 2,
+        overflow: "hidden",
+        bgcolor: "background.paper",
+      }}
+    >
       {/* Header */}
-      <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider", flexWrap: "wrap", gap: 2 }}>
+      <Box
+        sx={{
+          p: 3,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: 1,
+          borderColor: "divider",
+          flexWrap: "wrap",
+          gap: 2,
+        }}
+      >
         <Typography variant="h6" fontWeight={700}>
           Manager Management
         </Typography>
 
-        <Box sx={{ display: "flex", gap: 2, flexGrow: 1, justifyContent: "flex-end", maxWidth: { xs: "100%", md: "600px" } }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            flexGrow: 1,
+            justifyContent: "flex-end",
+            maxWidth: { xs: "100%", md: "600px" },
+          }}
+        >
           <TextField
             size="small"
             placeholder="Search managers..."
@@ -68,7 +102,13 @@ function ManagersTable({ managers, managersLoading, error, onRefresh, onManagerC
             color="primary"
             onClick={onRefresh}
             disabled={managersLoading}
-            startIcon={managersLoading ? <CircularProgress size={16} color="inherit" /> : <RefreshIcon />}
+            startIcon={
+              managersLoading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <RefreshIcon />
+              )
+            }
             sx={{ whiteSpace: "nowrap" }}
           >
             Refresh
@@ -121,28 +161,59 @@ function ManagersTable({ managers, managersLoading, error, onRefresh, onManagerC
                         variant="text"
                         color="primary"
                         onClick={() => onManagerClick(manager.manager_id)}
-                        sx={{ fontWeight: 600, p: 0, minWidth: "auto", textTransform: "none", textAlign: "left" }}
+                        sx={{
+                          fontWeight: 600,
+                          p: 0,
+                          minWidth: "auto",
+                          textTransform: "none",
+                          textAlign: "left",
+                        }}
                       >
                         {manager.full_name}
                       </Button>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color={manager.employee_id ? "text.primary" : "text.secondary"}>
+                      <Typography
+                        variant="body2"
+                        color={
+                          manager.employee_id
+                            ? "text.primary"
+                            : "text.secondary"
+                        }
+                      >
                         {manager.employee_id || "Not provided"}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color={manager.department ? "text.primary" : "text.secondary"} sx={{ textTransform: "capitalize" }}>
+                      <Typography
+                        variant="body2"
+                        color={
+                          manager.department ? "text.primary" : "text.secondary"
+                        }
+                        sx={{ textTransform: "capitalize" }}
+                      >
                         {manager.department || "Not provided"}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color={manager.username || manager.email ? "text.primary" : "text.secondary"}>
+                      <Typography
+                        variant="body2"
+                        color={
+                          manager.username || manager.email
+                            ? "text.primary"
+                            : "text.secondary"
+                        }
+                      >
                         {manager.username || manager.email || "Not linked"}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color={manager.phone ? "text.primary" : "text.secondary"}>
+                      <Typography
+                        variant="body2"
+                        color={
+                          manager.phone ? "text.primary" : "text.secondary"
+                        }
+                      >
                         {manager.phone || "Not provided"}
                       </Typography>
                     </TableCell>

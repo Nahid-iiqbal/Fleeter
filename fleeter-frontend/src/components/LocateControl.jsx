@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 
-
 const LocateControl = ({ position }) => {
   const map = useMap();
   const positionRef = useRef(position);

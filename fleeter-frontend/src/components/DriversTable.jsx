@@ -24,13 +24,15 @@ import {
   InputAdornment,
   Autocomplete,
   Alert,
-  CircularProgress
+  CircularProgress,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
 const getDriverStatusColor = (status) => {
-  const normalizedStatus = String(status || "").toLowerCase().replaceAll("_", " ");
+  const normalizedStatus = String(status || "")
+    .toLowerCase()
+    .replaceAll("_", " ");
   if (normalizedStatus === "available") return "success";
   if (normalizedStatus === "dispatched") return "default";
   if (normalizedStatus === "on leave") return "error";
@@ -100,10 +102,13 @@ function DriversTable({
         setVehicles(vehicleData);
         setTripForm((current) => ({
           ...current,
-          vehicle_id: current.vehicle_id || String(vehicleData[0]?.vehicle_id || ""),
+          vehicle_id:
+            current.vehicle_id || String(vehicleData[0]?.vehicle_id || ""),
           route_id: current.route_id || String(routeData[0]?.route_id || ""),
         }));
-        setVehicleSearch((current) => current || getVehicleLabel(vehicleData[0]));
+        setVehicleSearch(
+          (current) => current || getVehicleLabel(vehicleData[0]),
+        );
         setRouteSearch((current) => current || getRouteLabel(routeData[0]));
       } catch (loadError) {
         setTripError(loadError.message || "Unable to load trip options.");
@@ -122,7 +127,10 @@ function DriversTable({
 
   const submitAssignment = async (event) => {
     event.preventDefault();
-    if (!tripForm.vehicle_id || (!tripForm.custom_route && !tripForm.route_id)) {
+    if (
+      !tripForm.vehicle_id ||
+      (!tripForm.custom_route && !tripForm.route_id)
+    ) {
       setTripError("Select a vehicle and route from the search results.");
       return;
     }
@@ -154,14 +162,42 @@ function DriversTable({
   };
 
   return (
-    <Paper elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden", bgcolor: "background.paper" }}>
+    <Paper
+      elevation={0}
+      sx={{
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 2,
+        overflow: "hidden",
+        bgcolor: "background.paper",
+      }}
+    >
       {/* Header */}
-      <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider", gap: 2, flexWrap: "wrap" }}>
+      <Box
+        sx={{
+          p: 3,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: 1,
+          borderColor: "divider",
+          gap: 2,
+          flexWrap: "wrap",
+        }}
+      >
         <Typography variant="h6" fontWeight={700}>
           Driver Management
         </Typography>
 
-        <Box sx={{ display: "flex", gap: 2, flexGrow: 1, justifyContent: "flex-end", maxWidth: { xs: "100%", md: "600px" } }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            flexGrow: 1,
+            justifyContent: "flex-end",
+            maxWidth: { xs: "100%", md: "600px" },
+          }}
+        >
           <TextField
             size="small"
             placeholder="Search drivers..."
@@ -181,7 +217,13 @@ function DriversTable({
             color="primary"
             onClick={onRefresh}
             disabled={driversLoading}
-            startIcon={driversLoading ? <CircularProgress size={16} color="inherit" /> : <RefreshIcon />}
+            startIcon={
+              driversLoading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <RefreshIcon />
+              )
+            }
             sx={{ whiteSpace: "nowrap" }}
           >
             Refresh
@@ -235,13 +277,21 @@ function DriversTable({
                         variant="text"
                         color="primary"
                         onClick={() => onDriverClick(driver.driver_id)}
-                        sx={{ fontWeight: 600, p: 0, minWidth: "auto", textTransform: "none", textAlign: "left" }}
+                        sx={{
+                          fontWeight: 600,
+                          p: 0,
+                          minWidth: "auto",
+                          textTransform: "none",
+                          textAlign: "left",
+                        }}
                       >
                         {driver.full_name}
                       </Button>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{driver.document_no || "Not provided"}</Typography>
+                      <Typography variant="body2">
+                        {driver.document_no || "Not provided"}
+                      </Typography>
                       {driver.document_type && (
                         <Typography variant="caption" color="text.secondary">
                           Type: {driver.document_type.replaceAll("_", " ")}
@@ -249,9 +299,15 @@ function DriversTable({
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{driver.username || driver.email || "Not linked"}</Typography>
+                      <Typography variant="body2">
+                        {driver.username || driver.email || "Not linked"}
+                      </Typography>
                       {driver.email && driver.username && (
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                        >
                           {driver.email}
                         </Typography>
                       )}
@@ -265,7 +321,11 @@ function DriversTable({
                         sx={{ fontWeight: 600, textTransform: "capitalize" }}
                       />
                     </TableCell>
-                    <TableCell>{driver.joined_date ? new Date(driver.joined_date).toLocaleDateString() : "N/A"}</TableCell>
+                    <TableCell>
+                      {driver.joined_date
+                        ? new Date(driver.joined_date).toLocaleDateString()
+                        : "N/A"}
+                    </TableCell>
                     <TableCell align="right">
                       <Button
                         variant="contained"
@@ -292,9 +352,16 @@ function DriversTable({
       </Box>
 
       {/* Assign Trip Dialog */}
-      <Dialog open={!!assigningDriver} onClose={closeAssignment} maxWidth="sm" fullWidth>
+      <Dialog
+        open={!!assigningDriver}
+        onClose={closeAssignment}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
-          <Typography variant="h6" fontWeight={700}>Assign trip</Typography>
+          <Typography variant="h6" fontWeight={700}>
+            Assign trip
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             Driver: {assigningDriver?.full_name}
           </Typography>
@@ -302,7 +369,9 @@ function DriversTable({
         <form onSubmit={submitAssignment}>
           <DialogContent dividers>
             {tripError && (
-              <Alert severity="error" sx={{ mb: 2 }}>{tripError}</Alert>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {tripError}
+              </Alert>
             )}
 
             {tripLoading && routes.length === 0 && vehicles.length === 0 ? (
@@ -312,17 +381,26 @@ function DriversTable({
               </Box>
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-
                 <Autocomplete
                   options={vehicles}
                   getOptionLabel={getVehicleLabel}
                   inputValue={vehicleSearch}
-                  onInputChange={(_, newInputValue) => setVehicleSearch(newInputValue)}
+                  onInputChange={(_, newInputValue) =>
+                    setVehicleSearch(newInputValue)
+                  }
                   onChange={(_, newValue) => {
-                    setTripForm(prev => ({ ...prev, vehicle_id: newValue ? String(newValue.vehicle_id) : "" }));
+                    setTripForm((prev) => ({
+                      ...prev,
+                      vehicle_id: newValue ? String(newValue.vehicle_id) : "",
+                    }));
                   }}
                   renderInput={(params) => (
-                    <TextField {...params} label="Search vehicles" placeholder="Registration, brand, or model" required />
+                    <TextField
+                      {...params}
+                      label="Search vehicles"
+                      placeholder="Registration, brand, or model"
+                      required
+                    />
                   )}
                 />
 
@@ -330,13 +408,23 @@ function DriversTable({
                   options={routes}
                   getOptionLabel={getRouteLabel}
                   inputValue={routeSearch}
-                  onInputChange={(_, newInputValue) => setRouteSearch(newInputValue)}
+                  onInputChange={(_, newInputValue) =>
+                    setRouteSearch(newInputValue)
+                  }
                   onChange={(_, newValue) => {
-                    setTripForm(prev => ({ ...prev, route_id: newValue ? String(newValue.route_id) : "" }));
+                    setTripForm((prev) => ({
+                      ...prev,
+                      route_id: newValue ? String(newValue.route_id) : "",
+                    }));
                   }}
                   disabled={tripForm.custom_route}
                   renderInput={(params) => (
-                    <TextField {...params} label="Search routes" placeholder="Route name, origin, or destination" required={!tripForm.custom_route} />
+                    <TextField
+                      {...params}
+                      label="Search routes"
+                      placeholder="Route name, origin, or destination"
+                      required={!tripForm.custom_route}
+                    />
                   )}
                 />
 
@@ -424,10 +512,19 @@ function DriversTable({
             )}
           </DialogContent>
           <DialogActions sx={{ p: 2, px: 3 }}>
-            <Button onClick={closeAssignment} color="inherit" variant="outlined">
+            <Button
+              onClick={closeAssignment}
+              color="inherit"
+              variant="outlined"
+            >
               Cancel
             </Button>
-            <Button type="submit" variant="contained" color="primary" disabled={tripLoading}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={tripLoading}
+            >
               {tripLoading ? "Assigning..." : "Assign trip"}
             </Button>
           </DialogActions>
@@ -444,11 +541,15 @@ function getDefaultDepartureTime() {
 }
 
 function getVehicleLabel(vehicle) {
-  return vehicle ? `${vehicle.registration_no} (${vehicle.brand} ${vehicle.model})` : "";
+  return vehicle
+    ? `${vehicle.registration_no} (${vehicle.brand} ${vehicle.model})`
+    : "";
 }
 
 function getRouteLabel(route) {
-  return route ? `${route.route_name}: ${route.origin} to ${route.destination}` : "";
+  return route
+    ? `${route.route_name}: ${route.origin} to ${route.destination}`
+    : "";
 }
 
 export default DriversTable;

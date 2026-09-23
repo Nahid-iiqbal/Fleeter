@@ -66,15 +66,34 @@ function LiveMap() {
   }, []);
 
   return (
-    <div style={{ height: "600px", width: "100%", borderRadius: "8px", overflow: "hidden" }}>
-      <MapContainer center={[23.8103, 90.4125]} zoom={12} style={{ height: "100%", width: "100%" }}>
+    <div
+      style={{
+        height: "600px",
+        width: "100%",
+        borderRadius: "8px",
+        overflow: "hidden",
+      }}
+    >
+      <MapContainer
+        center={[23.8103, 90.4125]}
+        zoom={12}
+        style={{ height: "100%", width: "100%" }}
+      >
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <LocateControl />
         {vehicles.map((vehicle) => (
-          <Marker key={vehicle.vehicle_id} position={[vehicle.latitude, vehicle.longitude]}>
+          <Marker
+            key={vehicle.vehicle_id}
+            position={[vehicle.latitude, vehicle.longitude]}
+          >
             <Popup>
               <strong>{vehicle.registration_no}</strong>
-              {vehicle.driver_name && <><br />Driver: {vehicle.driver_name}</>}
+              {vehicle.driver_name && (
+                <>
+                  <br />
+                  Driver: {vehicle.driver_name}
+                </>
+              )}
               <br />
               Speed: {vehicle.speed_kmh} km/h
               <br />

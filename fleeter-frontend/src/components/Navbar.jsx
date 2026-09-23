@@ -27,10 +27,21 @@ export default function Navbar({ role }) {
     <AppBar position="static" color="secondary">
       <Toolbar sx={{ justifyContent: "space-between" }}>
         <Box>
-          <Typography component="span" variant="h6" fontWeight="bold" letterSpacing={1}>
+          <Typography
+            sx={{ fontFamily: '"Passero One", cursive' }}
+            component="span"
+            variant="h6"
+            fontWeight="bold"
+            letterSpacing={1}
+          >
             FLEETER
           </Typography>
-          <Typography component="span" variant="caption" color="info.light" sx={{ ml: 1 }}>
+          <Typography
+            component="span"
+            variant="caption"
+            color="info.light"
+            sx={{ ml: 1 }}
+          >
             | {role?.toUpperCase()} PORTAL
           </Typography>
         </Box>

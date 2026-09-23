@@ -23,8 +23,6 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
-    "migrate": "node config/migrateCompanyWorkflow.js",
-    "migrate:trips": "node config/migrateTripWorkflow.js"
+    "dev": "nodemon server.js"
   }
 }

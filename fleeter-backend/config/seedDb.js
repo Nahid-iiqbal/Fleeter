@@ -16,7 +16,7 @@ const dateDaysFromNow = (n) => `CURRENT_DATE + INTERVAL '${n} days'`;
 
 async function createUser(
   client,
-  { username, email, fullName, role, passwordHash }
+  { username, email, fullName, role, passwordHash },
 ) {
   const res = await client.query(
     `INSERT INTO User_Account (
@@ -28,7 +28,7 @@ async function createUser(
      )
      VALUES ($1, $2, $3, $4, $5)
      RETURNING user_id`,
-    [username, email, fullName, passwordHash, role]
+    [username, email, fullName, passwordHash, role],
   );
 
   return res.rows[0].user_id;
@@ -39,7 +39,7 @@ async function createOwner(client, userId, companyName) {
     `INSERT INTO Owner_Profile (user_id, company_name)
      VALUES ($1, $2)
      RETURNING owner_id`,
-    [userId, companyName]
+    [userId, companyName],
   );
 
   return res.rows[0].owner_id;
@@ -47,7 +47,7 @@ async function createOwner(client, userId, companyName) {
 
 async function createManager(
   client,
-  { userId, ownerId, fullName, employeeId, phone, department }
+  { userId, ownerId, fullName, employeeId, phone, department },
 ) {
   const res = await client.query(
     `INSERT INTO Manager_Profile (
@@ -60,7 +60,7 @@ async function createManager(
      )
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING manager_id`,
-    [userId, ownerId, fullName, employeeId, phone, department]
+    [userId, ownerId, fullName, employeeId, phone, department],
   );
 
   return res.rows[0].manager_id;
@@ -68,7 +68,7 @@ async function createManager(
 
 async function createDriver(
   client,
-  { userId, ownerId, fullName, phone, status, joinedDaysAgo }
+  { userId, ownerId, fullName, phone, status, joinedDaysAgo },
 ) {
   const res = await client.query(
     `INSERT INTO Driver (
@@ -88,7 +88,7 @@ async function createDriver(
        ${dateDaysAgo(joinedDaysAgo)}
      )
      RETURNING driver_id`,
-    [userId, ownerId, fullName, phone, status]
+    [userId, ownerId, fullName, phone, status],
   );
 
   return res.rows[0].driver_id;
@@ -124,20 +124,9 @@ function mapVehicleStatuses(status) {
 
 async function createVehicle(
   client,
-  {
-    ownerId,
-    reg,
-    brand,
-    type,
-    model,
-    year,
-    capacity,
-    fuelType,
-    status,
-  }
+  { ownerId, reg, brand, type, model, year, capacity, fuelType, status },
 ) {
-  const { condition, availability } =
-    mapVehicleStatuses(status);
+  const { condition, availability } = mapVehicleStatuses(status);
 
   const res = await client.query(
     `INSERT INTO Vehicle (
@@ -165,7 +154,7 @@ async function createVehicle(
       fuelType,
       condition,
       availability,
-    ]
+    ],
   );
 
   return res.rows[0].vehicle_id;
@@ -173,14 +162,7 @@ async function createVehicle(
 
 async function createRoute(
   client,
-  {
-    ownerId,
-    name,
-    origin,
-    destination,
-    distanceKm,
-    estMins,
-  }
+  { ownerId, name, origin, destination, distanceKm, estMins },
 ) {
   const res = await client.query(
     `INSERT INTO Route (
@@ -193,14 +175,7 @@ async function createRoute(
      )
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING route_id`,
-    [
-      ownerId,
-      name,
-      origin,
-      destination,
-      distanceKm,
-      estMins,
-    ]
+    [ownerId, name, origin, destination, distanceKm, estMins],
   );
 
   return res.rows[0].route_id;
@@ -221,7 +196,7 @@ async function createTrip(
     cargoType = "cargo",
     notes = null,
     dispatchedBy,
-  }
+  },
 ) {
   const departureExpr =
     departureDaysAgo >= 0
@@ -232,8 +207,8 @@ async function createTrip(
     arrivalDaysAgo === null
       ? "NULL"
       : arrivalDaysAgo >= 0
-      ? daysAgo(arrivalDaysAgo)
-      : daysFromNow(-arrivalDaysAgo);
+        ? daysAgo(arrivalDaysAgo)
+        : daysFromNow(-arrivalDaysAgo);
 
   const res = await client.query(
     `INSERT INTO Trip (
@@ -276,7 +251,7 @@ async function createTrip(
       cargoType,
       notes,
       dispatchedBy,
-    ]
+    ],
   );
 
   return res.rows[0].trip_id;
@@ -293,7 +268,7 @@ async function createFuelLog(
     odometerKm,
     station,
     loggedBy,
-  }
+  },
 ) {
   await client.query(
     `INSERT INTO Fuel_Log (
@@ -316,15 +291,7 @@ async function createFuelLog(
        $6,
        $7
      )`,
-    [
-      vehicleId,
-      tripId,
-      liters,
-      costPerLiter,
-      odometerKm,
-      station,
-      loggedBy,
-    ]
+    [vehicleId, tripId, liters, costPerLiter, odometerKm, station, loggedBy],
   );
 }
 
@@ -340,7 +307,7 @@ async function createIncident(
     reportedTo,
     loggedBy,
     resolved,
-  }
+  },
 ) {
   await client.query(
     `INSERT INTO Incident (
@@ -374,7 +341,7 @@ async function createIncident(
       reportedTo,
       loggedBy,
       resolved,
-    ]
+    ],
   );
 }
 
@@ -393,12 +360,10 @@ async function createMaintenance(
     nextDueInDays = null,
     nextDueKm = null,
     loggedBy,
-  }
+  },
 ) {
   const nextDueDateExpr =
-    nextDueInDays === null
-      ? "NULL"
-      : dateDaysFromNow(nextDueInDays);
+    nextDueInDays === null ? "NULL" : dateDaysFromNow(nextDueInDays);
 
   await client.query(
     `INSERT INTO Maintenance (
@@ -440,20 +405,13 @@ async function createMaintenance(
       odometerKm,
       nextDueKm,
       loggedBy,
-    ]
+    ],
   );
 }
 
 async function createVendor(
   client,
-  {
-    ownerId,
-    name,
-    category,
-    contact,
-    phone,
-    address,
-  }
+  { ownerId, name, category, contact, phone, address },
 ) {
   const res = await client.query(
     `INSERT INTO Vendor (
@@ -466,14 +424,7 @@ async function createVendor(
      )
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING vendor_id`,
-    [
-      ownerId,
-      name,
-      category,
-      contact,
-      phone,
-      address,
-    ]
+    [ownerId, name, category, contact, phone, address],
   );
 
   return res.rows[0].vendor_id;
@@ -488,7 +439,7 @@ async function createDriverDocument(
     issueDaysAgo,
     expiryOffsetDays,
     alertTriggered = false,
-  }
+  },
 ) {
   const expiryExpr =
     expiryOffsetDays >= 0
@@ -512,12 +463,7 @@ async function createDriverDocument(
        ${expiryExpr},
        $4
      )`,
-    [
-      driverId,
-      type,
-      docNo,
-      alertTriggered,
-    ]
+    [driverId, type, docNo, alertTriggered],
   );
 }
 
@@ -530,7 +476,7 @@ async function createVehicleDocument(
     issueDaysAgo,
     expiryOffsetDays,
     alertTriggered = false,
-  }
+  },
 ) {
   const expiryExpr =
     expiryOffsetDays >= 0
@@ -554,12 +500,7 @@ async function createVehicleDocument(
        ${expiryExpr},
        $4
      )`,
-    [
-      vehicleId,
-      type,
-      docNo,
-      alertTriggered,
-    ]
+    [vehicleId, type, docNo, alertTriggered],
   );
 }
 
@@ -573,15 +514,12 @@ async function createCompanyRequest(
     status,
     decidedByUserId = null,
     decidedDaysAgo = null,
-  }
+  },
 ) {
   const decidedAtExpr =
-    decidedDaysAgo === null
-      ? "NULL"
-      : daysAgo(decidedDaysAgo);
+    decidedDaysAgo === null ? "NULL" : daysAgo(decidedDaysAgo);
 
-  const createdAtDays =
-    (decidedDaysAgo ?? 3) + 2;
+  const createdAtDays = (decidedDaysAgo ?? 3) + 2;
 
   await client.query(
     `INSERT INTO Company_Request (
@@ -604,28 +542,13 @@ async function createCompanyRequest(
        ${decidedAtExpr},
        ${daysAgo(createdAtDays)}
      )`,
-    [
-      requesterUserId,
-      ownerId,
-      requestedRole,
-      message,
-      status,
-      decidedByUserId,
-    ]
+    [requesterUserId, ownerId, requestedRole, message, status, decidedByUserId],
   );
 }
 
 async function createTelemetryPing(
   client,
-  {
-    vehicleId,
-    tripId,
-    lat,
-    lng,
-    speedKmh,
-    battery,
-    minutesAgo,
-  }
+  { vehicleId, tripId, lat, lng, speedKmh, battery, minutesAgo },
 ) {
   await client.query(
     `INSERT INTO Vehicle_Telemetry (
@@ -644,14 +567,7 @@ async function createTelemetryPing(
        $6,
        NOW() - INTERVAL '${minutesAgo} minutes'
      )`,
-    [
-      vehicleId,
-      tripId,
-      lng,
-      lat,
-      speedKmh,
-      battery,
-    ]
+    [vehicleId, tripId, lng, lat, speedKmh, battery],
   );
 }
 
@@ -686,20 +602,15 @@ const seedDatabase = async () => {
       CASCADE;
     `);
 
-    console.log(
-      "2. Hashing default password ('pass' for every account)..."
-    );
+    console.log("2. Hashing default password ('pass' for every account)...");
 
     const salt = await bcrypt.genSalt(10);
-    const pw = await bcrypt.hash(
-      DEFAULT_PASSWORD,
-      salt
-    );
+    const pw = await bcrypt.hash(DEFAULT_PASSWORD, salt);
 
     console.log("3. Seeding admin...");
 
     await createUser(client, {
-      username: "admin_super",
+      username: "admin",
       email: "admin@fleeter.com",
       fullName: "System Administrator",
       role: "admin",
@@ -710,13 +621,13 @@ const seedDatabase = async () => {
       {
         key: "apex",
         companyName: "Apex Logistics Inc.",
-        ownerUsername: "apex_boss",
+        ownerUsername: "owner",
         ownerEmail: "owner@fleeter.com",
         ownerFullName: "Adrian Mitchell",
 
         managers: [
           {
-            username: "apex_dispatch",
+            username: "manager",
             email: "manager@fleeter.com",
             fullName: "Sarah Jenkins",
             employeeId: "EMP-001",
@@ -735,8 +646,8 @@ const seedDatabase = async () => {
 
         drivers: [
           {
-            username: "marcus_w",
-            email: "driver1@fleeter.com",
+            username: "driver",
+            email: "driver@fleeter.com",
             fullName: "Marcus Wright",
             phone: "555-0110",
             status: "dispatched",
@@ -1152,9 +1063,7 @@ const seedDatabase = async () => {
     const companies = {};
 
     for (const def of companyDefs) {
-      console.log(
-        `4. Seeding company: ${def.companyName}...`
-      );
+      console.log(`4. Seeding company: ${def.companyName}...`);
 
       const ownerUserId = await createUser(client, {
         username: def.ownerUsername,
@@ -1164,11 +1073,7 @@ const seedDatabase = async () => {
         passwordHash: pw,
       });
 
-      const ownerId = await createOwner(
-        client,
-        ownerUserId,
-        def.companyName
-      );
+      const ownerId = await createOwner(client, ownerUserId, def.companyName);
 
       const managerRecords = [];
 
@@ -1227,13 +1132,10 @@ const seedDatabase = async () => {
       const vehicleIds = [];
 
       for (const v of def.vehicles) {
-        const vehicleId = await createVehicle(
-          client,
-          {
-            ownerId,
-            ...v,
-          }
-        );
+        const vehicleId = await createVehicle(client, {
+          ownerId,
+          ...v,
+        });
 
         vehicleIds.push({
           vehicleId,
@@ -1244,13 +1146,10 @@ const seedDatabase = async () => {
       const routeIds = [];
 
       for (const r of def.routes) {
-        const routeId = await createRoute(
-          client,
-          {
-            ownerId,
-            ...r,
-          }
-        );
+        const routeId = await createRoute(client, {
+          ownerId,
+          ...r,
+        });
 
         routeIds.push(routeId);
       }
@@ -1271,26 +1170,18 @@ const seedDatabase = async () => {
     for (const key of Object.keys(companies)) {
       const co = companies[key];
 
-      console.log(
-        `5. Seeding trips & records for ${co.companyName}...`
-      );
+      console.log(`5. Seeding trips & records for ${co.companyName}...`);
 
-      const dispatcherUserId =
-        co.managers[0].managerUserId;
+      const dispatcherUserId = co.managers[0].managerUserId;
 
-      const vendorId = await createVendor(
-        client,
-        {
-          ownerId: co.ownerId,
-          name: `${
-            co.companyName.split(" ")[0]
-          } Certified Workshop`,
-          category: "General Repair",
-          contact: "Workshop Manager",
-          phone: "555-9000",
-          address: "Industrial Area, Unit 4",
-        }
-      );
+      const vendorId = await createVendor(client, {
+        ownerId: co.ownerId,
+        name: `${co.companyName.split(" ")[0]} Certified Workshop`,
+        category: "General Repair",
+        contact: "Workshop Manager",
+        phone: "555-9000",
+        address: "Industrial Area, Unit 4",
+      });
 
       for (const [i, v] of co.vehicles.entries()) {
         await createVehicleDocument(client, {
@@ -1306,12 +1197,7 @@ const seedDatabase = async () => {
           type: "insurance",
           docNo: `INS-${v.reg}`,
           issueDaysAgo: 300,
-          expiryOffsetDays:
-            i === 0
-              ? -10
-              : i === 1
-              ? 5
-              : 200,
+          expiryOffsetDays: i === 0 ? -10 : i === 1 ? 5 : 200,
           alertTriggered: i === 0,
         });
 
@@ -1331,30 +1217,19 @@ const seedDatabase = async () => {
           type: "driving_license",
           docNo: `DL-${co.ownerId}${d.driverId}001`,
           issueDaysAgo: 900,
-          expiryOffsetDays:
-            i === 0
-              ? -5
-              : i === 1
-              ? 10
-              : 900,
+          expiryOffsetDays: i === 0 ? -5 : i === 1 ? 10 : 900,
           alertTriggered: i === 0,
         });
       }
 
-      const vehicleFor = (idx) =>
-        co.vehicles[
-          idx % co.vehicles.length
-        ];
+      const vehicleFor = (idx) => co.vehicles[idx % co.vehicles.length];
 
       let odometerCursor = {};
 
       co.vehicles.forEach(
         (v) =>
           (odometerCursor[v.vehicleId] =
-            10000 +
-            Math.floor(
-              Math.random() * 5000
-            ))
+            10000 + Math.floor(Math.random() * 5000)),
       );
 
       for (const [dIdx, d] of co.drivers.entries()) {
@@ -1363,108 +1238,66 @@ const seedDatabase = async () => {
         // Completed trips
 
         for (let t = 0; t < 3; t++) {
-          const distance =
-            80 +
-            Math.floor(
-              Math.random() * 220
-            );
+          const distance = 80 + Math.floor(Math.random() * 220);
 
-          odometerCursor[
-            vehicle.vehicleId
-          ] += distance;
+          odometerCursor[vehicle.vehicleId] += distance;
 
-          const departureDaysAgo =
-            20 +
-            t * 15 +
-            dIdx * 2;
+          const departureDaysAgo = 20 + t * 15 + dIdx * 2;
 
-          const arrivalDaysAgo =
-            departureDaysAgo - 1;
+          const arrivalDaysAgo = departureDaysAgo - 1;
 
-          const tripId =
-            await createTrip(client, {
-              ownerId: co.ownerId,
-              vehicleId:
-                vehicle.vehicleId,
-              driverId: d.driverId,
-              routeId:
-                co.routes[
-                  t % co.routes.length
-                ],
-              departureDaysAgo,
-              arrivalDaysAgo,
-              status: "completed",
-              cargoType: "cargo",
-              notes:
-                t === 0
-                  ? "Delivered on schedule."
-                  : null,
-              dispatchedBy:
-                dispatcherUserId,
-            });
+          const tripId = await createTrip(client, {
+            ownerId: co.ownerId,
+            vehicleId: vehicle.vehicleId,
+            driverId: d.driverId,
+            routeId: co.routes[t % co.routes.length],
+            departureDaysAgo,
+            arrivalDaysAgo,
+            status: "completed",
+            cargoType: "cargo",
+            notes: t === 0 ? "Delivered on schedule." : null,
+            dispatchedBy: dispatcherUserId,
+          });
 
           if (t !== 1) {
             await createFuelLog(client, {
-              vehicleId:
-                vehicle.vehicleId,
+              vehicleId: vehicle.vehicleId,
               tripId,
-              refuelDaysAgo:
-                arrivalDaysAgo,
-              liters:
-                40 +
-                Math.random() * 60,
-              costPerLiter:
-                1.35 +
-                Math.random() * 0.4,
-              odometerKm:
-                odometerCursor[
-                  vehicle.vehicleId
-                ],
-              station:
-                "Highway Fuel Station",
-              loggedBy:
-                d.driverUserId,
+              refuelDaysAgo: arrivalDaysAgo,
+              liters: 40 + Math.random() * 60,
+              costPerLiter: 1.35 + Math.random() * 0.4,
+              odometerKm: odometerCursor[vehicle.vehicleId],
+              station: "Highway Fuel Station",
+              loggedBy: d.driverUserId,
             });
           }
 
-          if (
-            dIdx === 0 &&
-            t === 2
-          ) {
+          if (dIdx === 0 && t === 2) {
             await createIncident(client, {
               tripId,
-              daysAgoVal:
-                arrivalDaysAgo,
+              daysAgoVal: arrivalDaysAgo,
               type: "breakdown",
               description:
                 "Vehicle experienced a flat tire mid-route; roadside assistance called.",
               severity: "minor",
               damageCost: 45.0,
-              reportedTo:
-                "Fleet Dispatch",
-              loggedBy:
-                d.driverUserId,
+              reportedTo: "Fleet Dispatch",
+              loggedBy: d.driverUserId,
               resolved: true,
             });
           }
 
-          if (
-            dIdx === 1 &&
-            t === 0
-          ) {
+          if (dIdx === 1 && t === 0) {
             await createIncident(client, {
               tripId,
-              daysAgoVal:
-                arrivalDaysAgo,
+              daysAgoVal: arrivalDaysAgo,
               type: "accident",
               description:
                 "Minor collision while reversing at the loading dock. No injuries.",
               severity: "moderate",
               damageCost: 620.5,
-              reportedTo:
-                "Local Traffic Police",
-              loggedBy:
-                d.driverUserId,
+              reportedTo: "Local Traffic Police",
+              loggedBy: d.driverUserId,
               resolved: false,
             });
           }
@@ -1474,37 +1307,26 @@ const seedDatabase = async () => {
 
         await createTrip(client, {
           ownerId: co.ownerId,
-          vehicleId:
-            vehicle.vehicleId,
+          vehicleId: vehicle.vehicleId,
           driverId: d.driverId,
-          routeId:
-            co.routes[
-              (dIdx + 1) %
-                co.routes.length
-            ],
-          departureDaysAgo:
-            -(2 + dIdx),
+          routeId: co.routes[(dIdx + 1) % co.routes.length],
+          departureDaysAgo: -(2 + dIdx),
           arrivalDaysAgo: null,
           status: "scheduled",
           cargoType: "cargo",
-          notes:
-            "Scheduled regional dispatch",
-          dispatchedBy:
-            dispatcherUserId,
+          notes: "Scheduled regional dispatch",
+          dispatchedBy: dispatcherUserId,
         });
       }
 
       // Active trip
 
-      const activeDriver =
-        co.drivers[0];
+      const activeDriver = co.drivers[0];
 
-      const activeVehicle =
-        vehicleFor(0);
+      const activeVehicle = vehicleFor(0);
 
-      const activeTripRes =
-        await client.query(
-          `INSERT INTO Trip (
+      const activeTripRes = await client.query(
+        `INSERT INTO Trip (
              owner_id,
              vehicle_id,
              driver_id,
@@ -1529,427 +1351,252 @@ const seedDatabase = async () => {
              $8
            )
            RETURNING trip_id`,
-          [
-            co.ownerId,
-            activeVehicle.vehicleId,
-            activeDriver.driverId,
-            co.routes[0],
-            "in_progress",
-            "cargo",
-            "Live delivery in progress",
-            dispatcherUserId,
-          ]
-        );
+        [
+          co.ownerId,
+          activeVehicle.vehicleId,
+          activeDriver.driverId,
+          co.routes[0],
+          "in_progress",
+          "cargo",
+          "Live delivery in progress",
+          dispatcherUserId,
+        ],
+      );
 
-      const activeTripId =
-        activeTripRes.rows[0]
-          .trip_id;
+      const activeTripId = activeTripRes.rows[0].trip_id;
 
       // Telemetry pings (last 25 minutes)
 
-      const baseLat =
-        23.8103 +
-        (Math.random() - 0.5) *
-          0.05;
+      const baseLat = 23.8103 + (Math.random() - 0.5) * 0.05;
 
-      const baseLng =
-        90.4125 +
-        (Math.random() - 0.5) *
-          0.05;
+      const baseLng = 90.4125 + (Math.random() - 0.5) * 0.05;
 
       for (let p = 0; p < 5; p++) {
-        await createTelemetryPing(
-          client,
-          {
-            vehicleId:
-              activeVehicle.vehicleId,
-            tripId:
-              activeTripId,
-            lat:
-              baseLat +
-              p * 0.01,
-            lng:
-              baseLng +
-              p * 0.008,
-            speedKmh:
-              35 +
-              Math.random() * 40,
-            battery:
-              90 - p * 3,
-            minutesAgo:
-              (4 - p) * 5,
-          }
-        );
+        await createTelemetryPing(client, {
+          vehicleId: activeVehicle.vehicleId,
+          tripId: activeTripId,
+          lat: baseLat + p * 0.01,
+          lng: baseLng + p * 0.008,
+          speedKmh: 35 + Math.random() * 40,
+          battery: 90 - p * 3,
+          minutesAgo: (4 - p) * 5,
+        });
       }
 
       // Maintenance history
 
       for (const [i, v] of co.vehicles.entries()) {
-        await createMaintenance(
-          client,
-          {
-            vehicleId:
-              v.vehicleId,
-            vendorId,
-            serviceDaysAgo:
-              60 + i * 10,
-            serviceType:
-              "routine",
-            description:
-              "Scheduled oil change and multi-point inspection.",
-            cost: 85.0 + i * 5,
-            workshop:
-              `${
-                co.companyName.split(
-                  " "
-                )[0]
-              } Certified Workshop`,
-            mechanicName:
-              "J. Alvarez",
-            odometerKm:
-              odometerCursor[
-                v.vehicleId
-              ] - 500,
-            nextDueInDays: 30,
-            nextDueKm:
-              odometerCursor[
-                v.vehicleId
-              ] + 5000,
-            loggedBy:
-              dispatcherUserId,
-          }
-        );
+        await createMaintenance(client, {
+          vehicleId: v.vehicleId,
+          vendorId,
+          serviceDaysAgo: 60 + i * 10,
+          serviceType: "routine",
+          description: "Scheduled oil change and multi-point inspection.",
+          cost: 85.0 + i * 5,
+          workshop: `${co.companyName.split(" ")[0]} Certified Workshop`,
+          mechanicName: "J. Alvarez",
+          odometerKm: odometerCursor[v.vehicleId] - 500,
+          nextDueInDays: 30,
+          nextDueKm: odometerCursor[v.vehicleId] + 5000,
+          loggedBy: dispatcherUserId,
+        });
 
-        if (
-          v.status ===
-          "in_maintenance"
-        ) {
-          await createMaintenance(
-            client,
-            {
-              vehicleId:
-                v.vehicleId,
-              vendorId,
-              serviceDaysAgo: 2,
-              serviceType:
-                "repair",
-              description:
-                "Transmission diagnostics and repair in progress.",
-              cost: 950.0,
-              workshop:
-                `${
-                  co.companyName.split(
-                    " "
-                  )[0]
-                } Certified Workshop`,
-              mechanicName:
-                "R. Costa",
-              odometerKm:
-                odometerCursor[
-                  v.vehicleId
-                ],
-              loggedBy:
-                dispatcherUserId,
-            }
-          );
+        if (v.status === "in_maintenance") {
+          await createMaintenance(client, {
+            vehicleId: v.vehicleId,
+            vendorId,
+            serviceDaysAgo: 2,
+            serviceType: "repair",
+            description: "Transmission diagnostics and repair in progress.",
+            cost: 950.0,
+            workshop: `${co.companyName.split(" ")[0]} Certified Workshop`,
+            mechanicName: "R. Costa",
+            odometerKm: odometerCursor[v.vehicleId],
+            loggedBy: dispatcherUserId,
+          });
         }
       }
     }
 
-    console.log(
-      "6. Seeding company-join-request test cases..."
-    );
+    console.log("6. Seeding company-join-request test cases...");
 
-    const pendingDriverUserId =
-      await createUser(client, {
-        username:
-          "pending_driver1",
-        email:
-          "pending.driver1@fleeter.com",
-        fullName:
-          "Noah Bennett",
-        role: "driver",
-        passwordHash: pw,
-      });
-
-    const pendingDriverId =
-      await createDriver(client, {
-        userId:
-          pendingDriverUserId,
-        ownerId: null,
-        fullName:
-          "Noah Bennett",
-        phone: "555-0500",
-        status: "available",
-        joinedDaysAgo: 5,
-      });
-
-    await createDriverDocument(
-      client,
-      {
-        driverId:
-          pendingDriverId,
-        type:
-          "driving_license",
-        docNo:
-          `DL-TEST-${pendingDriverId}-001`,
-        issueDaysAgo: 900,
-        expiryOffsetDays: 365,
-      }
-    );
-
-    await createCompanyRequest(
-      client,
-      {
-        requesterUserId:
-          pendingDriverUserId,
-        ownerId:
-          companies.apex.ownerId,
-        requestedRole:
-          "driver",
-        message:
-          "Long-haul experience, available immediately.",
-        status: "pending",
-      }
-    );
-
-    const pendingDriverUserId2 =
-      await createUser(client, {
-        username:
-          "pending_driver2",
-        email:
-          "pending.driver2@fleeter.com",
-        fullName:
-          "Elena Vasquez",
-        role: "driver",
-        passwordHash: pw,
-      });
-
-    const pendingDriverId2 =
-      await createDriver(client, {
-        userId:
-          pendingDriverUserId2,
-        ownerId: null,
-        fullName:
-          "Elena Vasquez",
-        phone: "555-0501",
-        status: "available",
-        joinedDaysAgo: 3,
-      });
-
-    await createDriverDocument(
-      client,
-      {
-        driverId:
-          pendingDriverId2,
-        type:
-          "driving_license",
-        docNo:
-          `DL-TEST-${pendingDriverId2}-001`,
-        issueDaysAgo: 900,
-        expiryOffsetDays: 365,
-      }
-    );
-
-    await createCompanyRequest(
-      client,
-      {
-        requesterUserId:
-          pendingDriverUserId2,
-        ownerId:
-          companies.metro.ownerId,
-        requestedRole:
-          "driver",
-        message: null,
-        status: "pending",
-      }
-    );
-
-    const pendingManagerUserId =
-      await createUser(client, {
-        username:
-          "pending_manager1",
-        email:
-          "pending.manager1@fleeter.com",
-        fullName:
-          "Ravi Shankar",
-        role: "manager",
-        passwordHash: pw,
-      });
-
-    await createManager(client, {
-      userId:
-        pendingManagerUserId,
-      ownerId: null,
-      fullName:
-        "Ravi Shankar",
-      employeeId: null,
-      phone: "555-0502",
-      department:
-        "Dispatch",
+    const pendingDriverUserId = await createUser(client, {
+      username: "pending_driver1",
+      email: "pending.driver1@fleeter.com",
+      fullName: "Noah Bennett",
+      role: "driver",
+      passwordHash: pw,
     });
 
-    await createCompanyRequest(
-      client,
-      {
-        requesterUserId:
-          pendingManagerUserId,
-        ownerId:
-          companies.greenvalley
-            .ownerId,
-        requestedRole:
-          "manager",
-        message:
-          "8 years dispatch experience, references available.",
-        status: "pending",
-      }
-    );
+    const pendingDriverId = await createDriver(client, {
+      userId: pendingDriverUserId,
+      ownerId: null,
+      fullName: "Noah Bennett",
+      phone: "555-0500",
+      status: "available",
+      joinedDaysAgo: 5,
+    });
 
-    const rejectedDriverUserId =
-      await createUser(client, {
-        username:
-          "rejected_driver1",
-        email:
-          "rejected.driver1@fleeter.com",
-        fullName:
-          "Miguel Torres",
-        role: "driver",
-        passwordHash: pw,
-      });
+    await createDriverDocument(client, {
+      driverId: pendingDriverId,
+      type: "driving_license",
+      docNo: `DL-TEST-${pendingDriverId}-001`,
+      issueDaysAgo: 900,
+      expiryOffsetDays: 365,
+    });
 
-    const rejectedDriverId =
-      await createDriver(client, {
-        userId:
-          rejectedDriverUserId,
-        ownerId: null,
-        fullName:
-          "Miguel Torres",
-        phone: "555-0503",
-        status: "available",
-        joinedDaysAgo: 40,
-      });
+    await createCompanyRequest(client, {
+      requesterUserId: pendingDriverUserId,
+      ownerId: companies.apex.ownerId,
+      requestedRole: "driver",
+      message: "Long-haul experience, available immediately.",
+      status: "pending",
+    });
 
-    await createDriverDocument(
-      client,
-      {
-        driverId:
-          rejectedDriverId,
-        type:
-          "driving_license",
-        docNo:
-          `DL-TEST-${rejectedDriverId}-001`,
-        issueDaysAgo: 900,
-        expiryOffsetDays: 365,
-      }
-    );
+    const pendingDriverUserId2 = await createUser(client, {
+      username: "pending_driver2",
+      email: "pending.driver2@fleeter.com",
+      fullName: "Elena Vasquez",
+      role: "driver",
+      passwordHash: pw,
+    });
 
-    await createCompanyRequest(
-      client,
-      {
-        requesterUserId:
-          rejectedDriverUserId,
-        ownerId:
-          companies.apex.ownerId,
-        requestedRole:
-          "driver",
-        message:
-          "Interested in joining your fleet.",
-        status: "rejected",
-        decidedByUserId:
-          companies.apex
-            .ownerUserId,
-        decidedDaysAgo: 12,
-      }
-    );
+    const pendingDriverId2 = await createDriver(client, {
+      userId: pendingDriverUserId2,
+      ownerId: null,
+      fullName: "Elena Vasquez",
+      phone: "555-0501",
+      status: "available",
+      joinedDaysAgo: 3,
+    });
 
-    const soloDriverUserId =
-      await createUser(client, {
-        username:
-          "solo_driver",
-        email:
-          "solo.driver@fleeter.com",
-        fullName:
-          "Yusuf Demir",
-        role: "driver",
-        passwordHash: pw,
-      });
+    await createDriverDocument(client, {
+      driverId: pendingDriverId2,
+      type: "driving_license",
+      docNo: `DL-TEST-${pendingDriverId2}-001`,
+      issueDaysAgo: 900,
+      expiryOffsetDays: 365,
+    });
 
-    const soloDriverId =
-      await createDriver(client, {
-        userId:
-          soloDriverUserId,
-        ownerId: null,
-        fullName:
-          "Yusuf Demir",
-        phone: "555-0504",
-        status: "available",
-        joinedDaysAgo: 1,
-      });
+    await createCompanyRequest(client, {
+      requesterUserId: pendingDriverUserId2,
+      ownerId: companies.metro.ownerId,
+      requestedRole: "driver",
+      message: null,
+      status: "pending",
+    });
 
-    await createDriverDocument(
-      client,
-      {
-        driverId:
-          soloDriverId,
-        type:
-          "driving_license",
-        docNo:
-          `DL-TEST-${soloDriverId}-001`,
-        issueDaysAgo: 900,
-        expiryOffsetDays: 365,
-      }
-    );
+    const pendingManagerUserId = await createUser(client, {
+      username: "pending_manager1",
+      email: "pending.manager1@fleeter.com",
+      fullName: "Ravi Shankar",
+      role: "manager",
+      passwordHash: pw,
+    });
+
+    await createManager(client, {
+      userId: pendingManagerUserId,
+      ownerId: null,
+      fullName: "Ravi Shankar",
+      employeeId: null,
+      phone: "555-0502",
+      department: "Dispatch",
+    });
+
+    await createCompanyRequest(client, {
+      requesterUserId: pendingManagerUserId,
+      ownerId: companies.greenvalley.ownerId,
+      requestedRole: "manager",
+      message: "8 years dispatch experience, references available.",
+      status: "pending",
+    });
+
+    const rejectedDriverUserId = await createUser(client, {
+      username: "rejected_driver1",
+      email: "rejected.driver1@fleeter.com",
+      fullName: "Miguel Torres",
+      role: "driver",
+      passwordHash: pw,
+    });
+
+    const rejectedDriverId = await createDriver(client, {
+      userId: rejectedDriverUserId,
+      ownerId: null,
+      fullName: "Miguel Torres",
+      phone: "555-0503",
+      status: "available",
+      joinedDaysAgo: 40,
+    });
+
+    await createDriverDocument(client, {
+      driverId: rejectedDriverId,
+      type: "driving_license",
+      docNo: `DL-TEST-${rejectedDriverId}-001`,
+      issueDaysAgo: 900,
+      expiryOffsetDays: 365,
+    });
+
+    await createCompanyRequest(client, {
+      requesterUserId: rejectedDriverUserId,
+      ownerId: companies.apex.ownerId,
+      requestedRole: "driver",
+      message: "Interested in joining your fleet.",
+      status: "rejected",
+      decidedByUserId: companies.apex.ownerUserId,
+      decidedDaysAgo: 12,
+    });
+
+    const soloDriverUserId = await createUser(client, {
+      username: "solo_driver",
+      email: "solo.driver@fleeter.com",
+      fullName: "Yusuf Demir",
+      role: "driver",
+      passwordHash: pw,
+    });
+
+    const soloDriverId = await createDriver(client, {
+      userId: soloDriverUserId,
+      ownerId: null,
+      fullName: "Yusuf Demir",
+      phone: "555-0504",
+      status: "available",
+      joinedDaysAgo: 1,
+    });
+
+    await createDriverDocument(client, {
+      driverId: soloDriverId,
+      type: "driving_license",
+      docNo: `DL-TEST-${soloDriverId}-001`,
+      issueDaysAgo: 900,
+      expiryOffsetDays: 365,
+    });
 
     await createUser(client, {
-      username:
-        "no_profile_driver",
-      email:
-        "no.profile.driver@fleeter.com",
-      fullName:
-        "Jordan Blake",
+      username: "no_profile_driver",
+      email: "no.profile.driver@fleeter.com",
+      fullName: "Jordan Blake",
       role: "driver",
       passwordHash: pw,
     });
 
     await client.query("COMMIT");
 
-    console.log(
-      "\n============================================="
-    );
-    console.log(
-      "DATABASE SEEDED SUCCESSFULLY"
-    );
-    console.log(
-      "============================================="
-    );
+    console.log("\n=============================================");
+    console.log("DATABASE SEEDED SUCCESSFULLY");
+    console.log("=============================================");
 
-    console.log(
-      "Default password for all accounts: pass\n"
-    );
+    console.log("Default password for all accounts: pass\n");
 
-    console.log(
-      "ADMIN      | admin@fleeter.com          | admin_super"
-    );
-    console.log(
-      "APEX       | owner@fleeter.com           | apex_boss"
-    );
-    console.log(
-      "METRO      | owner2@fleeter.com          | metro_boss"
-    );
-    console.log(
-      "GREEN V.   | owner3@fleeter.com          | greenvalley_boss"
-    );
+    console.log("ADMIN      | admin@fleeter.com          | admin");
+    console.log("APEX       | owner@fleeter.com           | owner");
+    console.log("METRO      | owner2@fleeter.com          | metro_boss");
+    console.log("GREEN V.   | owner3@fleeter.com          | greenvalley_boss");
 
-    console.log(
-      "=============================================\n"
-    );
+    console.log("=============================================\n");
   } catch (error) {
     await client.query("ROLLBACK");
 
-    console.error(
-      "Error seeding database:",
-      error
-    );
+    console.error("Error seeding database:", error);
 
     process.exitCode = 1;
   } finally {

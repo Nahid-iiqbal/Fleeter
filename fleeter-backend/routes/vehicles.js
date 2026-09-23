@@ -102,7 +102,11 @@ router.get("/:vehicleId", verifyToken, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Vehicle not found or you do not have permission to view it" });
+      return res
+        .status(404)
+        .json({
+          message: "Vehicle not found or you do not have permission to view it",
+        });
     }
 
     res.json(result.rows[0]);
@@ -118,15 +122,19 @@ router.post(
   verifyToken, // <-- ADDED
   authorizeRole("owner", "manager"),
   async (req, res) => {
-    const { registration_no, brand, type, model, year, capacity, fuel_type } = req.body;
+    const { registration_no, brand, type, model, year, capacity, fuel_type } =
+      req.body;
 
     if (!registration_no || !type) {
-      return res.status(400).json({ message: "Registration number and type are required." });
+      return res
+        .status(400)
+        .json({ message: "Registration number and type are required." });
     }
 
     try {
       const ownerId = await getOwnerId(req.user.user_id);
-      if (!ownerId) return res.status(403).json({ message: "Owner profile required." });
+      if (!ownerId)
+        return res.status(403).json({ message: "Owner profile required." });
 
       const result = await pool.query(
         `
@@ -134,16 +142,27 @@ router.post(
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
         `,
-        [ownerId, registration_no, brand, type, model, year, capacity, fuel_type],
+        [
+          ownerId,
+          registration_no,
+          brand,
+          type,
+          model,
+          year,
+          capacity,
+          fuel_type,
+        ],
       );
 
       res.status(201).json(result.rows[0]);
     } catch (error) {
       if (error.code === "23505")
-        return res.status(409).json({ message: "Registration number already exists." });
+        return res
+          .status(409)
+          .json({ message: "Registration number already exists." });
       res.status(500).json({ message: "Server error creating vehicle." });
     }
-  }
+  },
 );
 
 // DELETE /api/vehicles/:vehicleId (Delete vehicle)
@@ -161,14 +180,16 @@ router.delete(
       );
 
       if (result.rowCount === 0) {
-        return res.status(404).json({ message: "Vehicle not found or unauthorized." });
+        return res
+          .status(404)
+          .json({ message: "Vehicle not found or unauthorized." });
       }
 
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Server error deleting vehicle." });
     }
-  }
+  },
 );
 
 // GET /api/vehicles/:vehicleId/documents (Fetch all documents for a vehicle)
@@ -183,16 +204,18 @@ router.get(
 
       const vehicleCheck = await pool.query(
         "SELECT 1 FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2",
-        [vehicleId, ownerId]
+        [vehicleId, ownerId],
       );
 
       if (vehicleCheck.rowCount === 0) {
-        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
+        return res
+          .status(403)
+          .json({ message: "Vehicle not found or unauthorized." });
       }
 
       const result = await pool.query(
         "SELECT * FROM Vehicle_Document WHERE vehicle_id = $1 ORDER BY expiry_date DESC",
-        [vehicleId]
+        [vehicleId],
       );
 
       res.json(result.rows);
@@ -200,7 +223,7 @@ router.get(
       console.error("Error fetching documents:", error);
       res.status(500).json({ message: "Failed to fetch documents" });
     }
-  }
+  },
 );
 
 // POST /api/vehicles/:vehicleId/documents (Upload Vehicle Document)
@@ -214,7 +237,9 @@ router.post(
     const { document_type, document_no, issue_date, expiry_date } = req.body;
 
     if (!document_type || !document_no || !issue_date || !expiry_date) {
-      return res.status(400).json({ message: "All document fields are required." });
+      return res
+        .status(400)
+        .json({ message: "All document fields are required." });
     }
 
     try {
@@ -222,11 +247,13 @@ router.post(
 
       const vehicleCheck = await pool.query(
         "SELECT 1 FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2",
-        [vehicleId, ownerId]
+        [vehicleId, ownerId],
       );
 
       if (vehicleCheck.rowCount === 0) {
-        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
+        return res
+          .status(403)
+          .json({ message: "Vehicle not found or unauthorized." });
       }
 
       const document_url = req.file ? `/uploads/${req.file.filename}` : null;
@@ -235,18 +262,85 @@ router.post(
         `INSERT INTO Vehicle_Document
          (vehicle_id, document_type, document_no, issue_date, expiry_date, document_url)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [vehicleId, document_type, document_no, issue_date, expiry_date, document_url]
+        [
+          vehicleId,
+          document_type,
+          document_no,
+          issue_date,
+          expiry_date,
+          document_url,
+        ],
       );
 
       res.status(201).json({
         message: "Vehicle document uploaded successfully",
-        document: result.rows[0]
+        document: result.rows[0],
       });
     } catch (error) {
       console.error("Error uploading vehicle document:", error);
       res.status(500).json({ message: "Server error uploading document." });
     }
-  }
+  },
+);
+
+// PUT /api/vehicles/:vehicleId/documents/:documentId (Edit Vehicle Document)
+router.put(
+  "/:vehicleId/documents/:documentId",
+  verifyToken,
+  authorizeRole("owner", "manager"),
+  upload.single("documentFile"),
+  async (req, res) => {
+    try {
+      const { vehicleId, documentId } = req.params;
+      const ownerId = await getOwnerId(req.user.user_id);
+
+      const vehicleCheck = await pool.query(
+        "SELECT 1 FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2",
+        [vehicleId, ownerId],
+      );
+
+      if (vehicleCheck.rowCount === 0) {
+        return res
+          .status(403)
+          .json({ message: "Vehicle not found or unauthorized." });
+      }
+
+      const { document_type, document_no, issue_date, expiry_date } = req.body;
+      let documentUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+
+      let updateQuery = `
+        UPDATE Vehicle_Document 
+        SET 
+          document_type = COALESCE($1, document_type),
+          document_no = COALESCE($2, document_no),
+          issue_date = COALESCE($3, issue_date),
+          expiry_date = COALESCE($4, expiry_date)
+      `;
+      let queryParams = [document_type, document_no, issue_date, expiry_date];
+
+      if (documentUrl) {
+        updateQuery += `, document_url = $5 WHERE document_id = $6 AND vehicle_id = $7 RETURNING *`;
+        queryParams.push(documentUrl, documentId, vehicleId);
+      } else {
+        updateQuery += ` WHERE document_id = $5 AND vehicle_id = $6 RETURNING *`;
+        queryParams.push(documentId, vehicleId);
+      }
+
+      const result = await pool.query(updateQuery, queryParams);
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: "Document not found." });
+      }
+
+      res.json({
+        message: "Document updated successfully",
+        document: result.rows[0],
+      });
+    } catch (error) {
+      console.error("Error updating document:", error);
+      res.status(500).json({ message: "Failed to update document" });
+    }
+  },
 );
 
 // DELETE /api/vehicles/:vehicleId/documents/:documentId (Delete Vehicle Document)
@@ -261,16 +355,18 @@ router.delete(
 
       const vehicleCheck = await pool.query(
         "SELECT 1 FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2",
-        [vehicleId, ownerId]
+        [vehicleId, ownerId],
       );
 
       if (vehicleCheck.rowCount === 0) {
-        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
+        return res
+          .status(403)
+          .json({ message: "Vehicle not found or unauthorized." });
       }
 
       const result = await pool.query(
         "DELETE FROM Vehicle_Document WHERE document_id = $1 AND vehicle_id = $2 RETURNING *",
-        [documentId, vehicleId]
+        [documentId, vehicleId],
       );
 
       if (result.rowCount === 0) {
@@ -282,7 +378,7 @@ router.delete(
       console.error("Error deleting document:", error);
       res.status(500).json({ message: "Server error deleting document." });
     }
-  }
+  },
 );
 
 module.exports = router;

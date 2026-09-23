@@ -1,16 +1,27 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  Box, Typography, Drawer, List, ListItem, ListItemButton, ListItemIcon,
-  ListItemText, AppBar, Toolbar, IconButton, Badge, Popover, Button, Paper, Tooltip,
+  Box,
+  Typography,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Badge,
+  Popover,
+  Paper,
+  Tooltip,
+  Alert,
 } from "@mui/material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
-import DarkModeIcon from "@mui/icons-material/DarkMode";
-import LightModeIcon from "@mui/icons-material/LightMode";
 import AccountSettings from "../components/AccountSettings";
-import { useThemeSettings } from "../context/ThemeSettingsContext";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import MapIcon from "@mui/icons-material/Map";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
@@ -19,7 +30,6 @@ import RouteIcon from "@mui/icons-material/Route";
 import GroupIcon from "@mui/icons-material/Group";
 import WorkIcon from "@mui/icons-material/Work";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 
 // import driver and vehicle details for the details page
 import DriverDetails from "./DriverDetails";
@@ -37,11 +47,11 @@ import AlertsTable from "../components/AlertsTable";
 import LiveMap from "../components/LiveMap";
 import { apiFetch } from "../utils/api";
 
-const DRAWER_WIDTH = 252;
+const DRAWER_WIDTH = 260;
 function OwnerDashboard() {
-  const { mode, toggleTheme } = useThemeSettings();
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
-  const handleNotificationsClick = (event) => setNotificationAnchorEl(event.currentTarget);
+  const handleNotificationsClick = (event) =>
+    setNotificationAnchorEl(event.currentTarget);
   const handleNotificationsClose = () => setNotificationAnchorEl(null);
   const isNotificationsOpen = Boolean(notificationAnchorEl);
 
@@ -57,31 +67,29 @@ function OwnerDashboard() {
 
   // Profile page for drivers
   const driverProfileMatch = location.pathname.match(
-    /^\/dashboard\/drivers\/(\d+)$/
+    /^\/dashboard\/drivers\/(\d+)$/,
   );
   // Driver id taken from profile path
-  const selectedDriverId = driverProfileMatch
-    ? driverProfileMatch[1]
-    : null;
+  const selectedDriverId = driverProfileMatch ? driverProfileMatch[1] : null;
 
   // Literally the same thing for vehicles
   const vehicleProfileMatch = location.pathname.match(
-    /^\/dashboard\/vehicles\/(\d+)$/
+    /^\/dashboard\/vehicles\/(\d+)$/,
   );
 
-  const selectedVehicleId = vehicleProfileMatch
-    ? vehicleProfileMatch[1]
-    : null;
+  const selectedVehicleId = vehicleProfileMatch ? vehicleProfileMatch[1] : null;
 
   const managerProfileMatch = location.pathname.match(
     /^\/dashboard\/managers\/(\d+)$/,
   );
-  const selectedManagerId = managerProfileMatch
-    ? managerProfileMatch[1]
-    : null;
+  const selectedManagerId = managerProfileMatch ? managerProfileMatch[1] : null;
 
-  const alertMatch = location.pathname.match(/^\/dashboard\/alerts\/([^/]+)\/(\d+)$/);
-  const selectedAlertType = alertMatch ? decodeURIComponent(alertMatch[1]) : null;
+  const alertMatch = location.pathname.match(
+    /^\/dashboard\/alerts\/([^/]+)\/(\d+)$/,
+  );
+  const selectedAlertType = alertMatch
+    ? decodeURIComponent(alertMatch[1])
+    : null;
   const selectedAlertId = alertMatch ? alertMatch[2] : null;
 
   const [loading, setLoading] = useState(true);
@@ -144,7 +152,9 @@ function OwnerDashboard() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.message || data.error || "Failed to fetch drivers");
+        throw new Error(
+          data.message || data.error || "Failed to fetch drivers",
+        );
       }
 
       const data = await response.json();
@@ -247,16 +257,22 @@ function OwnerDashboard() {
     }
   }, []);
 
-  const resolveAlert = useCallback(async (alertType, alertId) => {
-    try {
-      await apiFetch(`/api/company/alerts/${encodeURIComponent(alertType)}/${alertId}/resolve`, {
-        method: "POST",
-      });
-      await fetchAlerts();
-    } catch (error) {
-      setAlertsError(error.message || "Unable to resolve alert.");
-    }
-  }, [fetchAlerts]);
+  const resolveAlert = useCallback(
+    async (alertType, alertId) => {
+      try {
+        await apiFetch(
+          `/api/company/alerts/${encodeURIComponent(alertType)}/${alertId}/resolve`,
+          {
+            method: "POST",
+          },
+        );
+        await fetchAlerts();
+      } catch (error) {
+        setAlertsError(error.message || "Unable to resolve alert.");
+      }
+    },
+    [fetchAlerts],
+  );
 
   const refreshTripResources = useCallback(() => {
     fetchTrips();
@@ -287,11 +303,15 @@ function OwnerDashboard() {
 
     const fetchProfileStatus = async () => {
       try {
-        const accountData = await apiFetch('/api/auth/account');
-        if (!accountData.full_name || !accountData.phone || !accountData.address) {
+        const accountData = await apiFetch("/api/auth/account");
+        if (
+          !accountData.full_name ||
+          !accountData.phone ||
+          !accountData.address
+        ) {
           setProfileIncomplete(true);
         }
-      } catch (err) { }
+      } catch (err) {}
     };
     fetchProfileStatus();
 
@@ -398,14 +418,18 @@ function OwnerDashboard() {
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
         <AppBar position="static" color="secondary">
           <Toolbar>
-            <Typography variant="h6" sx={{ flexGrow: 1 }}>Fleeter OS</Typography>
-            <Typography variant="body2">Company: No company selected</Typography>
+            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              Fleeter OS
+            </Typography>
+            <Typography variant="body2">
+              Company: No company selected
+            </Typography>
             <IconButton color="error" onClick={handleLogout} sx={{ ml: 2 }}>
               <LogoutIcon />
             </IconButton>
           </Toolbar>
         </AppBar>
-        <Box maxWidth="900px" mx="auto" p={{ xs: 2, sm: 4 }}>
+        <Box sx={{ maxWidth: "900px", mx: "auto", p: { xs: 2, sm: 4 } }}>
           <Typography variant="overline" color="primary.main" fontWeight={700}>
             Step 2 of 2 · Manager onboarding
           </Typography>
@@ -413,7 +437,8 @@ function OwnerDashboard() {
             Join a company
           </Typography>
           <Typography variant="body1" color="text.secondary" gutterBottom>
-            Your name is saved. Choose a company and send a request for manager access.
+            Your name is saved. Choose a company and send a request for manager
+            access.
           </Typography>
           <CompanyRequests joinOnly />
         </Box>
@@ -428,80 +453,114 @@ function OwnerDashboard() {
     { label: "Drivers", tab: "drivers", icon: <PersonIcon /> },
     { label: "Trips", tab: "trips", icon: <RouteIcon /> },
     { label: "Alerts", tab: "alerts", icon: <WarningAmberIcon /> },
-    ...(userRole === "owner" ? [{ label: "Managers", tab: "managers", icon: <GroupIcon /> }] : []),
+    ...(userRole === "owner"
+      ? [{ label: "Managers", tab: "managers", icon: <GroupIcon /> }]
+      : []),
     { label: "Recruit", tab: "recruit", icon: <WorkIcon /> },
     { label: "Settings", tab: "settings", icon: <SettingsIcon /> },
   ];
 
   return (
-    <Box sx={{ display: "flex", height: "100vh", bgcolor: "background.default" }}>
+    <Box
+      sx={{ display: "flex", height: "100vh", bgcolor: "background.default" }}
+    >
       {/* Sidebar */}
       <Drawer
         variant="permanent"
         sx={{
           width: DRAWER_WIDTH,
           flexShrink: 0,
-          "& .MuiDrawer-paper": { width: DRAWER_WIDTH, boxSizing: "border-box" },
+          "& .MuiDrawer-paper": {
+            width: DRAWER_WIDTH,
+            boxSizing: "border-box",
+          },
         }}
       >
-        {/* Logo area */}
+        {/* Logo */}
         <Box
           sx={{
             px: 2.5,
-            py: 2,
+            py: 2.5,
             display: "flex",
             alignItems: "center",
-            gap: 1,
-            borderBottom: 1,
+            gap: 1.5,
+            borderBottom: "1px solid",
             borderColor: "divider",
           }}
         >
-          <LocalShippingIcon color="primary" />
           <Box>
-            <Typography variant="subtitle1" fontWeight={800} color="primary" letterSpacing={1} lineHeight={1.2}>
+            <Typography
+              variant="h5"
+              fontWeight={1000}
+              sx={{
+                fontFamily: '"Passero One", cursive',
+                background: "linear-gradient(135deg, #60a5fa, #3b82f6)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                letterSpacing: 2,
+                lineHeight: 1,
+              }}
+            >
               FLEETER
-            </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
-              {companyContext.companyName || "Unnamed company"}
             </Typography>
           </Box>
         </Box>
 
-        {/* Nav */}
-        <List sx={{ pt: 1 }}>
-          {navItems.map(({ label, tab, icon }) => (
-            <ListItem key={tab} disablePadding>
-              <ListItemButton
-                selected={activeTab === tab}
-                onClick={() => navigate(`/dashboard/${tab}`)}
-              >
-                <ListItemIcon sx={{ minWidth: 36, color: activeTab === tab ? "primary.main" : "inherit" }}>
-                  {icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={label}
-                  primaryTypographyProps={{ fontSize: "0.9rem", fontWeight: activeTab === tab ? 600 : 400 }}
-                />
-              </ListItemButton>
-            </ListItem>
-          ))}
-        </List>
+        <Box sx={{ flex: 1, overflowY: "auto", pt: 1.5 }}>
+          <Box sx={{ px: 2.5, mb: 1.5 }}>
+            <Typography
+              variant="caption"
+              fontWeight={700}
+              color="text.secondary"
+              sx={{ letterSpacing: 1, textTransform: "uppercase" }}
+            >
+              {companyContext.companyName || "No company"}
+            </Typography>
+          </Box>
+          <List disablePadding>
+            {navItems.map(({ label, tab, icon }) => (
+              <ListItem key={tab} disablePadding>
+                <ListItemButton
+                  selected={activeTab === tab}
+                  onClick={() => navigate(`/dashboard/${tab}`)}
+                >
+                  <ListItemIcon>{icon}</ListItemIcon>
+                  <ListItemText
+                    primary={label}
+                    primaryTypographyProps={{
+                      fontSize: "0.875rem",
+                      fontWeight: activeTab === tab ? 700 : 500,
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </Box>
       </Drawer>
 
-      {/* Main content */}
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* AppBar */}
+      {/* Main */}
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
         <AppBar position="static" elevation={0}>
-          <Toolbar>
+          <Toolbar sx={{ gap: 1 }}>
             <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
-              Command Center
+              {navItems.find((n) => n.tab === activeTab)?.label || "Dashboard"}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
-              {userRole}
-            </Typography>
-            <IconButton onClick={handleNotificationsClick}>
-              <Badge badgeContent={(stats?.alerts || 0) + (profileIncomplete ? 1 : 0)} color="error">
-                <NotificationsIcon />
+            <IconButton onClick={handleNotificationsClick} size="small">
+              <Badge
+                badgeContent={
+                  (stats?.alerts || 0) + (profileIncomplete ? 1 : 0)
+                }
+                color="error"
+              >
+                <NotificationsIcon fontSize="small" />
               </Badge>
             </IconButton>
             <Popover
@@ -511,73 +570,104 @@ function OwnerDashboard() {
               anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
               transformOrigin={{ vertical: "top", horizontal: "right" }}
             >
-              <Box p={2} minWidth={260}>
-                <Typography variant="subtitle1" fontWeight={700} gutterBottom>Notifications</Typography>
+              <Box sx={{ p: 2.5, minWidth: 280 }}>
+                <Typography variant="subtitle2" fontWeight={700} mb={1.5}>
+                  Notifications
+                </Typography>
                 {profileIncomplete && (
-                  <Button
-                    fullWidth
-                    color="inherit"
-                    sx={{ justifyContent: "flex-start", textTransform: "none", textAlign: "left", color: "warning.main", mb: 1 }}
-                    onClick={() => { handleNotificationsClose(); navigate("/dashboard/settings"); }}
+                  <Alert
+                    severity="warning"
+                    sx={{ mb: 1, cursor: "pointer" }}
+                    onClick={() => {
+                      handleNotificationsClose();
+                      navigate("/dashboard/settings");
+                    }}
                   >
-                    ⚠️ Action Required: Please complete your profile information (Full Name, Phone, and Address).
-                  </Button>
+                    Complete your profile (Full Name, Phone, Address).
+                  </Alert>
                 )}
                 {stats?.alerts > 0 && (
-                  <Button
-                    fullWidth
-                    sx={{ justifyContent: "flex-start", textTransform: "none" }}
-                    onClick={() => { handleNotificationsClose(); navigate("/dashboard/overview"); }}
+                  <Alert
+                    severity="error"
+                    sx={{ mb: 1, cursor: "pointer" }}
+                    onClick={() => {
+                      handleNotificationsClose();
+                      navigate("/dashboard/alerts");
+                    }}
                   >
-                    ⚠️ You have {stats.alerts} system alert(s).
-                  </Button>
+                    You have {stats.alerts} active system alert(s).
+                  </Alert>
                 )}
-                {(!stats?.alerts || stats.alerts === 0) && !profileIncomplete && (
-                  <Typography variant="body2" color="text.secondary">No new notifications.</Typography>
-                )}
+                {(!stats?.alerts || stats.alerts === 0) &&
+                  !profileIncomplete && (
+                    <Typography variant="body2" color="text.secondary">
+                      All clear — no notifications.
+                    </Typography>
+                  )}
               </Box>
             </Popover>
-            <Tooltip title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}>
-              <IconButton onClick={toggleTheme} sx={{ mx: 0.5 }}>
-                {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
-              </IconButton>
-            </Tooltip>
+
             <Tooltip title="Settings">
-              <IconButton onClick={() => navigate("/dashboard/settings")} sx={{ mx: 0.5 }}>
-                <SettingsIcon />
+              <IconButton
+                onClick={() => navigate("/dashboard/settings")}
+                size="small"
+              >
+                <SettingsIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             <Tooltip title="Logout">
-              <IconButton color="error" onClick={handleLogout}>
-                <LogoutIcon />
+              <IconButton color="error" onClick={handleLogout} size="small">
+                <LogoutIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           </Toolbar>
         </AppBar>
 
-        {/* Content */}
-        <Box sx={{ flex: 1, overflowY: "auto", p: 3 }}>
+        <Box sx={{ flex: 1, overflowY: "auto", p: { xs: 2, sm: 3 } }}>
           {activeTab === "overview" && (
             <>
-              <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-                <MetricCard title="Total Vehicles" value={stats.totalVehicles} color="#3498db" />
-                <MetricCard title="Active Drivers" value={stats.activeDrivers} color="#2ecc71" />
-                <MetricCard title="System Alerts" value={stats.alerts} color="#e67e22" />
+              <Box sx={{ display: "flex", gap: 2.5, mb: 3, flexWrap: "wrap" }}>
+                <MetricCard
+                  title="Total Vehicles"
+                  value={stats.totalVehicles}
+                  color="#3b82f6"
+                  icon={<DirectionsCarIcon />}
+                />
+                <MetricCard
+                  title="Active Drivers"
+                  value={stats.activeDrivers}
+                  color="#10b981"
+                  icon={<PersonIcon />}
+                />
+                <MetricCard
+                  title="System Alerts"
+                  value={stats.alerts}
+                  color="#f87171"
+                  icon={<WarningAmberIcon />}
+                />
               </Box>
               <Paper
                 variant="outlined"
-                sx={{ minHeight: 400, display: "flex", alignItems: "center", justifyContent: "center" }}
+                sx={{
+                  minHeight: 400,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
-                <Typography color="text.secondary">Overview Analytics Will Go Here</Typography>
+                <Typography color="text.secondary">
+                  Overview Analytics Will Go Here
+                </Typography>
               </Paper>
             </>
           )}
-
           {activeTab === "map" && <LiveMap />}
-
-          {activeTab === "vehicles" && (
-            selectedVehicleId ? (
-              <VehicleDetails vehicleId={selectedVehicleId} onBack={() => navigate("/dashboard/vehicles")} />
+          {activeTab === "vehicles" &&
+            (selectedVehicleId ? (
+              <VehicleDetails
+                vehicleId={selectedVehicleId}
+                onBack={() => navigate("/dashboard/vehicles")}
+              />
             ) : (
               <VehiclesTable
                 vehicles={vehicles}
@@ -586,26 +676,32 @@ function OwnerDashboard() {
                 onVehicleClick={(id) => navigate(`/dashboard/vehicles/${id}`)}
                 onDriverClick={(id) => navigate(`/dashboard/drivers/${id}`)}
               />
-            )
-          )}
-
-          {activeTab === "drivers" && (
-            selectedDriverId ? (
-              <DriverDetails driverId={selectedDriverId} onBack={() => navigate("/dashboard/drivers")} />
+            ))}
+          {activeTab === "drivers" &&
+            (selectedDriverId ? (
+              <DriverDetails
+                driverId={selectedDriverId}
+                onBack={() => navigate("/dashboard/drivers")}
+              />
             ) : (
               <DriversTable
                 drivers={drivers}
                 driversLoading={driversLoading}
                 error={driversError}
-                onRefresh={() => { fetchDrivers(); fetchVehicles(); }}
+                onRefresh={() => {
+                  fetchDrivers();
+                  fetchVehicles();
+                }}
                 onDriverClick={(id) => navigate(`/dashboard/drivers/${id}`)}
               />
-            )
-          )}
-
+            ))}
           {activeTab === "trips" && (
             <>
-              {tripsError && <Typography color="error" mb={1}>{tripsError}</Typography>}
+              {tripsError && (
+                <Typography color="error" mb={1}>
+                  {tripsError}
+                </Typography>
+              )}
               <TripsTable
                 trips={trips}
                 tripsLoading={tripsLoading}
@@ -617,10 +713,13 @@ function OwnerDashboard() {
               />
             </>
           )}
-
-          {activeTab === "managers" && userRole === "owner" && (
-            selectedManagerId ? (
-              <ManagerDetails managerId={selectedManagerId} onBack={() => navigate("/dashboard/managers")} />
+          {activeTab === "managers" &&
+            userRole === "owner" &&
+            (selectedManagerId ? (
+              <ManagerDetails
+                managerId={selectedManagerId}
+                onBack={() => navigate("/dashboard/managers")}
+              />
             ) : (
               <ManagersTable
                 managers={managers}
@@ -629,11 +728,9 @@ function OwnerDashboard() {
                 onRefresh={fetchManagers}
                 onManagerClick={(id) => navigate(`/dashboard/managers/${id}`)}
               />
-            )
-          )}
-
-          {activeTab === "alerts" && (
-            selectedAlertType && selectedAlertId ? (
+            ))}
+          {activeTab === "alerts" &&
+            (selectedAlertType && selectedAlertId ? (
               <AlertDetails
                 alertType={selectedAlertType}
                 alertId={selectedAlertId}
@@ -641,22 +738,27 @@ function OwnerDashboard() {
               />
             ) : (
               <>
-                {alertsError && <Typography color="error" sx={{ mb: 2 }}>{alertsError}</Typography>}
+                {alertsError && (
+                  <Typography color="error" sx={{ mb: 2 }}>
+                    {alertsError}
+                  </Typography>
+                )}
                 <AlertsTable
                   alerts={alerts}
                   alertsLoading={alertsLoading}
                   onRefresh={fetchAlerts}
-                  onAlertClick={(alertType, alertId) => navigate(`/dashboard/alerts/${encodeURIComponent(alertType)}/${alertId}`)}
+                  onAlertClick={(alertType, alertId) =>
+                    navigate(
+                      `/dashboard/alerts/${encodeURIComponent(alertType)}/${alertId}`,
+                    )
+                  }
                   onResolve={resolveAlert}
                 />
               </>
-            )
-          )}
-
+            ))}
           {activeTab === "recruit" && (
             <CompanyRequests showJoinRequest={!companyContext.hasCompany} />
           )}
-
           {activeTab === "settings" && <AccountSettings />}
         </Box>
       </Box>
@@ -664,25 +766,56 @@ function OwnerDashboard() {
   );
 }
 
-function MetricCard({ title, value, color }) {
+function MetricCard({ title, value, color, icon }) {
   return (
-    <Paper
-      variant="outlined"
+    <Box
       sx={{
         flex: 1,
-        p: 2.5,
-        borderLeft: `5px solid ${color}`,
-        transition: "box-shadow 0.2s",
-        "&:hover": { boxShadow: 3 },
+        minWidth: 160,
+        p: 3,
+        borderRadius: 3,
+        position: "relative",
+        overflow: "hidden",
+        background: `linear-gradient(135deg, ${color}18 0%, ${color}08 100%)`,
+        border: `1px solid ${color}30`,
+        transition: "all 0.25s ease",
+        "&:hover": {
+          transform: "translateY(-2px)",
+          boxShadow: `0 12px 35px ${color}22`,
+          borderColor: `${color}55`,
+        },
       }}
     >
-      <Typography variant="caption" color="text.secondary" fontWeight={600} textTransform="uppercase" display="block" mb={0.5}>
+      <Box
+        sx={{
+          position: "absolute",
+          top: 16,
+          right: 16,
+          color: color,
+          opacity: 0.35,
+        }}
+      >
+        {icon}
+      </Box>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        fontWeight={700}
+        textTransform="uppercase"
+        letterSpacing="0.08em"
+        display="block"
+        mb={1}
+      >
         {title}
       </Typography>
-      <Typography variant="h4" fontWeight={700} color="text.primary">
+      <Typography
+        variant="h3"
+        fontWeight={900}
+        sx={{ color: color, letterSpacing: "-0.03em" }}
+      >
         {value}
       </Typography>
-    </Paper>
+    </Box>
   );
 }
 

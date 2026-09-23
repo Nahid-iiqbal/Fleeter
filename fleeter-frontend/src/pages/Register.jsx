@@ -6,18 +6,30 @@ import {
   TextField,
   Typography,
   Alert,
-  Container,
-  Paper,
+  Stack,
+  Link,
+  IconButton,
+  Tooltip,
+  Divider,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
-  Divider,
-  Stack,
-  Link,
 } from "@mui/material";
-import LocalShippingIcon from "@mui/icons-material/LocalShipping";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import ElectricBoltIcon from "@mui/icons-material/ElectricBolt";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { apiFetch } from "../utils/api";
+import { useThemeSettings } from "../context/ThemeSettingsContext";
+
+const perks = [
+  "Free forever for small fleets",
+  "Real-time GPS for every vehicle",
+  "Document & maintenance alerts",
+  "Secure role-based access",
+];
 
 function Register() {
   const [formData, setFormData] = useState({
@@ -32,6 +44,8 @@ function Register() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { mode, toggleTheme } = useThemeSettings();
+  const isDark = mode === "dark";
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -59,34 +73,230 @@ function Register() {
   return (
     <Box
       sx={{
+        display: "flex",
         minHeight: "100vh",
         bgcolor: "background.default",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        py: 4,
       }}
     >
-      <Container component="main" maxWidth="xs">
-        {/* Logo */}
-        <Box display="flex" alignItems="center" justifyContent="center" mb={4} gap={1}>
-          <LocalShippingIcon color="primary" sx={{ fontSize: 40 }} />
-          <Typography variant="h4" fontWeight={800} color="primary" letterSpacing={1}>
-            FLEETER
-          </Typography>
-        </Box>
+      {/* ─── Left: Brand Panel ─── */}
+      <Box
+        sx={{
+          display: { xs: "none", md: "flex" },
+          flex: "0 0 400px",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          p: 6,
+          position: "relative",
+          overflow: "hidden",
+          background: isDark
+            ? "linear-gradient(160deg, #0a1628 0%, #081530 50%, #0b1f3d 100%)"
+            : "linear-gradient(160deg, #1e3a5f 0%, #065f46 100%)",
+          borderRight: "1px solid",
+          borderColor: isDark ? "#1a2d4a" : "transparent",
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "20%",
+            right: "5%",
+            width: 250,
+            height: 250,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(16,185,129,0.25) 0%, transparent 70%)",
+            filter: "blur(50px)",
+            pointerEvents: "none",
+          }}
+        />
+        <Box
+          sx={{
+            position: "absolute",
+            bottom: "15%",
+            left: "5%",
+            width: 200,
+            height: 200,
+            borderRadius: "50%",
+            background:
+              "radial-gradient(circle, rgba(59,130,246,0.2) 0%, transparent 70%)",
+            filter: "blur(40px)",
+            pointerEvents: "none",
+          }}
+        />
 
-        <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
-          {/* Header with consistent margin-bottom */}
-          <Box textAlign="center" mb={4}>
-            <Typography variant="h5" fontWeight="bold" mb={2}>
-              Create an Account
+        {/* Logo */}
+        {/* Logo */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          <Link
+            component={RouterLink}
+            to="/"
+            underline="none"
+            sx={{ display: "inline-block" }}
+          >
+            <Typography
+              variant="h4"
+              fontWeight={1000}
+              letterSpacing={2}
+              sx={{
+                fontFamily: '"Passero One", cursive',
+                color: "#34d399",
+                cursor: "pointer",
+              }}
+            >
+              FLEETER
             </Typography>
-            <Typography variant="body2" color="text.secondary" >
-              Start managing your fleet today.
+          </Link>
+        </Box>
+        {/* Hero text */}
+        <Box sx={{ position: "relative", zIndex: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+            <ElectricBoltIcon sx={{ color: "#34d399", fontSize: 20 }} />
+            <Typography
+              variant="caption"
+              sx={{
+                color: "#34d399",
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              Get started free
             </Typography>
           </Box>
+          <Typography
+            variant="h4"
+            fontWeight={900}
+            sx={{
+              color: "#fff",
+              lineHeight: 1.1,
+              mb: 2,
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Join the smarter
+            <br />
+            <Box component="span" sx={{ color: "#34d399" }}>
+              fleet revolution.
+            </Box>
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{ color: "rgba(255,255,255,0.6)", mb: 4, lineHeight: 1.7 }}
+          >
+            Set up your fleet in minutes and gain instant visibility across all
+            vehicles and drivers.
+          </Typography>
+
+          <Stack spacing={2}>
+            {perks.map((p) => (
+              <Box
+                key={p}
+                sx={{ display: "flex", alignItems: "center", gap: 1.5 }}
+              >
+                <CheckCircleIcon sx={{ color: "#34d399", fontSize: 18 }} />
+                <Typography
+                  variant="body2"
+                  sx={{ color: "rgba(255,255,255,0.8)", fontWeight: 600 }}
+                >
+                  {p}
+                </Typography>
+              </Box>
+            ))}
+          </Stack>
+        </Box>
+
+        <Typography
+          variant="caption"
+          sx={{
+            color: "rgba(255,255,255,0.3)",
+            position: "relative",
+            zIndex: 1,
+          }}
+        >
+          © {new Date().getFullYear()} Fleeter Transport Management
+        </Typography>
+      </Box>
+
+      {/* ─── Right: Form Panel ─── */}
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          p: { xs: 2, md: 4 },
+          position: "relative",
+          overflowY: "auto",
+        }}
+      >
+        <Box sx={{ position: "absolute", top: 24, right: 24 }}>
+          <Tooltip title={isDark ? "Light Mode" : "Dark Mode"}>
+            <IconButton
+              onClick={toggleTheme}
+              size="small"
+              sx={{
+                bgcolor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+                borderRadius: 2,
+                color: "text.secondary",
+              }}
+            >
+              {isDark ? (
+                <LightModeIcon fontSize="small" />
+              ) : (
+                <DarkModeIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        <Box sx={{ width: "100%", maxWidth: 440, py: { xs: 4, md: 0 } }}>
+          {/* Mobile logo */}
+          <Box
+            sx={{
+              display: { xs: "flex", md: "none" },
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 1.5,
+              mb: 3,
+            }}
+          >
+            <Link component={RouterLink} to="/" underline="none">
+              <Typography
+                variant="h4"
+                fontWeight={1000}
+                letterSpacing={2}
+                sx={{
+                  fontFamily: '"Passero One", cursive',
+                  background: "linear-gradient(135deg, #60a5fa, #3b82f6)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  cursor: "pointer",
+                }}
+              >
+                FLEETER
+              </Typography>
+            </Link>
+          </Box>
+
+          <Typography
+            variant="h5"
+            fontWeight={900}
+            sx={{ letterSpacing: "-0.02em" }}
+          >
+            Create an account
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Start managing your fleet today. It's free.
+          </Typography>
 
           {message && (
             <Alert severity={isSuccess ? "success" : "error"} sx={{ mb: 3 }}>
@@ -94,31 +304,29 @@ function Register() {
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit}>
-            {/* Stack ensures perfectly even spacing between all form elements */}
-            <Stack spacing={3} sx={{ pt: 2 }}>
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                  variant="outlined"
-                  name="firstName"
-                  label="First Name"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  required={formData.role !== "owner"}
-                  fullWidth
-                />
-                <TextField
-                  variant="outlined"
-                  name="lastName"
-                  label="Last Name"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  required={formData.role !== "owner"}
-                  fullWidth
-                />
-              </Stack>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <Stack spacing={1.5}>
+              {formData.role !== "owner" && (
+                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                  <TextField
+                    name="firstName"
+                    label="First Name"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    required
+                    fullWidth
+                  />
+                  <TextField
+                    name="lastName"
+                    label="Last Name"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    required
+                    fullWidth
+                  />
+                </Stack>
+              )}
               <TextField
-                variant="outlined"
                 name="username"
                 label="Username"
                 value={formData.username}
@@ -128,7 +336,6 @@ function Register() {
                 autoComplete="username"
               />
               <TextField
-                variant="outlined"
                 type="email"
                 name="email"
                 label="Email Address"
@@ -139,7 +346,6 @@ function Register() {
                 autoComplete="email"
               />
               <TextField
-                variant="outlined"
                 type="password"
                 name="password"
                 label="Password"
@@ -149,13 +355,12 @@ function Register() {
                 fullWidth
                 autoComplete="new-password"
               />
-
-              <FormControl fullWidth variant="outlined">
-                <InputLabel>Role</InputLabel>
+              <FormControl fullWidth>
+                <InputLabel>I am a...</InputLabel>
                 <Select
                   name="role"
                   value={formData.role}
-                  label="Role"
+                  label="I am a..."
                   onChange={handleChange}
                 >
                   <MenuItem value="driver">Driver</MenuItem>
@@ -163,45 +368,57 @@ function Register() {
                   <MenuItem value="owner">Fleet Owner</MenuItem>
                 </Select>
               </FormControl>
-
               <Button
                 type="submit"
                 variant="contained"
-                size="large"
+                size="medium"
                 fullWidth
-                disableElevation
                 disabled={loading || isSuccess}
-                sx={{ py: 1.5, fontWeight: "bold", mt: 1 }}
+                startIcon={<PersonAddIcon />}
+                sx={{ py: 1, fontWeight: 700, fontSize: "0.95rem" }}
               >
-                {loading && !isSuccess ? "Signing Up..." : "Sign Up"}
+                {loading && !isSuccess
+                  ? "Creating Account..."
+                  : "Create Account"}
               </Button>
             </Stack>
           </Box>
 
-          <Divider sx={{ my: 3 }} />
+          <Divider sx={{ my: 4 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              fontWeight={600}
+            >
+              OR
+            </Typography>
+          </Divider>
 
-          <Box textAlign="center">
-            <Typography variant="body2" color="text.secondary">
+          <Box sx={{ textAlign: "center" }}>
+            <Typography variant="body2" color="text.secondary" mb={3}>
               Already have an account?{" "}
-              <Link component={RouterLink} to="/login" underline="hover" color="primary" fontWeight="bold">
+              <Link
+                component={RouterLink}
+                to="/login"
+                underline="hover"
+                color="primary.light"
+                fontWeight={700}
+              >
                 Sign In
               </Link>
             </Typography>
+            <Link
+              component={RouterLink}
+              to="/"
+              underline="hover"
+              color="text.secondary"
+              variant="body2"
+            >
+              ← Back to Home
+            </Link>
           </Box>
-        </Paper>
-
-        <Box textAlign="center" mt={3}>
-          <Link
-            component={RouterLink}
-            to="/"
-            underline="hover"
-            color="text.secondary"
-            variant="body2"
-          >
-            &larr; Back to Home
-          </Link>
         </Box>
-      </Container>
+      </Box>
     </Box>
   );
 }

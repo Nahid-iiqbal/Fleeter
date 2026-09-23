@@ -23,7 +23,7 @@ import {
   MenuItem,
   Autocomplete,
   Alert,
-  CircularProgress
+  CircularProgress,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AddIcon from "@mui/icons-material/Add";
@@ -34,7 +34,15 @@ function defaultDeparture() {
   return date.toISOString().slice(0, 16);
 }
 
-function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDriverClick, onVehicleClick }) {
+function TripsTable({
+  trips,
+  tripsLoading,
+  drivers,
+  vehicles,
+  onRefresh,
+  onDriverClick,
+  onVehicleClick,
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -51,7 +59,7 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
     destination_address: "",
     departure_time: defaultDeparture(),
     cargo_type: "cargo",
-    notes: ""
+    notes: "",
   });
 
   useEffect(() => {
@@ -71,7 +79,10 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
 
   const update = (event) => {
     const { name, value, type, checked } = event.target;
-    setTripFormState((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
+    setTripFormState((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   const submit = async (event) => {
@@ -83,7 +94,10 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
     try {
       setLoading(true);
       setError("");
-      await apiFetch("/api/company/trips", { method: "POST", body: JSON.stringify(tripFormState) });
+      await apiFetch("/api/company/trips", {
+        method: "POST",
+        body: JSON.stringify(tripFormState),
+      });
       setIsOpen(false);
       onRefresh();
     } catch (submitError) {
@@ -107,9 +121,29 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
   };
 
   return (
-    <Paper elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden", bgcolor: "background.paper" }}>
+    <Paper
+      elevation={0}
+      sx={{
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 2,
+        overflow: "hidden",
+        bgcolor: "background.paper",
+      }}
+    >
       {/* Header */}
-      <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider", flexWrap: "wrap", gap: 2 }}>
+      <Box
+        sx={{
+          p: 3,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: 1,
+          borderColor: "divider",
+          flexWrap: "wrap",
+          gap: 2,
+        }}
+      >
         <Typography variant="h6" fontWeight={700}>
           Trip Management
         </Typography>
@@ -119,7 +153,13 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
             color="primary"
             onClick={onRefresh}
             disabled={tripsLoading}
-            startIcon={tripsLoading ? <CircularProgress size={16} color="inherit" /> : <RefreshIcon />}
+            startIcon={
+              tripsLoading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <RefreshIcon />
+              )
+            }
           >
             Refresh trips
           </Button>
@@ -129,7 +169,10 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
             startIcon={<AddIcon />}
             onClick={() => {
               setError("");
-              setTripFormState((current) => ({ ...current, departure_time: defaultDeparture() }));
+              setTripFormState((current) => ({
+                ...current,
+                departure_time: defaultDeparture(),
+              }));
               setIsOpen(true);
             }}
           >
@@ -153,16 +196,29 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
           <Box sx={{ p: 3, display: "flex", flexDirection: "column", gap: 4 }}>
             {["in_progress", "scheduled", "completed"].map((status) => (
               <Box key={status}>
-                <Typography variant="subtitle1" fontWeight={600} color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: 1, mb: 2 }}>
+                <Typography
+                  variant="subtitle1"
+                  fontWeight={600}
+                  color="text.secondary"
+                  sx={{ textTransform: "uppercase", letterSpacing: 1, mb: 2 }}
+                >
                   {status.replace("_", " ")}
                 </Typography>
 
                 {grouped[status].length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ fontStyle: "italic" }}
+                  >
                     No {status.replace("_", " ")} trips.
                   </Typography>
                 ) : (
-                  <TableContainer component={Paper} elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 2 }}>
+                  <TableContainer
+                    component={Paper}
+                    elevation={0}
+                    sx={{ border: 1, borderColor: "divider", borderRadius: 2 }}
+                  >
                     <Table sx={{ minWidth: 800 }} size="small">
                       <TableHead sx={{ bgcolor: "background.default" }}>
                         <TableRow>
@@ -188,7 +244,12 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
                                 variant="text"
                                 color="primary"
                                 onClick={() => onDriverClick(trip.driver_id)}
-                                sx={{ fontWeight: 600, p: 0, minWidth: "auto", textTransform: "none" }}
+                                sx={{
+                                  fontWeight: 600,
+                                  p: 0,
+                                  minWidth: "auto",
+                                  textTransform: "none",
+                                }}
                               >
                                 {trip.driver_name}
                               </Button>
@@ -198,7 +259,12 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
                                 variant="text"
                                 color="primary"
                                 onClick={() => onVehicleClick(trip.vehicle_id)}
-                                sx={{ fontWeight: 600, p: 0, minWidth: "auto", textTransform: "none" }}
+                                sx={{
+                                  fontWeight: 600,
+                                  p: 0,
+                                  minWidth: "auto",
+                                  textTransform: "none",
+                                }}
                               >
                                 {trip.registration_no}
                               </Button>
@@ -210,14 +276,19 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
                               {new Date(trip.departure_time).toLocaleString()}
                             </TableCell>
                             <TableCell>
-                              {trip.arrival_time ? new Date(trip.arrival_time).toLocaleString() : "-"}
+                              {trip.arrival_time
+                                ? new Date(trip.arrival_time).toLocaleString()
+                                : "-"}
                             </TableCell>
                             <TableCell align="right">
                               <Chip
                                 label={status.replace("_", " ")}
                                 color={getStatusColor(status)}
                                 size="small"
-                                sx={{ fontWeight: 600, textTransform: "capitalize" }}
+                                sx={{
+                                  fontWeight: 600,
+                                  textTransform: "capitalize",
+                                }}
                               />
                             </TableCell>
                           </TableRow>
@@ -233,14 +304,23 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
       </Box>
 
       {/* Add Trip Dialog */}
-      <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>
-          <Typography variant="h6" fontWeight={700}>Add trip</Typography>
+          <Typography variant="h6" fontWeight={700}>
+            Add trip
+          </Typography>
         </DialogTitle>
         <form onSubmit={submit}>
           <DialogContent dividers>
             {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
             )}
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
@@ -248,25 +328,47 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
                 options={drivers}
                 getOptionLabel={(driver) => driver.full_name}
                 inputValue={driverSearch}
-                onInputChange={(_, newInputValue) => setDriverSearch(newInputValue)}
+                onInputChange={(_, newInputValue) =>
+                  setDriverSearch(newInputValue)
+                }
                 onChange={(_, newValue) => {
-                  setTripFormState(prev => ({ ...prev, driver_id: newValue ? String(newValue.driver_id) : "" }));
+                  setTripFormState((prev) => ({
+                    ...prev,
+                    driver_id: newValue ? String(newValue.driver_id) : "",
+                  }));
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label="Search drivers" placeholder="By driver name" required />
+                  <TextField
+                    {...params}
+                    label="Search drivers"
+                    placeholder="By driver name"
+                    required
+                  />
                 )}
               />
 
               <Autocomplete
                 options={vehicles}
-                getOptionLabel={(vehicle) => `${vehicle.registration_no} (${vehicle.brand} ${vehicle.model})`}
+                getOptionLabel={(vehicle) =>
+                  `${vehicle.registration_no} (${vehicle.brand} ${vehicle.model})`
+                }
                 inputValue={vehicleSearch}
-                onInputChange={(_, newInputValue) => setVehicleSearch(newInputValue)}
+                onInputChange={(_, newInputValue) =>
+                  setVehicleSearch(newInputValue)
+                }
                 onChange={(_, newValue) => {
-                  setTripFormState(prev => ({ ...prev, vehicle_id: newValue ? String(newValue.vehicle_id) : "" }));
+                  setTripFormState((prev) => ({
+                    ...prev,
+                    vehicle_id: newValue ? String(newValue.vehicle_id) : "",
+                  }));
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label="Search vehicles" placeholder="By registration, brand, or model" required />
+                  <TextField
+                    {...params}
+                    label="Search vehicles"
+                    placeholder="By registration, brand, or model"
+                    required
+                  />
                 )}
               />
 
@@ -280,7 +382,9 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
                 required={!tripFormState.custom_route}
                 fullWidth
               >
-                <MenuItem value="" disabled>Select a route</MenuItem>
+                <MenuItem value="" disabled>
+                  Select a route
+                </MenuItem>
                 {routes.map((route) => (
                   <MenuItem key={route.route_id} value={route.route_id}>
                     {route.route_name}: {route.origin} to {route.destination}
@@ -371,10 +475,19 @@ function TripsTable({ trips, tripsLoading, drivers, vehicles, onRefresh, onDrive
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2, px: 3 }}>
-            <Button onClick={() => setIsOpen(false)} color="inherit" variant="outlined">
+            <Button
+              onClick={() => setIsOpen(false)}
+              color="inherit"
+              variant="outlined"
+            >
               Cancel
             </Button>
-            <Button type="submit" variant="contained" color="primary" disabled={loading}>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={loading}
+            >
               {loading ? "Adding..." : "Add trip"}
             </Button>
           </DialogActions>

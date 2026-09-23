@@ -83,7 +83,8 @@ const ensureSystemAlertTable = async () => {
 
 const normalizeAlertStatus = (alert) => {
   if (alert.resolved) return "resolved";
-  if (alert.deadline && new Date(alert.deadline) < new Date()) return "deadline expired";
+  if (alert.deadline && new Date(alert.deadline) < new Date())
+    return "deadline expired";
   return "needs to be resolved";
 };
 
@@ -131,17 +132,26 @@ const upsertCompanyAlerts = async (companyId) => {
     [companyId],
   );
 
-  incidentRows.rows.forEach((row) => alerts.push(buildAlertRecord({
-    ownerId: companyId,
-    alertType: "incident",
-    referenceType: "incident",
-    referenceId: row.incident_id,
-    title: row.title,
-    about: row.about,
-    description: row.description || "An incident was reported and requires follow-up.",
-    severity: row.severity || "high",
-    metadata: { trip_id: row.trip_id || null, vehicle_id: row.vehicle_id || null, driver_name: row.driver_name || null },
-  })));
+  incidentRows.rows.forEach((row) =>
+    alerts.push(
+      buildAlertRecord({
+        ownerId: companyId,
+        alertType: "incident",
+        referenceType: "incident",
+        referenceId: row.incident_id,
+        title: row.title,
+        about: row.about,
+        description:
+          row.description || "An incident was reported and requires follow-up.",
+        severity: row.severity || "high",
+        metadata: {
+          trip_id: row.trip_id || null,
+          vehicle_id: row.vehicle_id || null,
+          driver_name: row.driver_name || null,
+        },
+      }),
+    ),
+  );
 
   const maintenanceRows = await pool.query(
     `
@@ -154,18 +164,27 @@ const upsertCompanyAlerts = async (companyId) => {
     [companyId],
   );
 
-  maintenanceRows.rows.forEach((row) => alerts.push(buildAlertRecord({
-    ownerId: companyId,
-    alertType: "maintenance",
-    referenceType: "maintenance",
-    referenceId: row.maintenance_id,
-    title: `Maintenance needed for ${row.registration_no}`,
-    about: row.service_type,
-    description: row.description || `Maintenance is needed for vehicle ${row.registration_no}.`,
-    severity: "medium",
-    deadline: row.deadline ? new Date(row.deadline).toISOString() : null,
-    metadata: { vehicle_registration: row.registration_no, service_type: row.service_type },
-  })));
+  maintenanceRows.rows.forEach((row) =>
+    alerts.push(
+      buildAlertRecord({
+        ownerId: companyId,
+        alertType: "maintenance",
+        referenceType: "maintenance",
+        referenceId: row.maintenance_id,
+        title: `Maintenance needed for ${row.registration_no}`,
+        about: row.service_type,
+        description:
+          row.description ||
+          `Maintenance is needed for vehicle ${row.registration_no}.`,
+        severity: "medium",
+        deadline: row.deadline ? new Date(row.deadline).toISOString() : null,
+        metadata: {
+          vehicle_registration: row.registration_no,
+          service_type: row.service_type,
+        },
+      }),
+    ),
+  );
 
   const driverDocRows = await pool.query(
     `
@@ -178,18 +197,25 @@ const upsertCompanyAlerts = async (companyId) => {
     [companyId],
   );
 
-  driverDocRows.rows.forEach((row) => alerts.push(buildAlertRecord({
-    ownerId: companyId,
-    alertType: "driver_document_expired",
-    referenceType: "driver_document",
-    referenceId: row.document_id,
-    title: `${row.full_name} driver document expired`,
-    about: row.document_type,
-    description: `The ${row.document_type} for ${row.full_name} expired on ${new Date(row.deadline).toISOString().split("T")[0]}.`,
-    severity: "high",
-    deadline: new Date(row.deadline).toISOString(),
-    metadata: { driver_id: row.driver_id, document_type: row.document_type },
-  })));
+  driverDocRows.rows.forEach((row) =>
+    alerts.push(
+      buildAlertRecord({
+        ownerId: companyId,
+        alertType: "driver_document_expired",
+        referenceType: "driver_document",
+        referenceId: row.document_id,
+        title: `${row.full_name} driver document expired`,
+        about: row.document_type,
+        description: `The ${row.document_type} for ${row.full_name} expired on ${new Date(row.deadline).toISOString().split("T")[0]}.`,
+        severity: "high",
+        deadline: new Date(row.deadline).toISOString(),
+        metadata: {
+          driver_id: row.driver_id,
+          document_type: row.document_type,
+        },
+      }),
+    ),
+  );
 
   const vehicleDocRows = await pool.query(
     `
@@ -202,18 +228,25 @@ const upsertCompanyAlerts = async (companyId) => {
     [companyId],
   );
 
-  vehicleDocRows.rows.forEach((row) => alerts.push(buildAlertRecord({
-    ownerId: companyId,
-    alertType: "vehicle_document_expired",
-    referenceType: "vehicle_document",
-    referenceId: row.document_id,
-    title: `Vehicle document expired for ${row.registration_no}`,
-    about: row.document_type,
-    description: `The ${row.document_type} for vehicle ${row.registration_no} expired on ${new Date(row.deadline).toISOString().split("T")[0]}.`,
-    severity: "high",
-    deadline: new Date(row.deadline).toISOString(),
-    metadata: { vehicle_id: row.vehicle_id, document_type: row.document_type },
-  })));
+  vehicleDocRows.rows.forEach((row) =>
+    alerts.push(
+      buildAlertRecord({
+        ownerId: companyId,
+        alertType: "vehicle_document_expired",
+        referenceType: "vehicle_document",
+        referenceId: row.document_id,
+        title: `Vehicle document expired for ${row.registration_no}`,
+        about: row.document_type,
+        description: `The ${row.document_type} for vehicle ${row.registration_no} expired on ${new Date(row.deadline).toISOString().split("T")[0]}.`,
+        severity: "high",
+        deadline: new Date(row.deadline).toISOString(),
+        metadata: {
+          vehicle_id: row.vehicle_id,
+          document_type: row.document_type,
+        },
+      }),
+    ),
+  );
 
   const refuelRows = await pool.query(
     `
@@ -227,17 +260,24 @@ const upsertCompanyAlerts = async (companyId) => {
     [companyId],
   );
 
-  refuelRows.rows.forEach((row) => alerts.push(buildAlertRecord({
-    ownerId: companyId,
-    alertType: "refuel",
-    referenceType: "fuel_log",
-    referenceId: row.fuel_id,
-    title: `Vehicle refuelled - ${row.registration_no}`,
-    about: row.station_name || "Fueling station",
-    description: `The vehicle ${row.registration_no} was refuelled. Mark as resolved once the check is complete.`,
-    severity: "low",
-    metadata: { vehicle_registration: row.registration_no, odometer_km: row.odometer_km || null },
-  })));
+  refuelRows.rows.forEach((row) =>
+    alerts.push(
+      buildAlertRecord({
+        ownerId: companyId,
+        alertType: "refuel",
+        referenceType: "fuel_log",
+        referenceId: row.fuel_id,
+        title: `Vehicle refuelled - ${row.registration_no}`,
+        about: row.station_name || "Fueling station",
+        description: `The vehicle ${row.registration_no} was refuelled. Mark as resolved once the check is complete.`,
+        severity: "low",
+        metadata: {
+          vehicle_registration: row.registration_no,
+          odometer_km: row.odometer_km || null,
+        },
+      }),
+    ),
+  );
 
   if (alerts.length === 0) {
     return [];
@@ -325,28 +365,53 @@ router.post("/trips", authorizeRole("owner", "manager"), async (req, res) => {
   const routeId = route_id ? Number(route_id) : null;
 
   if (!Number.isInteger(driverId) || !Number.isInteger(vehicleId)) {
-    return res.status(400).json({ message: "Driver and vehicle are required." });
+    return res
+      .status(400)
+      .json({ message: "Driver and vehicle are required." });
   }
   if (!departure_time) {
     return res.status(400).json({ message: "Departure time is required." });
   }
   if (cargo_type && !["cargo", "passengers"].includes(cargo_type)) {
-    return res.status(400).json({ message: "Cargo type must be cargo or passengers." });
+    return res
+      .status(400)
+      .json({ message: "Cargo type must be cargo or passengers." });
   }
-  if (custom_route && (!origin_address?.trim() || !destination_address?.trim())) {
-    return res.status(400).json({ message: "Origin and destination are required for a custom route." });
+  if (
+    custom_route &&
+    (!origin_address?.trim() || !destination_address?.trim())
+  ) {
+    return res
+      .status(400)
+      .json({
+        message: "Origin and destination are required for a custom route.",
+      });
   }
   if (custom_route && !route_name?.trim()) {
-    return res.status(400).json({ message: "Route name is required for a custom route." });
+    return res
+      .status(400)
+      .json({ message: "Route name is required for a custom route." });
   }
   if (custom_route && route_name.trim().length > 100) {
-    return res.status(400).json({ message: "Route name must be 100 characters or fewer." });
+    return res
+      .status(400)
+      .json({ message: "Route name must be 100 characters or fewer." });
   }
-  if (custom_route && (origin_address.trim().length > 100 || destination_address.trim().length > 100)) {
-    return res.status(400).json({ message: "Origin and destination must be 100 characters or fewer." });
+  if (
+    custom_route &&
+    (origin_address.trim().length > 100 ||
+      destination_address.trim().length > 100)
+  ) {
+    return res
+      .status(400)
+      .json({
+        message: "Origin and destination must be 100 characters or fewer.",
+      });
   }
   if (!custom_route && !routeId) {
-    return res.status(400).json({ message: "Select an existing route or add a custom route." });
+    return res
+      .status(400)
+      .json({ message: "Select an existing route or add a custom route." });
   }
 
   const client = await pool.connect();
@@ -355,7 +420,9 @@ router.post("/trips", authorizeRole("owner", "manager"), async (req, res) => {
     const companyId = await getCompanyId(req.user.user_id);
     if (!companyId) {
       await client.query("ROLLBACK");
-      return res.status(403).json({ message: "Company membership is required." });
+      return res
+        .status(403)
+        .json({ message: "Company membership is required." });
     }
 
     const driverResult = await client.query(
@@ -368,7 +435,9 @@ router.post("/trips", authorizeRole("owner", "manager"), async (req, res) => {
     );
     if (!driverResult.rowCount || !vehicleResult.rowCount) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ message: "Driver or vehicle not found in your company." });
+      return res
+        .status(404)
+        .json({ message: "Driver or vehicle not found in your company." });
     }
 
     let assignedRouteId = routeId;
@@ -397,7 +466,9 @@ router.post("/trips", authorizeRole("owner", "manager"), async (req, res) => {
       );
       if (!routeResult.rowCount) {
         await client.query("ROLLBACK");
-        return res.status(404).json({ message: "Selected route was not found in your company." });
+        return res
+          .status(404)
+          .json({ message: "Selected route was not found in your company." });
       }
     }
 
@@ -424,10 +495,21 @@ router.post("/trips", authorizeRole("owner", "manager"), async (req, res) => {
       ],
     );
 
-    await client.query("UPDATE Driver SET status = 'dispatched' WHERE driver_id = $1", [driverId]);
-    await client.query("UPDATE Vehicle SET availability_status = 'dispatched' WHERE vehicle_id = $1", [vehicleId]);
+    await client.query(
+      "UPDATE Driver SET status = 'dispatched' WHERE driver_id = $1",
+      [driverId],
+    );
+    await client.query(
+      "UPDATE Vehicle SET availability_status = 'dispatched' WHERE vehicle_id = $1",
+      [vehicleId],
+    );
     await client.query("COMMIT");
-    res.status(201).json({ message: "Trip assigned successfully.", trip: tripResult.rows[0] });
+    res
+      .status(201)
+      .json({
+        message: "Trip assigned successfully.",
+        trip: tripResult.rows[0],
+      });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("Error assigning trip:", error);
@@ -510,7 +592,9 @@ router.get("/managers/:managerId", authorizeRole("owner"), async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Manager not found or unauthorized." });
+      return res
+        .status(404)
+        .json({ message: "Manager not found or unauthorized." });
     }
 
     res.json(result.rows[0]);
@@ -568,52 +652,63 @@ router.get("/alerts", authorizeRole("owner", "manager"), async (req, res) => {
   }
 });
 
-router.get("/alerts/:alertType/:alertId", authorizeRole("owner", "manager"), async (req, res) => {
-  try {
-    const companyId = await getCompanyId(req.user.user_id);
-    if (!companyId) {
-      return res.status(403).json({ message: "Company membership required." });
-    }
+router.get(
+  "/alerts/:alertType/:alertId",
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    try {
+      const companyId = await getCompanyId(req.user.user_id);
+      if (!companyId) {
+        return res
+          .status(403)
+          .json({ message: "Company membership required." });
+      }
 
-    await ensureSystemAlertTable();
-    const result = await pool.query(
-      `
+      await ensureSystemAlertTable();
+      const result = await pool.query(
+        `
         SELECT *
         FROM System_Alert
         WHERE owner_id = $1
           AND alert_type = $2
           AND alert_id = $3
       `,
-      [companyId, req.params.alertType, Number(req.params.alertId)],
-    );
+        [companyId, req.params.alertType, Number(req.params.alertId)],
+      );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Alert not found." });
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: "Alert not found." });
+      }
+
+      const row = result.rows[0];
+      res.json({
+        ...row,
+        status: normalizeAlertStatus(row),
+        alert_id: row.alert_id,
+        alert_type: row.alert_type,
+      });
+    } catch (error) {
+      console.error("Error fetching alert detail:", error);
+      res.status(500).json({ message: "Failed to fetch alert detail." });
     }
+  },
+);
 
-    const row = result.rows[0];
-    res.json({
-      ...row,
-      status: normalizeAlertStatus(row),
-      alert_id: row.alert_id,
-      alert_type: row.alert_type,
-    });
-  } catch (error) {
-    console.error("Error fetching alert detail:", error);
-    res.status(500).json({ message: "Failed to fetch alert detail." });
-  }
-});
+router.post(
+  "/alerts/:alertType/:alertId/resolve",
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    try {
+      const companyId = await getCompanyId(req.user.user_id);
+      if (!companyId) {
+        return res
+          .status(403)
+          .json({ message: "Company membership required." });
+      }
 
-router.post("/alerts/:alertType/:alertId/resolve", authorizeRole("owner", "manager"), async (req, res) => {
-  try {
-    const companyId = await getCompanyId(req.user.user_id);
-    if (!companyId) {
-      return res.status(403).json({ message: "Company membership required." });
-    }
-
-    await ensureSystemAlertTable();
-    const result = await pool.query(
-      `
+      await ensureSystemAlertTable();
+      const result = await pool.query(
+        `
         UPDATE System_Alert
         SET resolved = TRUE, resolved_at = NOW()
         WHERE owner_id = $1
@@ -622,19 +717,22 @@ router.post("/alerts/:alertType/:alertId/resolve", authorizeRole("owner", "manag
           AND resolved = FALSE
         RETURNING *
       `,
-      [companyId, req.params.alertType, Number(req.params.alertId)],
-    );
+        [companyId, req.params.alertType, Number(req.params.alertId)],
+      );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ message: "Alert not found or already resolved." });
+      if (result.rowCount === 0) {
+        return res
+          .status(404)
+          .json({ message: "Alert not found or already resolved." });
+      }
+
+      res.json({ message: "Alert marked as resolved.", alert: result.rows[0] });
+    } catch (error) {
+      console.error("Error resolving alert:", error);
+      res.status(500).json({ message: "Failed to resolve alert." });
     }
-
-    res.json({ message: "Alert marked as resolved.", alert: result.rows[0] });
-  } catch (error) {
-    console.error("Error resolving alert:", error);
-    res.status(500).json({ message: "Failed to resolve alert." });
-  }
-});
+  },
+);
 
 // GET /api/company/companies - companies available to join
 router.get("/companies", async (req, res) => {
@@ -670,7 +768,9 @@ router.post(
         : [];
 
     if (ownerIds.length !== 1) {
-      return res.status(400).json({ message: "Choose exactly one company per request." });
+      return res
+        .status(400)
+        .json({ message: "Choose exactly one company per request." });
     }
 
     if (requestedRole === "driver") {
@@ -688,7 +788,12 @@ router.post(
         [req.user.user_id],
       );
       if (documentCheck.rowCount === 0) {
-        return res.status(403).json({ message: "Add a complete driver document before requesting a company." });
+        return res
+          .status(403)
+          .json({
+            message:
+              "Add a complete driver document before requesting a company.",
+          });
       }
     }
 
@@ -702,7 +807,9 @@ router.post(
       );
       if (companies.rowCount !== uniqueOwnerIds.length) {
         await client.query("ROLLBACK");
-        return res.status(404).json({ message: "One or more companies were not found." });
+        return res
+          .status(404)
+          .json({ message: "One or more companies were not found." });
       }
 
       const existing = await client.query(
@@ -714,7 +821,11 @@ router.post(
       );
       if (existing.rowCount > 0) {
         await client.query("ROLLBACK");
-        return res.status(409).json({ message: "You already have a pending or approved company request." });
+        return res
+          .status(409)
+          .json({
+            message: "You already have a pending or approved company request.",
+          });
       }
 
       const result = await client.query(
@@ -854,7 +965,9 @@ const decideRequest = async (req, res, decision) => {
       (req.user.role === "manager" && request.requested_role === "driver");
     if (!canDecide) {
       await client.query("ROLLBACK");
-      return res.status(403).json({ message: "You cannot decide this request." });
+      return res
+        .status(403)
+        .json({ message: "You cannot decide this request." });
     }
 
     await client.query(

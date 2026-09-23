@@ -15,7 +15,7 @@ const allowedOrigins = process.env.FRONTEND_URL
 app.use(
   helmet({
     crossOriginResourcePolicy: false,
-  })
+  }),
 );
 
 app.use(

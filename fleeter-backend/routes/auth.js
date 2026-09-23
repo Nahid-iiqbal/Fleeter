@@ -2,8 +2,7 @@ const router = require("express").Router();
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
-const { verifyToken } = require('../middleware/authMiddleware');
-
+const { verifyToken } = require("../middleware/authMiddleware");
 
 const rateLimit = require("express-rate-limit");
 
@@ -14,7 +13,6 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-
 
 // POST /api/fleeter/auth/login
 router.post("/login", authLimiter, async (req, res) => {
@@ -41,7 +39,9 @@ router.post("/login", authLimiter, async (req, res) => {
     const user = userQuery.rows[0];
 
     if (!user.is_active) {
-      return res.status(403).json({ error: "This account has been deactivated." });
+      return res
+        .status(403)
+        .json({ error: "This account has been deactivated." });
     }
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
@@ -72,7 +72,7 @@ router.post("/login", authLimiter, async (req, res) => {
       role: user.role,
       user_id: user.user_id,
       username: user.username,
-      theme: user.theme || 'light',
+      theme: user.theme || "light",
       notifications_enabled: user.notifications_enabled,
     });
   } catch (err) {
@@ -88,8 +88,13 @@ router.post("/register", authLimiter, async (req, res) => {
   const ALLOWED_USER_ROLES = ["driver", "owner", "manager"];
   const registeredRole = ALLOWED_USER_ROLES.includes(role) ? role : "driver";
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
-  if ((registeredRole === "driver" || registeredRole === "manager") && (!firstName?.trim() || !lastName?.trim())) {
-    return res.status(400).json({ error: "First name and last name are required." });
+  if (
+    (registeredRole === "driver" || registeredRole === "manager") &&
+    (!firstName?.trim() || !lastName?.trim())
+  ) {
+    return res
+      .status(400)
+      .json({ error: "First name and last name are required." });
   }
   try {
     // 1. Check if the user (email or username) already exists
@@ -147,11 +152,12 @@ router.post("/logout", verifyToken, async (req, res) => {
 
     await db.query(
       "INSERT INTO Token_Blacklist (token, expires_at) VALUES ($1, $2)",
-      [token, expiresAt]
+      [token, expiresAt],
     );
 
-    db.query("DELETE FROM Token_Blacklist WHERE expires_at < CURRENT_TIMESTAMP")
-      .catch((err) => console.error("Token cleanup error:", err));
+    db.query(
+      "DELETE FROM Token_Blacklist WHERE expires_at < CURRENT_TIMESTAMP",
+    ).catch((err) => console.error("Token cleanup error:", err));
 
     res.status(200).json({ message: "Successfully logged out." });
   } catch (error) {
@@ -164,10 +170,11 @@ router.post("/logout", verifyToken, async (req, res) => {
 router.get("/account", verifyToken, async (req, res) => {
   try {
     const userQuery = await db.query(
-      "SELECT username, email, full_name, phone, address, theme, notifications_enabled FROM User_Account WHERE user_id = $1",
-      [req.user.user_id]
+      "SELECT u.username, u.email, u.full_name, u.phone, u.address, u.theme, u.notifications_enabled, u.role, o.company_name FROM User_Account u LEFT JOIN Owner_Profile o ON u.user_id = o.user_id WHERE u.user_id = $1",
+      [req.user.user_id],
     );
-    if (userQuery.rows.length === 0) return res.status(404).json({ error: "User not found" });
+    if (userQuery.rows.length === 0)
+      return res.status(404).json({ error: "User not found" });
     res.json(userQuery.rows[0]);
   } catch (error) {
     console.error("Error fetching account:", error);
@@ -175,9 +182,49 @@ router.get("/account", verifyToken, async (req, res) => {
   }
 });
 
+// PATCH /api/auth/settings (partial update for theme and notifications)
+router.patch("/settings", verifyToken, async (req, res) => {
+  const { theme, notifications_enabled } = req.body;
+  try {
+    const fields = [];
+    const values = [];
+    let queryIdx = 1;
+
+    if (theme !== undefined) {
+      fields.push(`theme = $${queryIdx++}`);
+      values.push(theme);
+    }
+    if (notifications_enabled !== undefined) {
+      fields.push(`notifications_enabled = $${queryIdx++}`);
+      values.push(notifications_enabled);
+    }
+
+    if (fields.length === 0)
+      return res.json({ message: "No settings to update" });
+
+    values.push(req.user.user_id);
+    const query = `UPDATE User_Account SET ${fields.join(", ")} WHERE user_id = $${queryIdx}`;
+
+    await db.query(query, values);
+    res.json({ message: "Settings updated successfully" });
+  } catch (error) {
+    console.error("Error updating settings:", error);
+    res.status(500).json({ error: "Failed to update settings." });
+  }
+});
 // PUT /api/auth/account
 router.put("/account", verifyToken, async (req, res) => {
-  const { username, email, full_name, phone, address, password, theme, notifications_enabled } = req.body;
+  const {
+    username,
+    email,
+    full_name,
+    phone,
+    address,
+    password,
+    theme,
+    notifications_enabled,
+    company_name,
+  } = req.body;
 
   if (!username || !email) {
     return res.status(400).json({ error: "Username and email are required." });
@@ -189,18 +236,49 @@ router.put("/account", verifyToken, async (req, res) => {
       const password_hash = await bcrypt.hash(password, salt);
       await db.query(
         "UPDATE User_Account SET username = $1, email = $2, full_name = $3, phone = $4, address = $5, password_hash = $6, theme = $7, notifications_enabled = $8 WHERE user_id = $9",
-        [username, email, full_name || null, phone || null, address || null, password_hash, theme || 'light', notifications_enabled !== false, req.user.user_id]
+        [
+          username,
+          email,
+          full_name || null,
+          phone || null,
+          address || null,
+          password_hash,
+          theme || "light",
+          notifications_enabled !== false,
+          req.user.user_id,
+        ],
       );
     } else {
       await db.query(
         "UPDATE User_Account SET username = $1, email = $2, full_name = $3, phone = $4, address = $5, theme = $6, notifications_enabled = $7 WHERE user_id = $8",
-        [username, email, full_name || null, phone || null, address || null, theme || 'light', notifications_enabled !== false, req.user.user_id]
+        [
+          username,
+          email,
+          full_name || null,
+          phone || null,
+          address || null,
+          theme || "light",
+          notifications_enabled !== false,
+          req.user.user_id,
+        ],
       );
     }
-    res.json({ message: "Account updated successfully", theme, notifications_enabled });
+    if (req.user.role === "owner" && company_name !== undefined) {
+      await db.query(
+        "UPDATE Owner_Profile SET company_name = $1 WHERE user_id = $2",
+        [company_name || null, req.user.user_id],
+      );
+    }
+    res.json({
+      message: "Account updated successfully",
+      theme,
+      notifications_enabled,
+    });
   } catch (error) {
     if (error.code === "23505") {
-      return res.status(409).json({ error: "Username or email is already taken." });
+      return res
+        .status(409)
+        .json({ error: "Username or email is already taken." });
     }
     console.error("Error updating account:", error);
     res.status(500).json({ error: "Failed to update account." });

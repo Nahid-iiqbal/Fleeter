@@ -13,13 +13,15 @@ import {
   Button,
   Chip,
   InputAdornment,
-  CircularProgress
+  CircularProgress,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
 const getVehicleStatusColor = (status) => {
-  const normalizedStatus = String(status || "").toLowerCase().replaceAll("_", " ");
+  const normalizedStatus = String(status || "")
+    .toLowerCase()
+    .replaceAll("_", " ");
   if (normalizedStatus === "available") return "success";
   if (normalizedStatus === "dispatched") return "default";
   if (normalizedStatus === "unavailable") return "error";
@@ -53,14 +55,42 @@ function VehiclesTable({
   );
 
   return (
-    <Paper elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden", bgcolor: "background.paper" }}>
+    <Paper
+      elevation={0}
+      sx={{
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 2,
+        overflow: "hidden",
+        bgcolor: "background.paper",
+      }}
+    >
       {/* Header */}
-      <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider", gap: 2, flexWrap: "wrap" }}>
+      <Box
+        sx={{
+          p: 3,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: 1,
+          borderColor: "divider",
+          gap: 2,
+          flexWrap: "wrap",
+        }}
+      >
         <Typography variant="h6" fontWeight={700}>
           Fleet Inventory
         </Typography>
 
-        <Box sx={{ display: "flex", gap: 2, flexGrow: 1, justifyContent: "flex-end", maxWidth: { xs: "100%", md: "600px" } }}>
+        <Box
+          sx={{
+            display: "flex",
+            gap: 2,
+            flexGrow: 1,
+            justifyContent: "flex-end",
+            maxWidth: { xs: "100%", md: "600px" },
+          }}
+        >
           <TextField
             size="small"
             placeholder="Search vehicles..."
@@ -80,7 +110,13 @@ function VehiclesTable({
             color="primary"
             onClick={onRefresh}
             disabled={vehiclesLoading}
-            startIcon={vehiclesLoading ? <CircularProgress size={16} color="inherit" /> : <RefreshIcon />}
+            startIcon={
+              vehiclesLoading ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <RefreshIcon />
+              )
+            }
             sx={{ whiteSpace: "nowrap" }}
           >
             Refresh
@@ -131,23 +167,49 @@ function VehiclesTable({
                         variant="text"
                         color="primary"
                         onClick={() => onVehicleClick(vehicle.vehicle_id)}
-                        sx={{ fontWeight: 600, p: 0, minWidth: "auto", textTransform: "none", textAlign: "left", display: "flex", flexDirection: "column", alignItems: "flex-start" }}
+                        sx={{
+                          fontWeight: 600,
+                          p: 0,
+                          minWidth: "auto",
+                          textTransform: "none",
+                          textAlign: "left",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-start",
+                        }}
                       >
                         {vehicle.brand} {vehicle.model}
-                        <Typography variant="caption" color="text.secondary" component="span" sx={{ textTransform: "none" }}>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          component="span"
+                          sx={{ textTransform: "none" }}
+                        >
                           Year: {vehicle.year || "N/A"}
                         </Typography>
                       </Button>
                     </TableCell>
-                    <TableCell sx={{ textTransform: "capitalize" }}>{vehicle.type}</TableCell>
-                    <TableCell sx={{ textTransform: "capitalize" }}>{vehicle.fuel_type}</TableCell>
+                    <TableCell sx={{ textTransform: "capitalize" }}>
+                      {vehicle.type}
+                    </TableCell>
+                    <TableCell sx={{ textTransform: "capitalize" }}>
+                      {vehicle.fuel_type}
+                    </TableCell>
                     <TableCell>
                       {vehicle.current_driver_id ? (
                         <Button
                           variant="text"
                           color="primary"
-                          onClick={() => onDriverClick(vehicle.current_driver_id)}
-                          sx={{ fontWeight: 600, p: 0, minWidth: "auto", textTransform: "none", textAlign: "left" }}
+                          onClick={() =>
+                            onDriverClick(vehicle.current_driver_id)
+                          }
+                          sx={{
+                            fontWeight: 600,
+                            p: 0,
+                            minWidth: "auto",
+                            textTransform: "none",
+                            textAlign: "left",
+                          }}
                         >
                           {vehicle.current_driver_name}
                         </Button>
@@ -160,7 +222,9 @@ function VehiclesTable({
                     <TableCell>
                       <Chip
                         label={vehicle.availability_status || "Unknown"}
-                        color={getVehicleStatusColor(vehicle.availability_status)}
+                        color={getVehicleStatusColor(
+                          vehicle.availability_status,
+                        )}
                         size="small"
                         sx={{ fontWeight: 600, textTransform: "capitalize" }}
                       />

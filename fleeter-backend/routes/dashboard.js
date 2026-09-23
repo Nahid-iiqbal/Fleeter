@@ -21,8 +21,13 @@ router.get("/stats", verifyToken, async (req, res) => {
 
     // We use Promise.all to run these queries at the exact same time for speed
     const [vehicles, drivers, incidents] = await Promise.all([
-      pool.query("SELECT COUNT(*) FROM Vehicle WHERE owner_id = $1", [companyId]),
-      pool.query("SELECT COUNT(*) FROM Driver WHERE owner_id = $1 AND (status = 'available' OR status = 'dispatched')", [companyId]),
+      pool.query("SELECT COUNT(*) FROM Vehicle WHERE owner_id = $1", [
+        companyId,
+      ]),
+      pool.query(
+        "SELECT COUNT(*) FROM Driver WHERE owner_id = $1 AND (status = 'available' OR status = 'dispatched')",
+        [companyId],
+      ),
       pool.query(
         "SELECT COUNT(*) FROM Incident i JOIN Trip t ON t.trip_id = i.trip_id WHERE t.owner_id = $1 AND i.resolved = FALSE",
         [companyId],

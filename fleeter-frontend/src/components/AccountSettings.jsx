@@ -9,11 +9,13 @@ import {
   Switch,
   Alert,
   CircularProgress,
-  Grid,
   Stack,
+  Avatar,
+  Select,
+  MenuItem,
+  Divider,
 } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
-import SecurityIcon from "@mui/icons-material/Security";
 import TuneIcon from "@mui/icons-material/Tune";
 import SaveIcon from "@mui/icons-material/Save";
 import { apiFetch } from "../utils/api";
@@ -29,6 +31,8 @@ export default function AccountSettings() {
     phone: "",
     address: "",
     password: "",
+    company_name: "",
+    role: "",
   });
 
   const [loading, setLoading] = useState(true);
@@ -36,7 +40,7 @@ export default function AccountSettings() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [localTheme, setLocalTheme] = useState(mode);
+  const [localTheme, setLocalTheme] = useState(mode || "dark");
   const [localNotifs, setLocalNotifs] = useState(notifications);
 
   useEffect(() => {
@@ -50,8 +54,10 @@ export default function AccountSettings() {
           phone: data.phone || "",
           address: data.address || "",
           password: "",
+          company_name: data.company_name || "",
+          role: data.role || "",
         });
-        setLocalTheme(data.theme || "light");
+        setLocalTheme(data.theme || "dark");
         setLocalNotifs(data.notifications_enabled !== false);
       } catch (err) {
         setError("Failed to load profile data.");
@@ -77,13 +83,12 @@ export default function AccountSettings() {
         body: JSON.stringify({
           ...form,
           theme: localTheme,
-          notifications_enabled: localNotifs
+          notifications_enabled: localNotifs,
         }),
       });
       setSuccess("Account updated successfully!");
       setSettings(localTheme, localNotifs);
       setForm((prev) => ({ ...prev, password: "" }));
-      localStorage.setItem("theme", localTheme);
     } catch (err) {
       setError(err.message || "Failed to update account.");
     } finally {
@@ -93,167 +98,295 @@ export default function AccountSettings() {
 
   if (loading) {
     return (
-      <Box display="flex" flexDirection="column" alignItems="center" p={6}>
-        <CircularProgress sx={{ mb: 2 }} />
-        <Typography color="text.secondary">Loading settings...</Typography>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          p: 4,
+        }}
+      >
+        <CircularProgress size={32} sx={{ mb: 1.5 }} />
+        <Typography variant="body2" color="text.secondary">
+          Loading settings...
+        </Typography>
       </Box>
     );
   }
 
   return (
-    <Box maxWidth="800px" mx="auto" mt={2} mb={6}>
-      <Typography variant="h4" fontWeight={800} gutterBottom>
-        Account Settings
-      </Typography>
-      <Typography variant="body1" color="text.secondary" mb={4}>
-        Manage your profile, security credentials, and application preferences.
-      </Typography>
+    <Box sx={{ maxWidth: "500px", mx: "auto", mt: 2, mb: 6 }}>
+      <Box sx={{ textAlign: "center", mb: 3 }}>
+        <Avatar
+          sx={{
+            width: 64,
+            height: 64,
+            mx: "auto",
+            mb: 1.5,
+            fontSize: "1.5rem",
+            fontWeight: 800,
+            background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+            boxShadow: "0 4px 12px rgba(59,130,246,0.3)",
+          }}
+        >
+          {form.full_name
+            ? form.full_name.charAt(0).toUpperCase()
+            : form.username?.charAt(0)?.toUpperCase() || "U"}
+        </Avatar>
+        <Typography variant="h6" fontWeight={800}>
+          {form.full_name || form.username || "Your Profile"}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {form.email}
+        </Typography>
+      </Box>
 
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
-      {!error && !success && (!form.full_name || !form.phone || !form.address) && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          <strong>Action Required:</strong> Please complete your profile information (Full Name, Phone, and Address).
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
         </Alert>
       )}
+      {success && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
+      {!error &&
+        !success &&
+        (!form.full_name || !form.phone || !form.address) && (
+          <Alert severity="warning" sx={{ mb: 2, fontSize: "0.8rem" }}>
+            <strong>Action Required:</strong> Please complete your profile
+            information.
+          </Alert>
+        )}
 
       <form onSubmit={handleSave}>
-        <Stack spacing={4}>
-          {/* Profile Information Section */}
-          <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-            <CardContent sx={{ p: 4 }}>
-              <Box display="flex" alignItems="center" gap={1.5} mb={3}>
-                <PersonIcon color="primary" fontSize="large" />
-                <Typography variant="h6" fontWeight={700}>
-                  Profile Information
+        <Stack spacing={2}>
+          {/* Profile & Security Section (Merged) */}
+          <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}
+              >
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 1.5,
+                    background:
+                      "linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))",
+                    border: "1px solid rgba(59,130,246,0.2)",
+                  }}
+                >
+                  <PersonIcon color="primary" fontSize="small" />
+                </Avatar>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Profile & Security
                 </Typography>
               </Box>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    variant="outlined"
-                    fullWidth
-                    label="Username"
-                    name="username"
-                    value={form.username}
-                    onChange={handleChange}
-                    required
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    variant="outlined"
-                    fullWidth
-                    type="email"
-                    label="Email Address"
-                    name="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    required
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    variant="outlined"
-                    fullWidth
-                    label="Full Name"
-                    name="full_name"
-                    value={form.full_name}
-                    onChange={handleChange}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    variant="outlined"
-                    fullWidth
-                    label="Phone Number"
-                    name="phone"
-                    value={form.phone}
-                    onChange={handleChange}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    variant="outlined"
-                    fullWidth
-                    multiline
-                    rows={2}
-                    label="Home Address"
-                    name="address"
-                    value={form.address}
-                    onChange={handleChange}
-                  />
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
 
-          {/* Security Section */}
-          <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-            <CardContent sx={{ p: 4 }}>
-              <Box display="flex" alignItems="center" gap={1.5} mb={3}>
-                <SecurityIcon color="primary" fontSize="large" />
-                <Typography variant="h6" fontWeight={700}>
-                  Security
+              <Stack spacing={1.5}>
+                <TextField
+                  size="small"
+                  variant="outlined"
+                  fullWidth
+                  label="Username"
+                  name="username"
+                  value={form.username}
+                  onChange={handleChange}
+                  required
+                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
+                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                />
+                <TextField
+                  size="small"
+                  variant="outlined"
+                  fullWidth
+                  type="email"
+                  label="Email Address"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  required
+                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
+                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                />
+                <TextField
+                  size="small"
+                  variant="outlined"
+                  fullWidth
+                  label="Full Name"
+                  name="full_name"
+                  value={form.full_name}
+                  onChange={handleChange}
+                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
+                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                />
+                {form.role === "owner" && (
+                  <TextField
+                    size="small"
+                    variant="outlined"
+                    fullWidth
+                    label="Company Name"
+                    name="company_name"
+                    value={form.company_name}
+                    onChange={handleChange}
+                    InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
+                    InputProps={{ sx: { fontSize: "0.85rem" } }}
+                  />
+                )}
+                <TextField
+                  size="small"
+                  variant="outlined"
+                  fullWidth
+                  label="Phone Number"
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
+                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                />
+                <TextField
+                  size="small"
+                  variant="outlined"
+                  fullWidth
+                  multiline
+                  rows={2}
+                  label="Home Address"
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
+                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                />
+
+                <Divider sx={{ my: 1 }} />
+
+                <Typography
+                  variant="caption"
+                  fontWeight={700}
+                  color="text.secondary"
+                >
+                  UPDATE PASSWORD
                 </Typography>
-              </Box>
-              <TextField
-                variant="outlined"
-                fullWidth
-                type="password"
-                label="New Password"
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                helperText="Leave this field blank to keep your current password."
-              />
+                <TextField
+                  size="small"
+                  variant="outlined"
+                  fullWidth
+                  type="password"
+                  label="New Password"
+                  name="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  placeholder="Leave blank to keep current"
+                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
+                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                />
+              </Stack>
             </CardContent>
           </Card>
 
           {/* Preferences Section */}
-          <Card elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
-            <CardContent sx={{ p: 4 }}>
-              <Box display="flex" alignItems="center" gap={1.5} mb={3}>
-                <TuneIcon color="primary" fontSize="large" />
-                <Typography variant="h6" fontWeight={700}>
-                  Preferences & Interface
+          <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}
+              >
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 1.5,
+                    background:
+                      "linear-gradient(135deg, rgba(167,139,250,0.15), rgba(167,139,250,0.05))",
+                    border: "1px solid rgba(167,139,250,0.2)",
+                  }}
+                >
+                  <TuneIcon sx={{ color: "#a78bfa" }} fontSize="small" />
+                </Avatar>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Preferences
                 </Typography>
               </Box>
 
-              <Stack spacing={3}>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      Enable Notifications
+              <Stack spacing={2}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Box sx={{ pr: 2 }}>
+                    <Typography variant="body2" fontWeight={600}>
+                      Notifications
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Receive alerts for upcoming trips, document expirations, and maintenance tasks.
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      display="block"
+                      sx={{ lineHeight: 1.2 }}
+                    >
+                      Alerts for trips & docs.
                     </Typography>
                   </Box>
                   <Switch
+                    size="small"
                     checked={localNotifs}
                     onChange={(e) => setLocalNotifs(e.target.checked)}
                     color="primary"
                   />
                 </Box>
+
+                <Divider />
+
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Box sx={{ pr: 2 }}>
+                    <Typography variant="body2" fontWeight={600}>
+                      Theme
+                    </Typography>
+                  </Box>
+                  <Select
+                    size="small"
+                    value={localTheme}
+                    onChange={(e) => setLocalTheme(e.target.value)}
+                    sx={{ minWidth: 100, fontSize: "0.85rem" }}
+                  >
+                    <MenuItem value="dark" sx={{ fontSize: "0.85rem" }}>
+                      Dark
+                    </MenuItem>
+                    <MenuItem value="light" sx={{ fontSize: "0.85rem" }}>
+                      Light
+                    </MenuItem>
+                  </Select>
+                </Box>
               </Stack>
             </CardContent>
           </Card>
 
-          {/* Action Row */}
-          <Box display="flex" justifyContent="flex-end" mt={2}>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              size="large"
-              startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-              disabled={saving}
-              sx={{ px: 4, py: 1.5, fontWeight: 700 }}
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
-          </Box>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            fullWidth
+            startIcon={
+              saving ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <SaveIcon fontSize="small" />
+              )
+            }
+            disabled={saving}
+            sx={{ py: 1, fontWeight: 700, fontSize: "0.9rem" }}
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
         </Stack>
       </form>
     </Box>
