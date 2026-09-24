@@ -49,6 +49,7 @@ const initializeDatabase = async () => {
         full_name VARCHAR(100),
         phone VARCHAR(20),
         address TEXT,
+        profile_picture_url TEXT,
         theme VARCHAR(10) DEFAULT 'light',
         notifications_enabled BOOLEAN DEFAULT TRUE,
         is_active BOOLEAN DEFAULT TRUE,

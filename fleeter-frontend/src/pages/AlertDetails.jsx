@@ -177,16 +177,6 @@ function AlertDetails({ alertType, alertId, onBack }) {
             <Grid item xs={12} sm={6} md={4}><InfoItem label="Status" value={alert.status} /></Grid>
             <Grid item xs={12} sm={6} md={4}><InfoItem label="Reference" value={alert.reference_label || '—'} /></Grid>
             <Grid item xs={12} sm={6} md={4}><InfoItem label="Severity" value={alert.severity || 'Not specified'} /></Grid>
-            {alert.metadata?.driver_id && (
-              <Grid item xs={12} sm={6} md={4}>
-                <LinkInfoItem label="Driver" value={alert.metadata.driver_name} onClick={() => navigate(`/dashboard/drivers/${alert.metadata.driver_id}`)} />
-              </Grid>
-            )}
-            {alert.metadata?.vehicle_id && (
-              <Grid item xs={12} sm={6} md={4}>
-                <LinkInfoItem label="Vehicle" value={alert.metadata.vehicle_name || alert.metadata.vehicle_registration} onClick={() => navigate(`/dashboard/vehicles/${alert.metadata.vehicle_id}`)} />
-              </Grid>
-            )}
             {alert.metadata?.document_type && <Grid item xs={12} sm={6} md={4}><InfoItem label="Document" value={alert.metadata.document_type.replaceAll('_', ' ')} /></Grid>}
             <Grid item xs={12} sm={6} md={4}><InfoItem label="Issue date" value={alert.metadata?.issue_date || 'Missing'} /></Grid>
             <Grid item xs={12} sm={6} md={4}><InfoItem label="Expiry date" value={alert.metadata?.expiry_date || 'Missing'} /></Grid>
@@ -198,6 +188,33 @@ function AlertDetails({ alertType, alertId, onBack }) {
             {alert.metadata?.reported_to && <Grid item xs={12} sm={6} md={4}><InfoItem label="Reported to" value={alert.metadata.reported_to} /></Grid>}
             {alert.metadata?.damage_cost !== null && alert.metadata?.damage_cost !== undefined && <Grid item xs={12} sm={6} md={4}><InfoItem label="Damage cost" value={alert.metadata.damage_cost} /></Grid>}
           </Grid>
+          {(alert.metadata?.driver_id || alert.metadata?.vehicle_id) && (
+            <Box sx={{ mt: 3, pt: 3, borderTop: 1, borderColor: "divider" }}>
+              <Typography variant="subtitle2" fontWeight={700} mb={2}>
+                Related records
+              </Typography>
+              <Grid container spacing={3}>
+                {alert.metadata?.driver_id && (
+                  <Grid item xs={12} sm={6} md={4}>
+                    <LinkInfoItem
+                      label="Driver"
+                      value={alert.metadata.driver_name}
+                      onClick={() => navigate(`/dashboard/drivers/${alert.metadata.driver_id}`)}
+                    />
+                  </Grid>
+                )}
+                {alert.metadata?.vehicle_id && (
+                  <Grid item xs={12} sm={6} md={4}>
+                    <LinkInfoItem
+                      label="Vehicle"
+                      value={alert.metadata.vehicle_name || alert.metadata.vehicle_registration}
+                      onClick={() => navigate(`/dashboard/vehicles/${alert.metadata.vehicle_id}`)}
+                    />
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+          )}
         </CardContent>
       </Card>
 
@@ -206,7 +223,11 @@ function AlertDetails({ alertType, alertId, onBack }) {
           <Typography variant="h6" fontWeight={700} mb={2}>
             Description
           </Typography>
-          <Typography variant="body1" color="text.primary">
+          <Typography
+            variant="body1"
+            color="text.primary"
+            sx={{ whiteSpace: "pre-line" }}
+          >
             {alert.description ||
               "No additional description was provided for this alert."}
           </Typography>

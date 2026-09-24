@@ -29,10 +29,14 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 function VehicleDetails({ vehicleId, onBack }) {
   const [vehicle, setVehicle] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [incidents, setIncidents] = useState([]);
+  const [maintenance, setMaintenance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [showDocuments, setShowDocuments] = useState(false);
+  const [showIncidents, setShowIncidents] = useState(false);
+  const [showMaintenance, setShowMaintenance] = useState(false);
   const [editDocumentId, setEditDocumentId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -46,12 +50,16 @@ function VehicleDetails({ vehicleId, onBack }) {
       try {
         setLoading(true);
         setError("");
-        const [vehicleData, docsData] = await Promise.all([
+        const [vehicleData, docsData, incidentData, maintenanceData] = await Promise.all([
           apiFetch(`/api/vehicles/${vehicleId}`),
           apiFetch(`/api/vehicles/${vehicleId}/documents`).catch(() => []),
+          apiFetch(`/api/vehicles/${vehicleId}/incidents`).catch(() => []),
+          apiFetch(`/api/vehicles/${vehicleId}/maintenance`).catch(() => []),
         ]);
         setVehicle(vehicleData);
         setDocuments(docsData);
+        setIncidents(incidentData);
+        setMaintenance(maintenanceData);
       } catch (err) {
         console.error("Error loading vehicle:", err);
         setError(err.message);
@@ -395,8 +403,8 @@ function VehicleDetails({ vehicleId, onBack }) {
                     value={
                       vehicle.last_service_date
                         ? new Date(
-                            vehicle.last_service_date,
-                          ).toLocaleDateString()
+                          vehicle.last_service_date,
+                        ).toLocaleDateString()
                         : "Never Serviced"
                     }
                   />
@@ -616,6 +624,64 @@ function VehicleDetails({ vehicleId, onBack }) {
         </CardContent>
       </Card>
 
+      <ExpandableRecordSection
+        title="Incidents"
+        count={incidents.length}
+        itemLabel="incident"
+        open={showIncidents}
+        onToggle={() => setShowIncidents((visible) => !visible)}
+      >
+        {incidents.length === 0 ? (
+          <Typography color="text.secondary" fontStyle="italic">
+            No incidents recorded.
+          </Typography>
+        ) : (
+          incidents.map((incident) => (
+            <Paper key={incident.incident_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider" }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
+                <Typography variant="subtitle1" fontWeight={700}>{incident.type}</Typography>
+                <Chip label={incident.resolved ? "Resolved" : "Open"} color={incident.resolved ? "success" : "error"} size="small" />
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                {incident.incident_date ? new Date(incident.incident_date).toLocaleString() : "Date not provided"} · Trip #{incident.trip_id} · Driver: {incident.driver_name}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>{incident.description || "No notes provided."}</Typography>
+              {incident.severity && <Typography variant="body2" color="text.secondary">Severity: {incident.severity}</Typography>}
+              {incident.damage_cost !== null && incident.damage_cost !== undefined && <Typography variant="body2" color="text.secondary">Damage cost: {incident.damage_cost}</Typography>}
+            </Paper>
+          ))
+        )}
+      </ExpandableRecordSection>
+
+      <ExpandableRecordSection
+        title="Maintenance"
+        count={maintenance.length}
+        itemLabel="maintenance record"
+        open={showMaintenance}
+        onToggle={() => setShowMaintenance((visible) => !visible)}
+      >
+        {maintenance.length === 0 ? (
+          <Typography color="text.secondary" fontStyle="italic">
+            No maintenance records found.
+          </Typography>
+        ) : (
+          maintenance.map((record) => (
+            <Paper key={record.maintenance_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider" }}>
+              <Typography variant="subtitle1" fontWeight={700}>{record.service_type}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {record.service_date ? new Date(record.service_date).toLocaleDateString() : "Date not provided"}
+                {record.workshop ? ` · ${record.workshop}` : ""}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>{record.description || "No notes provided."}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Cost: {record.cost ?? "Not provided"} · Odometer: {record.odometer_km ?? "Not provided"} km
+              </Typography>
+              {record.mechanic_name && <Typography variant="body2" color="text.secondary">Mechanic: {record.mechanic_name}</Typography>}
+            </Paper>
+          ))
+        )}
+      </ExpandableRecordSection>
+
       {/* Upload Document Section */}
       <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
         <CardContent sx={{ p: 3 }}>
@@ -758,6 +824,27 @@ function VehicleDetails({ vehicleId, onBack }) {
         </DialogActions>
       </Dialog>
     </Box>
+  );
+}
+
+function ExpandableRecordSection({ title, count, itemLabel, open, onToggle, children }) {
+  return (
+    <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+      <CardContent sx={{ p: 3 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: open ? 3 : 0 }}>
+          <Box>
+            <Typography variant="h6" fontWeight={700}>{title}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {count} {itemLabel}{count !== 1 ? "s" : ""} recorded.
+            </Typography>
+          </Box>
+          <Button variant="outlined" onClick={onToggle}>
+            {open ? `Hide ${title}` : `View ${title}`}
+          </Button>
+        </Box>
+        {open && <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>{children}</Box>}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -249,6 +249,10 @@ function OwnerDashboard() {
       setAlertsError("");
       const data = await apiFetch("/api/company/alerts");
       setAlerts(data);
+      setStats((currentStats) => ({
+        ...currentStats,
+        alerts: data.filter((alert) => alert.status !== "resolved").length,
+      }));
     } catch (error) {
       console.error("Error loading alerts:", error);
       setAlertsError(error.message || "Failed to load alerts");
@@ -269,6 +273,21 @@ function OwnerDashboard() {
         await fetchAlerts();
       } catch (error) {
         setAlertsError(error.message || "Unable to resolve alert.");
+      }
+    },
+    [fetchAlerts],
+  );
+
+  const deleteAlert = useCallback(
+    async (alertType, alertId) => {
+      try {
+        await apiFetch(
+          `/api/company/alerts/${encodeURIComponent(alertType)}/${alertId}`,
+          { method: "DELETE" },
+        );
+        await fetchAlerts();
+      } catch (error) {
+        setAlertsError(error.message || "Unable to delete alert.");
       }
     },
     [fetchAlerts],
@@ -311,13 +330,14 @@ function OwnerDashboard() {
         ) {
           setProfileIncomplete(true);
         }
-      } catch (err) {}
+      } catch (err) { }
     };
     fetchProfileStatus();
 
     // 3. Create an async function to fetch the secure data
     const fetchDashboardData = async () => {
       try {
+        await fetchAlerts();
         const response = await fetch(
           "http://localhost:5000/api/dashboard/stats",
           {
@@ -355,7 +375,7 @@ function OwnerDashboard() {
     };
 
     fetchDashboardData();
-  }, [navigate]);
+  }, [fetchAlerts, navigate]);
 
   // New useEffect for handling Drivers data for Drivers tab
   // Load drivers only when the Drivers tab is opened
@@ -632,18 +652,21 @@ function OwnerDashboard() {
                   value={stats.totalVehicles}
                   color="#3b82f6"
                   icon={<DirectionsCarIcon />}
+                  onClick={() => navigate("/dashboard/vehicles")}
                 />
                 <MetricCard
                   title="Active Drivers"
                   value={stats.activeDrivers}
                   color="#10b981"
                   icon={<PersonIcon />}
+                  onClick={() => navigate("/dashboard/drivers")}
                 />
                 <MetricCard
                   title="System Alerts"
                   value={stats.alerts}
                   color="#f87171"
                   icon={<WarningAmberIcon />}
+                  onClick={() => navigate("/dashboard/alerts")}
                 />
               </Box>
               <Paper
@@ -752,7 +775,11 @@ function OwnerDashboard() {
                       `/dashboard/alerts/${encodeURIComponent(alertType)}/${alertId}`,
                     )
                   }
+                  onDriverClick={(driverId) =>
+                    navigate(`/dashboard/drivers/${driverId}`)
+                  }
                   onResolve={resolveAlert}
+                  onDelete={deleteAlert}
                 />
               </>
             ))}
@@ -766,7 +793,7 @@ function OwnerDashboard() {
   );
 }
 
-function MetricCard({ title, value, color, icon }) {
+function MetricCard({ title, value, color, icon, onClick }) {
   return (
     <Box
       sx={{
@@ -779,12 +806,22 @@ function MetricCard({ title, value, color, icon }) {
         background: `linear-gradient(135deg, ${color}18 0%, ${color}08 100%)`,
         border: `1px solid ${color}30`,
         transition: "all 0.25s ease",
+        cursor: onClick ? "pointer" : "default",
         "&:hover": {
           transform: "translateY(-2px)",
           boxShadow: `0 12px 35px ${color}22`,
           borderColor: `${color}55`,
         },
       }}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       <Box
         sx={{

@@ -18,6 +18,7 @@ import {
 import PersonIcon from "@mui/icons-material/Person";
 import TuneIcon from "@mui/icons-material/Tune";
 import SaveIcon from "@mui/icons-material/Save";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { apiFetch } from "../utils/api";
 import { useThemeSettings } from "../context/ThemeSettingsContext";
 
@@ -37,6 +38,8 @@ export default function AccountSettings() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pictureSaving, setPictureSaving] = useState(false);
+  const [profilePictureUrl, setProfilePictureUrl] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -57,6 +60,7 @@ export default function AccountSettings() {
           company_name: data.company_name || "",
           role: data.role || "",
         });
+        setProfilePictureUrl(data.profile_picture_url || "");
         setLocalTheme(data.theme || "dark");
         setLocalNotifs(data.notifications_enabled !== false);
       } catch (err) {
@@ -96,6 +100,49 @@ export default function AccountSettings() {
     }
   };
 
+  const handleProfilePictureChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    setSuccess("");
+    setPictureSaving(true);
+    try {
+      const payload = new FormData();
+      payload.append("profile_picture", file);
+      const data = await apiFetch("/api/auth/account/profile-picture", {
+        method: "PUT",
+        body: payload,
+      });
+      setProfilePictureUrl(data.profile_picture_url);
+      setSuccess("Profile picture updated successfully!");
+    } catch (err) {
+      setError(err.message || "Failed to update profile picture.");
+    } finally {
+      setPictureSaving(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleProfilePictureDelete = async () => {
+    if (!profilePictureUrl || !window.confirm("Delete your profile picture?")) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setPictureSaving(true);
+    try {
+      await apiFetch("/api/auth/account/profile-picture", { method: "DELETE" });
+      setProfilePictureUrl("");
+      setSuccess("Profile picture deleted successfully!");
+    } catch (err) {
+      setError(err.message || "Failed to delete profile picture.");
+    } finally {
+      setPictureSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box
@@ -118,6 +165,11 @@ export default function AccountSettings() {
     <Box sx={{ maxWidth: "500px", mx: "auto", mt: 2, mb: 6 }}>
       <Box sx={{ textAlign: "center", mb: 3 }}>
         <Avatar
+          src={
+            profilePictureUrl
+              ? `http://localhost:5000${profilePictureUrl}`
+              : undefined
+          }
           sx={{
             width: 64,
             height: 64,
@@ -139,6 +191,34 @@ export default function AccountSettings() {
         <Typography variant="caption" color="text.secondary">
           {form.email}
         </Typography>
+        <Box sx={{ display: "flex", justifyContent: "center", gap: 1, mt: 1.5 }}>
+          <Button
+            component="label"
+            variant="outlined"
+            size="small"
+            disabled={pictureSaving}
+          >
+            {pictureSaving ? "Uploading..." : "Add or change picture"}
+            <input
+              hidden
+              type="file"
+              accept="image/*"
+              onChange={handleProfilePictureChange}
+            />
+          </Button>
+          {profilePictureUrl && (
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<DeleteIcon />}
+              disabled={pictureSaving}
+              onClick={handleProfilePictureDelete}
+            >
+              Delete picture
+            </Button>
+          )}
+        </Box>
       </Box>
 
       {error && (

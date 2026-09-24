@@ -56,6 +56,49 @@ export default function AdminDashboard() {
   const [totalDrivers, setTotalDrivers] = useState(0);
   const [usersList, setUsersList] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [logSearchQuery, setLogSearchQuery] = useState("");
+
+  const securityLogs = [
+    {
+      timestamp: "Just now",
+      eventType: "AUTH_LOGIN",
+      user: "Admin (You)",
+      ipAddress: "192.168.1.42",
+      details: "Successful login via portal.",
+      color: "warning",
+    },
+    {
+      timestamp: "10 mins ago",
+      eventType: "USER_CREATED",
+      user: "System",
+      ipAddress: "N/A",
+      details: "New user 'johndoe' registered as driver.",
+      color: "info",
+    },
+    {
+      timestamp: "1 hr ago",
+      eventType: "FAILED_LOGIN",
+      user: "Unknown",
+      ipAddress: "45.33.12.9",
+      details: "Invalid credentials for 'admin'.",
+      color: "error",
+    },
+    {
+      timestamp: "2 hrs ago",
+      eventType: "SYS_UPDATE",
+      user: "System",
+      ipAddress: "Internal",
+      details: "Database backup completed successfully.",
+      color: "success",
+    },
+  ];
+  const normalizedLogSearch = logSearchQuery.trim().toLowerCase();
+  const filteredSecurityLogs = securityLogs.filter((log) =>
+    Object.values(log)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedLogSearch),
+  );
 
   // Manage User Modal
   const [selectedUser, setSelectedUser] = useState(null);
@@ -770,14 +813,29 @@ export default function AdminDashboard() {
           {currentTab === "logs" && (
             <Paper sx={{ p: 3, borderRadius: 2 }}>
               <Box
-                sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 2,
+                  flexWrap: "wrap",
+                  mb: 3,
+                }}
               >
                 <Typography variant="h6" fontWeight={700}>
                   System Security Logs
                 </Typography>
-                <Button size="small" variant="outlined">
-                  Export CSV
-                </Button>
+                <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+                  <TextField
+                    size="small"
+                    placeholder="Search logs..."
+                    value={logSearchQuery}
+                    onChange={(event) => setLogSearchQuery(event.target.value)}
+                  />
+                  <Button size="small" variant="outlined">
+                    Export CSV
+                  </Button>
+                </Box>
               </Box>
               <TableContainer>
                 <Table size="small">
@@ -791,46 +849,26 @@ export default function AdminDashboard() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    <TableRow hover>
-                      <TableCell>Just now</TableCell>
-                      <TableCell>
-                        <Chip size="small" color="warning" label="AUTH_LOGIN" />
-                      </TableCell>
-                      <TableCell>Admin (You)</TableCell>
-                      <TableCell>192.168.1.42</TableCell>
-                      <TableCell>Successful login via portal.</TableCell>
-                    </TableRow>
-                    <TableRow hover>
-                      <TableCell>10 mins ago</TableCell>
-                      <TableCell>
-                        <Chip size="small" color="info" label="USER_CREATED" />
-                      </TableCell>
-                      <TableCell>System</TableCell>
-                      <TableCell>N/A</TableCell>
-                      <TableCell>
-                        New user 'johndoe' registered as driver.
-                      </TableCell>
-                    </TableRow>
-                    <TableRow hover>
-                      <TableCell>1 hr ago</TableCell>
-                      <TableCell>
-                        <Chip size="small" color="error" label="FAILED_LOGIN" />
-                      </TableCell>
-                      <TableCell>Unknown</TableCell>
-                      <TableCell>45.33.12.9</TableCell>
-                      <TableCell>Invalid credentials for 'admin'.</TableCell>
-                    </TableRow>
-                    <TableRow hover>
-                      <TableCell>2 hrs ago</TableCell>
-                      <TableCell>
-                        <Chip size="small" color="success" label="SYS_UPDATE" />
-                      </TableCell>
-                      <TableCell>System</TableCell>
-                      <TableCell>Internal</TableCell>
-                      <TableCell>
-                        Database backup completed successfully.
-                      </TableCell>
-                    </TableRow>
+                    {filteredSecurityLogs.map((log) => (
+                      <TableRow hover key={`${log.timestamp}-${log.eventType}`}>
+                        <TableCell>{log.timestamp}</TableCell>
+                        <TableCell>
+                          <Chip size="small" color={log.color} label={log.eventType} />
+                        </TableCell>
+                        <TableCell>{log.user}</TableCell>
+                        <TableCell>{log.ipAddress}</TableCell>
+                        <TableCell>{log.details}</TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredSecurityLogs.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                          <Typography color="text.secondary">
+                            No logs found matching "{logSearchQuery}"
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </TableContainer>

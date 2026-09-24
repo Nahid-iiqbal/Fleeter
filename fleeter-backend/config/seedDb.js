@@ -621,7 +621,7 @@ const seedDatabase = async () => {
       {
         key: "apex",
         companyName: "Apex Logistics Inc.",
-        ownerUsername: "owner",
+        ownerUsername: "apex_boss",
         ownerEmail: "owner@fleeter.com",
         ownerFullName: "Adrian Mitchell",
 
@@ -646,7 +646,7 @@ const seedDatabase = async () => {
 
         drivers: [
           {
-            username: "driver",
+            username: "marcus_w",
             email: "driver@fleeter.com",
             fullName: "Marcus Wright",
             phone: "555-0110",

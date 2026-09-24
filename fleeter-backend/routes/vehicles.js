@@ -226,6 +226,68 @@ router.get(
   },
 );
 
+// GET /api/vehicles/:vehicleId/incidents - incidents linked to the vehicle
+router.get(
+  "/:vehicleId/incidents",
+  verifyToken,
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    try {
+      const ownerId = await getOwnerId(req.user.user_id);
+      const result = await pool.query(
+        `
+          SELECT i.incident_id, i.incident_date, i.type, i.description,
+            i.severity, i.damage_cost, i.reported_to, i.resolved,
+            t.trip_id, d.driver_id, d.full_name AS driver_name
+          FROM Incident i
+          JOIN Trip t ON t.trip_id = i.trip_id
+          JOIN Driver d ON d.driver_id = t.driver_id
+          JOIN Vehicle v ON v.vehicle_id = t.vehicle_id
+          WHERE v.vehicle_id = $1 AND v.owner_id = $2
+          ORDER BY i.incident_date DESC, i.incident_id DESC
+        `,
+        [req.params.vehicleId, ownerId],
+      );
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching vehicle incidents:", error);
+      res.status(500).json({ message: "Failed to fetch vehicle incidents" });
+    }
+  },
+);
+
+// GET /api/vehicles/:vehicleId/maintenance - maintenance linked to the vehicle
+router.get(
+  "/:vehicleId/maintenance",
+  verifyToken,
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    try {
+      const ownerId = await getOwnerId(req.user.user_id);
+      const result = await pool.query(
+        `
+          SELECT m.maintenance_id, m.service_date, m.service_type,
+            m.description, m.cost, m.workshop, m.mechanic_name,
+            m.odometer_km, m.next_due_date, m.next_due_km,
+            u.full_name AS logged_by_name
+          FROM Maintenance m
+          JOIN Vehicle v ON v.vehicle_id = m.vehicle_id
+          LEFT JOIN User_Account u ON u.user_id = m.logged_by
+          WHERE m.vehicle_id = $1 AND v.owner_id = $2
+          ORDER BY m.service_date DESC, m.maintenance_id DESC
+        `,
+        [req.params.vehicleId, ownerId],
+      );
+
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching vehicle maintenance:", error);
+      res.status(500).json({ message: "Failed to fetch vehicle maintenance" });
+    }
+  },
+);
+
 // POST /api/vehicles/:vehicleId/documents (Upload Vehicle Document)
 router.post(
   "/:vehicleId/documents",

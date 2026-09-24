@@ -1,7 +1,10 @@
 const router = require("express").Router();
 const bcrypt = require("bcrypt");
+const upload = require("../middleware/upload");
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
+const fs = require("fs");
+const path = require("path");
 const { verifyToken } = require("../middleware/authMiddleware");
 
 const rateLimit = require("express-rate-limit");
@@ -13,6 +16,16 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+let profilePictureColumnPromise;
+const ensureProfilePictureColumn = () => {
+  if (!profilePictureColumnPromise) {
+    profilePictureColumnPromise = db.query(
+      "ALTER TABLE User_Account ADD COLUMN IF NOT EXISTS profile_picture_url TEXT",
+    );
+  }
+  return profilePictureColumnPromise;
+};
 
 // POST /api/fleeter/auth/login
 router.post("/login", authLimiter, async (req, res) => {
@@ -169,8 +182,9 @@ router.post("/logout", verifyToken, async (req, res) => {
 // GET /api/auth/account
 router.get("/account", verifyToken, async (req, res) => {
   try {
+    await ensureProfilePictureColumn();
     const userQuery = await db.query(
-      "SELECT u.username, u.email, u.full_name, u.phone, u.address, u.theme, u.notifications_enabled, u.role, o.company_name FROM User_Account u LEFT JOIN Owner_Profile o ON u.user_id = o.user_id WHERE u.user_id = $1",
+      "SELECT u.username, u.email, u.full_name, u.phone, u.address, u.profile_picture_url, u.theme, u.notifications_enabled, u.role, o.company_name FROM User_Account u LEFT JOIN Owner_Profile o ON u.user_id = o.user_id WHERE u.user_id = $1",
       [req.user.user_id],
     );
     if (userQuery.rows.length === 0)
@@ -181,6 +195,89 @@ router.get("/account", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch account." });
   }
 });
+
+// PUT /api/auth/account/profile-picture
+router.put(
+  "/account/profile-picture",
+  verifyToken,
+  upload.single("profile_picture"),
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "A profile picture is required." });
+    }
+
+    try {
+      await ensureProfilePictureColumn();
+      const previousPicture = await db.query(
+        "SELECT profile_picture_url FROM User_Account WHERE user_id = $1",
+        [req.user.user_id],
+      );
+      const previousPictureUrl = previousPicture.rows[0]?.profile_picture_url;
+      const profilePictureUrl = `/uploads/${req.file.filename}`;
+      await db.query(
+        "UPDATE User_Account SET profile_picture_url = $1 WHERE user_id = $2",
+        [profilePictureUrl, req.user.user_id],
+      );
+
+      if (previousPictureUrl?.startsWith("/uploads/")) {
+        const previousPicturePath = path.join(
+          __dirname,
+          "..",
+          previousPictureUrl,
+        );
+        await fs.promises.unlink(previousPicturePath).catch((unlinkError) => {
+          if (unlinkError.code !== "ENOENT") {
+            console.warn("Could not delete previous profile picture:", unlinkError);
+          }
+        });
+      }
+
+      res.json({ profile_picture_url: profilePictureUrl });
+    } catch (error) {
+      console.error("Error updating profile picture:", error);
+      res.status(500).json({ error: "Failed to update profile picture." });
+    }
+  },
+);
+
+// DELETE /api/auth/account/profile-picture
+router.delete(
+  "/account/profile-picture",
+  verifyToken,
+  async (req, res) => {
+    try {
+      await ensureProfilePictureColumn();
+      const previousPicture = await db.query(
+        "SELECT profile_picture_url FROM User_Account WHERE user_id = $1",
+        [req.user.user_id],
+      );
+      const previousPictureUrl = previousPicture.rows[0]?.profile_picture_url;
+
+      await db.query(
+        "UPDATE User_Account SET profile_picture_url = NULL WHERE user_id = $1",
+        [req.user.user_id],
+      );
+
+      if (previousPictureUrl?.startsWith("/uploads/")) {
+        const previousPicturePath = path.join(
+          __dirname,
+          "..",
+          previousPictureUrl,
+        );
+        await fs.promises.unlink(previousPicturePath).catch((unlinkError) => {
+          if (unlinkError.code !== "ENOENT") {
+            console.warn("Could not delete profile picture:", unlinkError);
+          }
+        });
+      }
+
+      res.json({ message: "Profile picture deleted." });
+    } catch (error) {
+      console.error("Error deleting profile picture:", error);
+      res.status(500).json({ error: "Failed to delete profile picture." });
+    }
+  },
+);
 
 // PATCH /api/auth/settings (partial update for theme and notifications)
 router.patch("/settings", verifyToken, async (req, res) => {

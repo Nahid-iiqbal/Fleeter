@@ -141,7 +141,14 @@ const upsertCompanyAlerts = async (companyId) => {
     referenceId: row.incident_id,
     title: row.title,
     about: row.about,
-    description: `Incident type: ${row.type}. Severity: ${row.severity || "not specified"}. Driver notes: ${row.description || "No driver notes provided."}${row.reported_to ? ` Reported to: ${row.reported_to}.` : ""}${row.damage_cost ? ` Damage cost: ${row.damage_cost}.` : ""}${row.image_url ? " Evidence image attached." : ""}`,
+    description: [
+      `Incident type: ${row.type}.`,
+      `Severity: ${row.severity || "not specified"}.`,
+      row.reported_to ? `Reported to: ${row.reported_to}.` : null,
+      row.damage_cost ? `Damage cost: ${row.damage_cost}.` : null,
+      row.image_url ? "Evidence image attached." : null,
+      `Driver notes: ${row.description || "No driver notes provided."}`,
+    ].filter(Boolean).join("\n"),
     severity: row.severity || "high",
     metadata: {
       trip_id: row.trip_id || null,
@@ -184,7 +191,15 @@ const upsertCompanyAlerts = async (companyId) => {
     referenceId: row.maintenance_id,
     title: `Maintenance needed for ${row.registration_no}`,
     about: row.service_type,
-    description: `Maintenance type: ${row.service_type}. Driver notes: ${row.description || "No maintenance notes provided."}${row.workshop ? ` Workshop: ${row.workshop}.` : ""}${row.mechanic_name ? ` Mechanic: ${row.mechanic_name}.` : ""}${row.cost !== null ? ` Cost: ${row.cost}.` : ""}${row.odometer_km !== null ? ` Odometer: ${row.odometer_km} km.` : ""}${row.next_due_km !== null ? ` Next due at: ${row.next_due_km} km.` : ""}`,
+    description: [
+      `Maintenance type: ${row.service_type}.`,
+      row.workshop ? `Workshop: ${row.workshop}.` : null,
+      row.mechanic_name ? `Mechanic: ${row.mechanic_name}.` : null,
+      row.cost !== null ? `Cost: ${row.cost}.` : null,
+      row.odometer_km !== null ? `Odometer: ${row.odometer_km} km.` : null,
+      row.next_due_km !== null ? `Next due at: ${row.next_due_km} km.` : null,
+      `Driver notes: ${row.description || "No maintenance notes provided."}`,
+    ].filter(Boolean).join("\n"),
     severity: "medium",
     deadline: row.deadline ? new Date(row.deadline).toISOString() : null,
     metadata: {
@@ -790,6 +805,53 @@ router.post(
     } catch (error) {
       console.error("Error resolving alert:", error);
       res.status(500).json({ message: "Failed to resolve alert." });
+    }
+  },
+);
+
+router.delete(
+  "/alerts/:alertType/:alertId",
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const companyId = await getCompanyId(req.user.user_id);
+      if (!companyId) {
+        return res
+          .status(403)
+          .json({ message: "Company membership required." });
+      }
+
+      await client.query("BEGIN");
+      const result = await client.query(
+        `
+          DELETE FROM System_Alert
+          WHERE owner_id = $1 AND alert_type = $2 AND alert_id = $3
+          RETURNING reference_type, reference_id
+        `,
+        [companyId, req.params.alertType, Number(req.params.alertId)],
+      );
+
+      if (result.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Alert not found." });
+      }
+
+      const alert = result.rows[0];
+      if (alert.reference_type === "fuel_log") {
+        await client.query("DELETE FROM Fuel_Log WHERE fuel_id = $1", [
+          alert.reference_id,
+        ]);
+      }
+
+      await client.query("COMMIT");
+      res.json({ message: "Alert deleted." });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Error deleting company alert:", error);
+      res.status(500).json({ message: "Failed to delete alert." });
+    } finally {
+      client.release();
     }
   },
 );

@@ -47,6 +47,7 @@ function TripsTable({
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [tableSearch, setTableSearch] = useState("");
   const [driverSearch, setDriverSearch] = useState("");
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [tripFormState, setTripFormState] = useState({
@@ -107,10 +108,25 @@ function TripsTable({
     }
   };
 
+  const normalizedTableSearch = tableSearch.trim().toLowerCase();
+  const filteredTrips = trips.filter((trip) =>
+    [
+      trip.origin,
+      trip.destination,
+      trip.driver_name,
+      trip.registration_no,
+      trip.cargo_type,
+      trip.status,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedTableSearch),
+  );
   const grouped = {
-    in_progress: trips.filter((trip) => trip.status === "in_progress"),
-    scheduled: trips.filter((trip) => trip.status === "scheduled"),
-    completed: trips.filter((trip) => trip.status === "completed"),
+    in_progress: filteredTrips.filter((trip) => trip.status === "in_progress"),
+    scheduled: filteredTrips.filter((trip) => trip.status === "scheduled"),
+    completed: filteredTrips.filter((trip) => trip.status === "completed"),
   };
 
   const getStatusColor = (status) => {
@@ -147,6 +163,13 @@ function TripsTable({
         <Typography variant="h6" fontWeight={700}>
           Trip Management
         </Typography>
+        <TextField
+          size="small"
+          placeholder="Search trips..."
+          value={tableSearch}
+          onChange={(event) => setTableSearch(event.target.value)}
+          sx={{ minWidth: { xs: "100%", sm: 220 } }}
+        />
         <Box sx={{ display: "flex", gap: 1.5 }}>
           <Button
             variant="outlined"

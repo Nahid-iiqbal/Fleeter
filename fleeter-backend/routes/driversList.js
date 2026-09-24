@@ -4,9 +4,20 @@ const router = express.Router();
 const pool = require("../config/db");
 const { verifyToken } = require("../middleware/authMiddleware");
 
+let profilePictureColumnPromise;
+const ensureProfilePictureColumn = () => {
+  if (!profilePictureColumnPromise) {
+    profilePictureColumnPromise = pool.query(
+      "ALTER TABLE User_Account ADD COLUMN IF NOT EXISTS profile_picture_url TEXT",
+    );
+  }
+  return profilePictureColumnPromise;
+};
+
 // GET /api/drivers
 router.get("/", verifyToken, async (req, res) => {
   try {
+    await ensureProfilePictureColumn();
     const result = await pool.query(
       `
       SELECT
@@ -55,6 +66,7 @@ router.get("/", verifyToken, async (req, res) => {
 // GET /api/drivers/:driverId
 router.get("/:driverId", verifyToken, async (req, res) => {
   try {
+    await ensureProfilePictureColumn();
     const { driverId } = req.params;
 
     const result = await pool.query(
@@ -68,6 +80,7 @@ router.get("/:driverId", verifyToken, async (req, res) => {
           d.created_at,
           u.username,
           u.email,
+          u.profile_picture_url,
           document.document_no,
           document.document_type,
           document.document_no AS license_no,
@@ -130,6 +143,35 @@ router.get("/:driverId/documents", verifyToken, async (req, res) => {
   } catch (error) {
     console.error("Error fetching driver documents:", error);
     res.status(500).json({ message: "Failed to fetch driver documents" });
+  }
+});
+
+// GET /api/drivers/:driverId/incidents - incidents linked to the driver's trips
+router.get("/:driverId/incidents", verifyToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+        SELECT i.incident_id, i.incident_date, i.type, i.description,
+          i.severity, i.damage_cost, i.reported_to, i.resolved,
+          t.trip_id, v.registration_no
+        FROM Incident i
+        JOIN Trip t ON t.trip_id = i.trip_id
+        JOIN Vehicle v ON v.vehicle_id = t.vehicle_id
+        JOIN Driver d ON d.driver_id = t.driver_id
+        WHERE d.driver_id = $1
+          AND ($2 = 'admin' OR d.owner_id = COALESCE(
+            (SELECT owner_id FROM Owner_Profile WHERE user_id = $3),
+            (SELECT owner_id FROM Manager_Profile WHERE user_id = $3)
+          ))
+        ORDER BY i.incident_date DESC, i.incident_id DESC
+      `,
+      [req.params.driverId, req.user.role, req.user.user_id],
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error("Error fetching driver incidents:", error);
+    res.status(500).json({ message: "Failed to fetch driver incidents" });
   }
 });
 

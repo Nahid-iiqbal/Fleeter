@@ -23,6 +23,9 @@ function DriverDetails({ driverId, onBack }) {
 
   const [driver, setDriver] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [incidents, setIncidents] = useState([]);
+  const [showDocuments, setShowDocuments] = useState(false);
+  const [showIncidents, setShowIncidents] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -31,12 +34,14 @@ function DriverDetails({ driverId, onBack }) {
       try {
         setLoading(true);
         setError("");
-        const [data, documentData] = await Promise.all([
+        const [data, documentData, incidentData] = await Promise.all([
           apiFetch(`/api/drivers/${driverId}`),
           apiFetch(`/api/drivers/${driverId}/documents`),
+          apiFetch(`/api/drivers/${driverId}/incidents`),
         ]);
         setDriver(data);
         setDocuments(documentData);
+        setIncidents(incidentData);
       } catch (err) {
         console.error("Error loading driver:", err);
         setError(err.message || "Unable to load driver information.");
@@ -153,6 +158,11 @@ function DriverDetails({ driverId, onBack }) {
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 2.5 }}>
             <Avatar
+              src={
+                driver.profile_picture_url
+                  ? `http://localhost:5000${driver.profile_picture_url}`
+                  : undefined
+              }
               sx={{
                 width: 70,
                 height: 70,
@@ -246,12 +256,35 @@ function DriverDetails({ driverId, onBack }) {
 
       <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
         <CardContent sx={{ p: 3 }}>
-          <Typography variant="h6" fontWeight={700} mb={3}>Driver Documents</Typography>
-          {documents.length === 0 ? (
-            <Typography color="text.secondary" fontStyle="italic">No documents uploaded.</Typography>
-          ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {documents.map((document) => {
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 2,
+              mb: showDocuments ? 3 : 0,
+            }}
+          >
+            <Box>
+              <Typography variant="h6" fontWeight={700}>
+                Driver Documents
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {documents.length} document{documents.length !== 1 ? "s" : ""} on file.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              onClick={() => setShowDocuments((visible) => !visible)}
+            >
+              {showDocuments ? "Hide Documents" : "View Documents"}
+            </Button>
+          </Box>
+          {showDocuments && <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
+            {documents.length === 0 ? (
+              <Typography color="text.secondary" fontStyle="italic">No documents uploaded.</Typography>
+            ) : (
+              documents.map((document) => {
                 const expired = new Date(document.expiry_date) < new Date();
                 return (
                   <Paper key={document.document_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider", borderLeft: 6, borderLeftColor: expired ? "error.main" : "success.main", display: "flex", gap: 2, alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -287,7 +320,42 @@ function DriverDetails({ driverId, onBack }) {
                     </Box>
                   </Paper>
                 );
-              })}
+              })
+            )}
+          </Box>}
+        </CardContent>
+      </Card>
+
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
+        <CardContent sx={{ p: 3 }}>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: showIncidents ? 3 : 0 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={700}>Incidents</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {incidents.length} incident{incidents.length !== 1 ? "s" : ""} recorded.
+              </Typography>
+            </Box>
+            <Button variant="outlined" onClick={() => setShowIncidents((visible) => !visible)}>
+              {showIncidents ? "Hide Incidents" : "View Incidents"}
+            </Button>
+          </Box>
+          {showIncidents && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
+              {incidents.length === 0 ? (
+                <Typography color="text.secondary" fontStyle="italic">No incidents recorded.</Typography>
+              ) : incidents.map((incident) => (
+                <Paper key={incident.incident_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider" }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
+                    <Typography variant="subtitle1" fontWeight={700}>{incident.type}</Typography>
+                    <Chip label={incident.resolved ? "Resolved" : "Open"} color={incident.resolved ? "success" : "error"} size="small" />
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    {incident.incident_date ? new Date(incident.incident_date).toLocaleString() : "Date not provided"} · Trip #{incident.trip_id} · {incident.registration_no}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>{incident.description || "No notes provided."}</Typography>
+                  {incident.severity && <Typography variant="body2" color="text.secondary">Severity: {incident.severity}</Typography>}
+                </Paper>
+              ))}
             </Box>
           )}
         </CardContent>

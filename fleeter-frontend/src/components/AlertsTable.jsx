@@ -11,9 +11,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
+  InputAdornment,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import DeleteIcon from "@mui/icons-material/Delete";
+import SearchIcon from "@mui/icons-material/Search";
 import {
   getAlertStatusColor,
   getAlertTypeColor,
@@ -25,12 +29,31 @@ function AlertsTable({
   alertsLoading,
   onRefresh,
   onAlertClick,
+  onDriverClick,
   onResolve,
+  onDelete,
 }) {
-  const unresolvedAlerts = alerts.filter(
-    (alert) => alert.status !== "resolved",
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredAlerts = alerts.filter((alert) =>
+    [
+      alert.alert_type,
+      alert.about,
+      alert.metadata?.driver_name,
+      alert.status,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedSearch),
   );
-  const resolvedAlerts = alerts.filter((alert) => alert.status === "resolved");
+  const unresolvedAlerts = alerts.filter(
+    (alert) =>
+      alert.status !== "resolved" && filteredAlerts.includes(alert),
+  );
+  const resolvedAlerts = filteredAlerts.filter(
+    (alert) => alert.status === "resolved",
+  );
 
   const renderTable = (rows, emptyText, showResolvedButton = true) => {
     if (rows.length === 0) {
@@ -55,7 +78,7 @@ function AlertsTable({
           <TableHead sx={{ bgcolor: "background.default" }}>
             <TableRow>
               <TableCell>Type</TableCell>
-              <TableCell>About</TableCell>
+              <TableCell>Alert origin</TableCell>
               <TableCell>Timestamp</TableCell>
               <TableCell>Deadline</TableCell>
               <TableCell>Status</TableCell>
@@ -79,28 +102,21 @@ function AlertsTable({
                   />
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2" fontWeight={600}>{alert.about || alert.title || 'System alert'}</Typography>
-                  {alert.metadata?.driver_name && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      Driver: {alert.metadata.driver_name}
-                    </Typography>
-                  )}
-                  {alert.metadata?.document_type && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      Document: {alert.metadata.document_type.replaceAll('_', ' ')}
-                    </Typography>
-                  )}
-                  {alert.metadata?.issue_date && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      Issued: {new Date(alert.metadata.issue_date).toLocaleDateString()}
-                    </Typography>
-                  )}
-                  <Typography variant="caption" display="block" color="text.secondary">
-                    Expiry: {alert.metadata?.expiry_date ? new Date(alert.metadata.expiry_date).toLocaleDateString() : 'Missing'}
-                  </Typography>
-                  {alert.description && (
-                    <Typography variant="caption" color="text.secondary">
-                      {alert.description}
+                  {alert.metadata?.driver_id ? (
+                    <Button
+                      variant="text"
+                      color="primary"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDriverClick(alert.metadata.driver_id);
+                      }}
+                      sx={{ p: 0, minWidth: 0, textTransform: "none", fontWeight: 600 }}
+                    >
+                      {alert.metadata.driver_name || "View driver"}
+                    </Button>
+                  ) : (
+                    <Typography variant="body2" fontWeight={600}>
+                      System generated
                     </Typography>
                   )}
                 </TableCell>
@@ -143,6 +159,17 @@ function AlertsTable({
                         : "Mark resolved"}
                     </Button>
                   )}
+                  {!showResolvedButton && (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => onDelete(alert.alert_type, alert.alert_id)}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -177,6 +204,20 @@ function AlertsTable({
         <Typography variant="h6" fontWeight={700}>
           System Alerts
         </Typography>
+        <TextField
+          size="small"
+          placeholder="Search alerts..."
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          sx={{ minWidth: { xs: "100%", sm: 240 } }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          }}
+        />
         <Button
           variant="outlined"
           color="primary"

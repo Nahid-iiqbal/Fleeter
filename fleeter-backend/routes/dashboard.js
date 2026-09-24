@@ -20,7 +20,7 @@ router.get("/stats", verifyToken, async (req, res) => {
     }
 
     // We use Promise.all to run these queries at the exact same time for speed
-    const [vehicles, drivers, incidents] = await Promise.all([
+    const [vehicles, drivers, alerts] = await Promise.all([
       pool.query("SELECT COUNT(*) FROM Vehicle WHERE owner_id = $1", [
         companyId,
       ]),
@@ -29,7 +29,7 @@ router.get("/stats", verifyToken, async (req, res) => {
         [companyId],
       ),
       pool.query(
-        "SELECT COUNT(*) FROM Incident i JOIN Trip t ON t.trip_id = i.trip_id WHERE t.owner_id = $1 AND i.resolved = FALSE",
+        "SELECT COUNT(*) FROM System_Alert WHERE owner_id = $1 AND resolved = FALSE",
         [companyId],
       ),
     ]);
@@ -37,7 +37,7 @@ router.get("/stats", verifyToken, async (req, res) => {
     res.json({
       totalVehicles: parseInt(vehicles.rows[0].count),
       activeDrivers: parseInt(drivers.rows[0].count),
-      alerts: parseInt(incidents.rows[0].count),
+      alerts: parseInt(alerts.rows[0].count),
     });
   } catch (err) {
     console.error("Error fetching dashboard stats:", err);
