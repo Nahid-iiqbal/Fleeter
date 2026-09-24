@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Avatar,
@@ -21,6 +22,7 @@ import {
 } from "../utils/alerts";
 
 function AlertDetails({ alertType, alertId, onBack }) {
+  const navigate = useNavigate();
   const [alert, setAlert] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -169,47 +171,32 @@ function AlertDetails({ alertType, alertId, onBack }) {
             Alert information
           </Typography>
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} md={4}>
-              <InfoItem
-                label="Type"
-                value={getAlertTypeLabel(alert.alert_type)}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <InfoItem
-                label="Timestamp"
-                value={
-                  alert.created_at
-                    ? new Date(alert.created_at).toLocaleString()
-                    : "Not provided"
-                }
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <InfoItem
-                label="Deadline"
-                value={
-                  alert.deadline
-                    ? new Date(alert.deadline).toLocaleString()
-                    : "None"
-                }
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <InfoItem label="Status" value={alert.status} />
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <InfoItem
-                label="Reference"
-                value={alert.reference_label || "—"}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={4}>
-              <InfoItem
-                label="Severity"
-                value={alert.severity || "Not specified"}
-              />
-            </Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Type" value={getAlertTypeLabel(alert.alert_type)} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Timestamp" value={alert.created_at ? new Date(alert.created_at).toLocaleString() : 'Not provided'} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Deadline" value={alert.deadline ? new Date(alert.deadline).toLocaleString() : 'None'} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Status" value={alert.status} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Reference" value={alert.reference_label || '—'} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Severity" value={alert.severity || 'Not specified'} /></Grid>
+            {alert.metadata?.driver_id && (
+              <Grid item xs={12} sm={6} md={4}>
+                <LinkInfoItem label="Driver" value={alert.metadata.driver_name} onClick={() => navigate(`/dashboard/drivers/${alert.metadata.driver_id}`)} />
+              </Grid>
+            )}
+            {alert.metadata?.vehicle_id && (
+              <Grid item xs={12} sm={6} md={4}>
+                <LinkInfoItem label="Vehicle" value={alert.metadata.vehicle_name || alert.metadata.vehicle_registration} onClick={() => navigate(`/dashboard/vehicles/${alert.metadata.vehicle_id}`)} />
+              </Grid>
+            )}
+            {alert.metadata?.document_type && <Grid item xs={12} sm={6} md={4}><InfoItem label="Document" value={alert.metadata.document_type.replaceAll('_', ' ')} /></Grid>}
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Issue date" value={alert.metadata?.issue_date || 'Missing'} /></Grid>
+            <Grid item xs={12} sm={6} md={4}><InfoItem label="Expiry date" value={alert.metadata?.expiry_date || 'Missing'} /></Grid>
+            {alert.metadata?.station_name && <Grid item xs={12} sm={6} md={4}><InfoItem label="Station" value={alert.metadata.station_name} /></Grid>}
+            {alert.metadata?.liters !== undefined && <Grid item xs={12} sm={6} md={4}><InfoItem label="Fuel quantity" value={`${alert.metadata.liters} liters`} /></Grid>}
+            {alert.metadata?.cost_per_liter !== undefined && <Grid item xs={12} sm={6} md={4}><InfoItem label="Cost per liter" value={alert.metadata.cost_per_liter} /></Grid>}
+            {alert.metadata?.workshop && <Grid item xs={12} sm={6} md={4}><InfoItem label="Workshop" value={alert.metadata.workshop} /></Grid>}
+            {alert.metadata?.mechanic_name && <Grid item xs={12} sm={6} md={4}><InfoItem label="Mechanic" value={alert.metadata.mechanic_name} /></Grid>}
+            {alert.metadata?.reported_to && <Grid item xs={12} sm={6} md={4}><InfoItem label="Reported to" value={alert.metadata.reported_to} /></Grid>}
+            {alert.metadata?.damage_cost !== null && alert.metadata?.damage_cost !== undefined && <Grid item xs={12} sm={6} md={4}><InfoItem label="Damage cost" value={alert.metadata.damage_cost} /></Grid>}
           </Grid>
         </CardContent>
       </Card>
@@ -244,6 +231,19 @@ function InfoItem({ label, value }) {
       <Typography variant="body1" fontWeight={500} color="text.primary">
         {value || "Not provided"}
       </Typography>
+    </Box>
+  );
+}
+
+function LinkInfoItem({ label, value, onClick }) {
+  return (
+    <Box>
+      <Typography variant="overline" color="text.secondary" display="block" lineHeight={1.2} mb={0.5}>
+        {label}
+      </Typography>
+      <Button onClick={onClick} sx={{ p: 0, minWidth: 0, justifyContent: 'flex-start', textTransform: 'none', fontWeight: 500 }}>
+        {value || 'Not provided'}
+      </Button>
     </Box>
   );
 }

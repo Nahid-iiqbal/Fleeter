@@ -346,12 +346,8 @@ function DriverDashboard() {
   const executeDelete = async () => {
     if (!deleteConfirmId) return;
     try {
-      await apiFetch(`/api/driver/documents/${deleteConfirmId}`, {
-        method: "DELETE",
-      });
-      setDriverDocs(
-        driverDocs.filter((doc) => doc.document_id !== deleteConfirmId),
-      );
+      await apiFetch(`/api/driver/documents/${deleteConfirmId}`, { method: "DELETE" });
+      setDriverDocs(driverDocs.filter((doc) => doc.document_id !== deleteConfirmId));
       setDeleteConfirmId(null);
       setIsAddDocModalOpen(false);
     } catch (error) {
@@ -490,7 +486,7 @@ function DriverDashboard() {
     formData.append("trip_id", activeTrip?.trip_id);
 
     try {
-      const response = await fetch("/api/driver/log-incident", {
+      const response = await fetch("http://localhost:5000/api/driver/log-incident", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -498,7 +494,7 @@ function DriverDashboard() {
         body: formData,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (response.ok) {
         setIncidentSuccess("Incident reported successfully.");
