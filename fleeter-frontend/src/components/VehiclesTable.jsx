@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import AddVehicleDialog from "./AddVehicleDialog";
 
 const getVehicleStatusColor = (status) => {
   const normalizedStatus = String(status || "")
@@ -121,6 +122,7 @@ function VehiclesTable({
           >
             Refresh
           </Button>
+          <AddVehicleDialog onCreated={onRefresh} />
         </Box>
       </Box>
 

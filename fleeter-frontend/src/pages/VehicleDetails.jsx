@@ -29,12 +29,14 @@ import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 function VehicleDetails({ vehicleId, onBack }) {
   const [vehicle, setVehicle] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [images, setImages] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [maintenance, setMaintenance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [showDocuments, setShowDocuments] = useState(false);
+  const [showImages, setShowImages] = useState(false);
   const [showIncidents, setShowIncidents] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
   const [editDocumentId, setEditDocumentId] = useState(null);
@@ -45,19 +47,34 @@ function VehicleDetails({ vehicleId, onBack }) {
     isError: false,
   });
 
+  const handleImageDelete = async (imageId) => {
+    try {
+      await apiFetch(`/api/vehicles/${vehicleId}/images/${imageId}`, {
+        method: "DELETE",
+      });
+      setImages((currentImages) =>
+        currentImages.filter((image) => image.image_id !== imageId),
+      );
+    } catch (err) {
+      setError(err.message || "Failed to delete vehicle image.");
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError("");
-        const [vehicleData, docsData, incidentData, maintenanceData] = await Promise.all([
+        const [vehicleData, docsData, imageData, incidentData, maintenanceData] = await Promise.all([
           apiFetch(`/api/vehicles/${vehicleId}`),
           apiFetch(`/api/vehicles/${vehicleId}/documents`).catch(() => []),
+          apiFetch(`/api/vehicles/${vehicleId}/images`).catch(() => []),
           apiFetch(`/api/vehicles/${vehicleId}/incidents`).catch(() => []),
           apiFetch(`/api/vehicles/${vehicleId}/maintenance`).catch(() => []),
         ]);
         setVehicle(vehicleData);
         setDocuments(docsData);
+        setImages(imageData);
         setIncidents(incidentData);
         setMaintenance(maintenanceData);
       } catch (err) {
@@ -332,6 +349,25 @@ function VehicleDetails({ vehicleId, onBack }) {
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <InfoItem label="Fuel Type" value={vehicle.fuel_type} />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Typography variant="overline" color="text.secondary" display="block" lineHeight={1.2} mb={0.5}>
+                Registration Document
+              </Typography>
+              {vehicle.registration_document_url ? (
+                <Button
+                  href={`http://localhost:5000${vehicle.registration_document_url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  startIcon={<OpenInNewIcon />}
+                  size="small"
+                  sx={{ px: 0, justifyContent: "flex-start" }}
+                >
+                  View document
+                </Button>
+              ) : (
+                <Typography variant="body1" fontWeight={500}>-</Typography>
+              )}
             </Grid>
           </Grid>
         </CardContent>
@@ -623,6 +659,51 @@ function VehicleDetails({ vehicleId, onBack }) {
           )}
         </CardContent>
       </Card>
+
+      <ExpandableRecordSection
+        title="Vehicle Images"
+        count={images.length}
+        itemLabel="image"
+        open={showImages}
+        onToggle={() => setShowImages((visible) => !visible)}
+      >
+        {images.length === 0 ? (
+          <Typography color="text.secondary" fontStyle="italic">
+            No vehicle images uploaded.
+          </Typography>
+        ) : (
+          <Grid container spacing={2}>
+            {images.map((image) => (
+              <Grid item xs={12} sm={6} md={4} key={image.image_id}>
+                <Paper elevation={0} sx={{ border: 1, borderColor: "divider", overflow: "hidden" }}>
+                  <Box
+                    component="a"
+                    href={`http://localhost:5000${image.image_url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ display: "block" }}
+                  >
+                    <Box
+                      component="img"
+                      src={`http://localhost:5000${image.image_url}`}
+                      alt={`Vehicle ${vehicle.registration_no}`}
+                      sx={{ width: "100%", height: 180, objectFit: "cover", display: "block" }}
+                    />
+                  </Box>
+                  <Button
+                    color="error"
+                    size="small"
+                    onClick={() => handleImageDelete(image.image_id)}
+                    sx={{ m: 1 }}
+                  >
+                    Delete image
+                  </Button>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </ExpandableRecordSection>
 
       <ExpandableRecordSection
         title="Incidents"

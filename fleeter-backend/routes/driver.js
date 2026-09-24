@@ -4,6 +4,7 @@ const pool = require("../config/db");
 const upload = require("../middleware/upload");
 const { verifyToken, authorizeRole } = require("../middleware/authMiddleware");
 const bcrypt = require("bcrypt");
+const { deleteUploadFile } = require("../utils/uploadFiles");
 
 // Middleware to resolve driver_id for the authenticated user
 // This prevents us from having to run this query in every single route
@@ -490,6 +491,10 @@ router.put(
 
     const { document_type, document_no, issue_date, expiry_date } = req.body;
     let documentUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+    const previousDocument = await pool.query(
+      "SELECT document_url FROM Driver_Document WHERE document_id = $1 AND driver_id = $2",
+      [documentId, req.driver_id],
+    );
 
     try {
       let updateQuery = `
@@ -516,6 +521,10 @@ router.put(
         return res
           .status(404)
           .json({ error: "Document not found or you do not own it." });
+      }
+
+      if (documentUrl) {
+        await deleteUploadFile(previousDocument.rows[0]?.document_url);
       }
 
       res.json({
@@ -633,6 +642,7 @@ router.delete("/documents/:id", async (req, res) => {
         .json({ error: "Forbidden: Document not found or you do not own it." });
     }
 
+    await deleteUploadFile(deleteResult.rows[0].document_url);
     res.json({ message: "Document deleted successfully" });
   } catch (error) {
     console.error("Error deleting document:", error);

@@ -24,6 +24,7 @@ const initializeDatabase = async () => {
       DROP TABLE IF EXISTS Vehicle_Telemetry CASCADE;
       DROP TABLE IF EXISTS System_Alert CASCADE;
       DROP TABLE IF EXISTS Vehicle_Document CASCADE;
+      DROP TABLE IF EXISTS Vehicle_Image CASCADE;
       DROP TABLE IF EXISTS Driver_Document CASCADE;
       DROP TABLE IF EXISTS Incident CASCADE;
       DROP TABLE IF EXISTS Fuel_Log CASCADE;
@@ -129,7 +130,16 @@ const initializeDatabase = async () => {
         condition_status VARCHAR(20) DEFAULT 'good'
           CHECK (condition_status IN ('good', 'needs_service', 'in_maintenance', 'retired')),
         availability_status VARCHAR(20) DEFAULT 'available'
-          CHECK (availability_status IN ('available', 'dispatched', 'reserved', 'unavailable'))
+          CHECK (availability_status IN ('available', 'dispatched', 'reserved', 'unavailable')),
+        registration_document_url TEXT
+      );
+
+      -- 5.5 VEHICLE_IMAGE
+      CREATE TABLE Vehicle_Image (
+        image_id SERIAL PRIMARY KEY,
+        vehicle_id INT NOT NULL REFERENCES Vehicle(vehicle_id) ON DELETE CASCADE,
+        image_url TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       );
 
       -- 6. ROUTE
