@@ -101,10 +101,7 @@ router.post("/register", authLimiter, async (req, res) => {
   const ALLOWED_USER_ROLES = ["driver", "owner", "manager"];
   const registeredRole = ALLOWED_USER_ROLES.includes(role) ? role : "driver";
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
-  if (
-    (registeredRole === "driver" || registeredRole === "manager") &&
-    (!firstName?.trim() || !lastName?.trim())
-  ) {
+  if (!firstName?.trim() || !lastName?.trim()) {
     return res
       .status(400)
       .json({ error: "First name and last name are required." });
@@ -128,8 +125,8 @@ router.post("/register", authLimiter, async (req, res) => {
 
     // 3. Insert the new user into the database
     const newUser = await db.query(
-      "INSERT INTO User_Account (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id, username, email, role",
-      [username, email, passwordHash, registeredRole],
+      "INSERT INTO User_Account (username, email, password_hash, role, full_name) VALUES ($1, $2, $3, $4, $5) RETURNING user_id, username, email, role",
+      [username, email, passwordHash, registeredRole, fullName],
     );
 
     if (registeredRole === "owner") {

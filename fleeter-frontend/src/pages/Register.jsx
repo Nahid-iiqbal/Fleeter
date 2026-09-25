@@ -306,8 +306,7 @@ function Register() {
 
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
             <Stack spacing={1.5}>
-              {formData.role !== "owner" && (
-                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                   <TextField
                     name="firstName"
                     label="First Name"
@@ -325,7 +324,6 @@ function Register() {
                     fullWidth
                   />
                 </Stack>
-              )}
               <TextField
                 name="username"
                 label="Username"
