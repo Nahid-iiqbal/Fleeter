@@ -24,6 +24,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import DescriptionIcon from "@mui/icons-material/Description";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import { API_BASE_URL } from "../utils/api";
 
 function DriverDetails({ driverId, onBack }) {
   const navigate = useNavigate();
@@ -198,7 +199,7 @@ function DriverDetails({ driverId, onBack }) {
             <Avatar
               src={
                 driver.profile_picture_url
-                  ? `http://localhost:5000${driver.profile_picture_url}`
+                  ? `${API_BASE_URL}${driver.profile_picture_url}`
                   : undefined
               }
               sx={{
@@ -387,7 +388,7 @@ function DriverDetails({ driverId, onBack }) {
                           ) : (
                             <Box
                               component="img"
-                              src={`http://localhost:5000${document.document_url}`}
+                              src={`${API_BASE_URL}${document.document_url}`}
                               alt={document.document_type}
                               sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                             />
@@ -421,7 +422,7 @@ function DriverDetails({ driverId, onBack }) {
                         {document.document_url && (
                           <Tooltip title="Open Document">
                             <IconButton
-                              href={`http://localhost:5000${document.document_url}`}
+                              href={`${API_BASE_URL}${document.document_url}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               color="primary"

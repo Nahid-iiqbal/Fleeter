@@ -55,6 +55,7 @@ import CompanyRequests from "../components/CompanyRequests";
 import AlertsTable from "../components/AlertsTable";
 import LiveMap from "../components/LiveMap";
 import { apiFetch } from "../utils/api";
+import { API_BASE_URL } from "../utils/api";
 
 const DRAWER_WIDTH = 260;
 function OwnerDashboard() {
@@ -145,7 +146,7 @@ function OwnerDashboard() {
       setDriversLoading(true);
       setDriversError("");
 
-      const response = await fetch("http://localhost:5000/api/drivers", {
+      const response = await fetch(`${API_BASE_URL}/api/drivers`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -193,7 +194,7 @@ function OwnerDashboard() {
     try {
       setVehiclesLoading(true);
 
-      const response = await fetch("http://localhost:5000/api/vehicles", {
+      const response = await fetch(`${API_BASE_URL}/api/vehicles`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -254,7 +255,7 @@ function OwnerDashboard() {
 
     const fetchDashboardData = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/dashboard/stats", {
+      const response = await fetch(`${API_BASE_URL}/api/dashboard/stats`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -375,7 +376,7 @@ function OwnerDashboard() {
       try {
         await fetchAlerts();
         const response = await fetch(
-          "http://localhost:5000/api/dashboard/stats",
+          `${API_BASE_URL}/api/dashboard/stats`,
           {
             method: "GET",
             headers: {

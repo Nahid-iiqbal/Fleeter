@@ -1,3 +1,5 @@
+export const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 export const apiFetch = async (endpoint, options = {}) => {
   const token = localStorage.getItem("token");
 
@@ -10,7 +12,7 @@ export const apiFetch = async (endpoint, options = {}) => {
 // Only add application/json if the payload is NOT FormData AND there is a body
   if (options.body && !(options.body instanceof FormData)) {
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
-    
+
     // Auto-stringify JSON objects if Content-Type is application/json
     if (typeof options.body === 'object' && headers["Content-Type"] === "application/json") {
       options.body = JSON.stringify(options.body);
@@ -21,7 +23,7 @@ export const apiFetch = async (endpoint, options = {}) => {
     delete headers["content-type"];
   }
 
-  const response = await fetch(`http://localhost:5000${endpoint}`, {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });

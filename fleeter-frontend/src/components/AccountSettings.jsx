@@ -26,6 +26,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { apiFetch } from "../utils/api";
 import { useThemeSettings } from "../context/ThemeSettingsContext";
+import { API_BASE_URL } from "../utils/api";
 
 export default function AccountSettings() {
   const { mode, notifications, setSettings } = useThemeSettings();
@@ -174,7 +175,7 @@ export default function AccountSettings() {
           <Avatar
             src={
               profilePictureUrl
-                ? `http://localhost:5000${profilePictureUrl}`
+                ? `${API_BASE_URL}${profilePictureUrl}`
                 : undefined
             }
             sx={{
@@ -229,7 +230,7 @@ export default function AccountSettings() {
             <Avatar
               src={
                 profilePictureUrl
-                  ? `http://localhost:5000${profilePictureUrl}`
+                  ? `${API_BASE_URL}${profilePictureUrl}`
                   : undefined
               }
               sx={{

@@ -52,6 +52,7 @@ import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import AccountSettings from "../components/AccountSettings";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import { API_BASE_URL } from "../utils/api";
 
 // Fix for Leaflet's default marker icons in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -488,7 +489,7 @@ function DriverDashboard() {
     formData.append("trip_id", activeTrip?.trip_id);
 
     try {
-      const response = await fetch("http://localhost:5000/api/driver/log-incident", {
+      const response = await fetch(`${API_BASE_URL}/api/driver/log-incident`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -1667,7 +1668,7 @@ function DriverDashboard() {
                                 ) : (
                                   <Box
                                     component="img"
-                                    src={`http://localhost:5000${doc.document_url}`}
+                                    src={`${API_BASE_URL}${doc.document_url}`}
                                     alt={doc.document_type}
                                     sx={{
                                       width: "100%",
@@ -1761,7 +1762,7 @@ function DriverDashboard() {
                               {doc.document_url && (
                                 <Tooltip title="Open Document">
                                   <IconButton
-                                    href={`http://localhost:5000${doc.document_url}`}
+                                    href={`${API_BASE_URL}${doc.document_url}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     color="primary"

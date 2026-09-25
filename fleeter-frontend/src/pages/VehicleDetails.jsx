@@ -35,7 +35,7 @@ import DescriptionIcon from "@mui/icons-material/Description";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
 // Best Practice: Define your API base URL via environment variables.
-const API_BASE_URL = process.env.REACT_APP_API_URL || import.meta.env?.VITE_API_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.REACT_APP_API_URL || import.meta.env?.VITE_API_URL || "${API_BASE_URL}";
 
 function VehicleDetails({ vehicleId, onBack }) {
 
@@ -729,7 +729,7 @@ function VehicleDetails({ vehicleId, onBack }) {
       </ExpandableRecordSection>
 
       {/* Upload Document Modal */}
-      
+
         {/* Trip History Section */}
         <ExpandableRecordSection
           title="Trip History"
@@ -762,10 +762,10 @@ function VehicleDetails({ vehicleId, onBack }) {
                           {trip.origin} ➔ {trip.destination}
                         </Typography>
                       </Box>
-                      <Button 
-                        variant="outlined" 
-                        size="small" 
-                        startIcon={<MapIcon />} 
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<MapIcon />}
                         onClick={() => handleOpenRouteMap(trip.trip_id)}
                         sx={{ whiteSpace: "nowrap" }}
                       >
@@ -798,9 +798,9 @@ function VehicleDetails({ vehicleId, onBack }) {
                 <Typography variant="body1" color="text.secondary">No telemetry data recorded for this trip.</Typography>
               </Box>
             ) : (
-              <MapContainer 
-                center={telemetryPath[Math.floor(telemetryPath.length / 2)]} 
-                zoom={11} 
+              <MapContainer
+                center={telemetryPath[Math.floor(telemetryPath.length / 2)]}
+                zoom={11}
                 style={{ height: "100%", width: "100%" }}
               >
                 <TileLayer
