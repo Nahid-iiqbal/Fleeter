@@ -16,6 +16,8 @@ import {
   FormControl,
   MenuItem,
   Select,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -79,7 +81,7 @@ function DriverDetails({ driverId, onBack }) {
 
   const handleStatusChange = async (event) => {
     const status = event.target.value;
-    if (!['available', 'suspended', 'on_leave'].includes(driver.status) || status === driver.status) return;
+    if (!["available", "suspended", "on_leave"].includes(driver.status) || status === driver.status) return;
 
     setStatusUpdating(true);
     setError("");
@@ -114,18 +116,9 @@ function DriverDetails({ driverId, onBack }) {
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          p: 4,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}
-      >
+      <Box sx={{ p: 4, display: "flex", flexDirection: "column", alignItems: "center" }}>
         <CircularProgress sx={{ mb: 2 }} />
-        <Typography color="text.secondary">
-          Loading driver profile...
-        </Typography>
+        <Typography color="text.secondary">Loading driver profile...</Typography>
       </Box>
     );
   }
@@ -144,9 +137,7 @@ function DriverDetails({ driverId, onBack }) {
             {error ? (
               <Alert severity="error">{error}</Alert>
             ) : (
-              <Typography color="text.secondary">
-                This driver could not be found.
-              </Typography>
+              <Typography color="text.secondary">This driver could not be found.</Typography>
             )}
           </CardContent>
         </Card>
@@ -188,6 +179,7 @@ function DriverDetails({ driverId, onBack }) {
           Back
         </Button>
       </Box>
+
       {error && <Alert severity="error">{error}</Alert>}
 
       {/* Driver Identity Card */}
@@ -217,7 +209,7 @@ function DriverDetails({ driverId, onBack }) {
                 fontWeight: 700,
               }}
             >
-              {driver.full_name?.charAt(0).toUpperCase()}
+              {driver.full_name ? driver.full_name.charAt(0).toUpperCase() : "D"}
             </Avatar>
             <Box>
               <Typography variant="h5" fontWeight={700} color="text.primary">
@@ -228,6 +220,7 @@ function DriverDetails({ driverId, onBack }) {
               </Typography>
             </Box>
           </Box>
+
           {["available", "suspended", "on_leave"].includes(driver.status) ? (
             <FormControl size="small" sx={{ minWidth: 135 }}>
               <Select
@@ -271,10 +264,7 @@ function DriverDetails({ driverId, onBack }) {
               <InfoItem label="Phone" value={driver.phone} />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
-              <InfoItem
-                label="Username"
-                value={driver.username || "Not linked"}
-              />
+              <InfoItem label="Username" value={driver.username || "Not linked"} />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <InfoItem label="Email" value={driver.email} />
@@ -307,15 +297,13 @@ function DriverDetails({ driverId, onBack }) {
               <InfoItem label="Issue Date" value={driver.document_issue_date} />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <InfoItem
-                label="Expiry Date"
-                value={driver.document_expiry_date}
-              />
+              <InfoItem label="Expiry Date" value={driver.document_expiry_date} />
             </Grid>
           </Grid>
         </CardContent>
       </Card>
 
+      {/* Driver Documents */}
       <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
         <CardContent sx={{ p: 3 }}>
           <Box
@@ -335,53 +323,103 @@ function DriverDetails({ driverId, onBack }) {
                 {documents.length} document{documents.length !== 1 ? "s" : ""} on file.
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-
-                <Tooltip title={showDocuments ? "Hide Documents" : "View Documents"}>
-                  <IconButton
-                    color="primary"
-                    onClick={() => setShowDocuments((visible) => !visible)}
-                    sx={{ border: 1, borderColor: 'primary.main', borderRadius: 2 }}
-                  >
-                    {showDocuments ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                  </IconButton>
-                </Tooltip>
-              </Box>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Tooltip title={showDocuments ? "Hide Documents" : "View Documents"}>
+                <IconButton
+                  color="primary"
+                  onClick={() => setShowDocuments((visible) => !visible)}
+                  sx={{ border: 1, borderColor: "primary.main", borderRadius: 2 }}
+                >
+                  {showDocuments ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
-          {showDocuments && <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
-            {documents.length === 0 ? (
-              <Typography color="text.secondary" fontStyle="italic">No documents uploaded.</Typography>
-            ) : (
-              documents.map((document) => {
-                const expired = new Date(document.expiry_date) < new Date();
-                return (
-                  <Paper key={document.document_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider", borderLeft: 6, borderLeftColor: expired ? "error.main" : "success.main", display: "flex", gap: 2, alignItems: "flex-start", flexWrap: "wrap" }}>
-                    <Box sx={{ width: 100, height: 100, flexShrink: 0, borderRadius: 1, overflow: "hidden", bgcolor: "action.hover", border: 1, borderColor: "divider", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {document.document_url ? (
-                        document.document_url.toLowerCase().endsWith(".pdf") ? (
-                          <Box sx={{ textAlign: "center", color: "text.secondary" }}>
-                            <DescriptionIcon sx={{ fontSize: 32 }} />
-                            <Typography variant="caption" display="block">PDF</Typography>
-                          </Box>
+
+          {showDocuments && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
+              {documents.length === 0 ? (
+                <Typography color="text.secondary" fontStyle="italic">
+                  No documents uploaded.
+                </Typography>
+              ) : (
+                documents.map((document) => {
+                  const expired = new Date(document.expiry_date) < new Date();
+                  return (
+                    <Paper
+                      key={document.document_id}
+                      elevation={0}
+                      sx={{
+                        p: 2,
+                        border: 1,
+                        borderColor: "divider",
+                        borderLeft: 6,
+                        borderLeftColor: expired ? "error.main" : "success.main",
+                        display: "flex",
+                        gap: 2,
+                        alignItems: "flex-start",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 100,
+                          height: 100,
+                          flexShrink: 0,
+                          borderRadius: 1,
+                          overflow: "hidden",
+                          bgcolor: "action.hover",
+                          border: 1,
+                          borderColor: "divider",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {document.document_url ? (
+                          document.document_url.toLowerCase().endsWith(".pdf") ? (
+                            <Box sx={{ textAlign: "center", color: "text.secondary" }}>
+                              <DescriptionIcon sx={{ fontSize: 32 }} />
+                              <Typography variant="caption" display="block">
+                                PDF
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Box
+                              component="img"
+                              src={`http://localhost:5000${document.document_url}`}
+                              alt={document.document_type}
+                              sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          )
                         ) : (
-                          <Box component="img" src={`http://localhost:5000${document.document_url}`} alt={document.document_type} sx={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        )
-                      ) : (
-                        <Typography variant="caption" color="text.secondary">No file</Typography>
-                      )}
-                    </Box>
-                    <Box sx={{ flex: 1, minWidth: 220 }}>
-                      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
-                        <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: "capitalize" }}>
-                          {document.document_type?.replaceAll("_", " ")}
-                        </Typography>
-                        {expired && <Chip label="Expired" color="error" size="small" />}
+                          <Typography variant="caption" color="text.secondary">
+                            No file
+                          </Typography>
+                        )}
                       </Box>
-                      <Typography variant="body2" color="text.secondary">Number: {document.document_no}</Typography>
-                      <Typography variant="body2" color="text.secondary">Issued: {document.issue_date}</Typography>
-                      <Typography variant="body2" color={expired ? "error.main" : "success.main"} fontWeight={700}>Expires: {document.expiry_date}</Typography>
-                      {document.document_url && (
-                        <Tooltip title="Open Document">
+                      <Box sx={{ flex: 1, minWidth: 220 }}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
+                          <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: "capitalize" }}>
+                            {document.document_type?.replaceAll("_", " ")}
+                          </Typography>
+                          {expired && <Chip label="Expired" color="error" size="small" />}
+                        </Box>
+                        <Typography variant="body2" color="text.secondary">
+                          Number: {document.document_no}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Issued: {document.issue_date}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          color={expired ? "error.main" : "success.main"}
+                          fontWeight={700}
+                        >
+                          Expires: {document.expiry_date}
+                        </Typography>
+                        {document.document_url && (
+                          <Tooltip title="Open Document">
                             <IconButton
                               href={`http://localhost:5000${document.document_url}`}
                               target="_blank"
@@ -393,52 +431,82 @@ function DriverDetails({ driverId, onBack }) {
                               <OpenInNewIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                      )}
-                    </Box>
-                  </Paper>
-                );
-              })
-            )}
-          </Box>}
+                        )}
+                      </Box>
+                    </Paper>
+                  );
+                })
+              )}
+            </Box>
+          )}
         </CardContent>
       </Card>
 
+      {/* Incidents */}
       <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
         <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: showIncidents ? 3 : 0 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 2,
+              mb: showIncidents ? 3 : 0,
+            }}
+          >
             <Box>
-              <Typography variant="h6" fontWeight={700}>Incidents</Typography>
+              <Typography variant="h6" fontWeight={700}>
+                Incidents
+              </Typography>
               <Typography variant="body2" color="text.secondary">
                 {incidents.length} incident{incidents.length !== 1 ? "s" : ""} recorded.
               </Typography>
             </Box>
             <Tooltip title={showIncidents ? "Hide Incidents" : "View Incidents"}>
-                <IconButton
-                  color="primary"
-                  onClick={() => setShowIncidents((visible) => !visible)}
-                  sx={{ border: 1, borderColor: 'primary.main', borderRadius: 2 }}
-                >
-                  {showIncidents ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                </IconButton>
-              </Tooltip>
+              <IconButton
+                color="primary"
+                onClick={() => setShowIncidents((visible) => !visible)}
+                sx={{ border: 1, borderColor: "primary.main", borderRadius: 2 }}
+              >
+                {showIncidents ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
           </Box>
+
           {showIncidents && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
               {incidents.length === 0 ? (
-                <Typography color="text.secondary" fontStyle="italic">No incidents recorded.</Typography>
-              ) : incidents.map((incident) => (
-                <Paper key={incident.incident_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider" }}>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
-                    <Typography variant="subtitle1" fontWeight={700}>{incident.type}</Typography>
-                    <Chip label={incident.resolved ? "Resolved" : "Open"} color={incident.resolved ? "success" : "error"} size="small" />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    {incident.incident_date ? new Date(incident.incident_date).toLocaleString() : "Date not provided"} · Trip #{incident.trip_id} · {incident.registration_no}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>{incident.description || "No notes provided."}</Typography>
-                  {incident.severity && <Typography variant="body2" color="text.secondary">Severity: {incident.severity}</Typography>}
-                </Paper>
-              ))}
+                <Typography color="text.secondary" fontStyle="italic">
+                  No incidents recorded.
+                </Typography>
+              ) : (
+                incidents.map((incident) => (
+                  <Paper key={incident.incident_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider" }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        {incident.type}
+                      </Typography>
+                      <Chip
+                        label={incident.resolved ? "Resolved" : "Open"}
+                        color={incident.resolved ? "success" : "error"}
+                        size="small"
+                      />
+                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      {incident.incident_date ? new Date(incident.incident_date).toLocaleString() : "Date not provided"}{" "}
+                      · Trip #{incident.trip_id} · {incident.registration_no}
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {incident.description || "No notes provided."}
+                    </Typography>
+                    {incident.severity && (
+                      <Typography variant="body2" color="text.secondary">
+                        Severity: {incident.severity}
+                      </Typography>
+                    )}
+                  </Paper>
+                ))
+              )}
             </Box>
           )}
         </CardContent>
@@ -457,11 +525,7 @@ function DriverDetails({ driverId, onBack }) {
             <Grid item xs={12} sm={6} md={4}>
               <InfoItem
                 label="Created At"
-                value={
-                  driver.created_at
-                    ? new Date(driver.created_at).toLocaleString()
-                    : null
-                }
+                value={driver.created_at ? new Date(driver.created_at).toLocaleString() : null}
               />
             </Grid>
           </Grid>
@@ -484,19 +548,11 @@ function DriverDetails({ driverId, onBack }) {
 function InfoItem({ label, value, sx }) {
   return (
     <Box>
-      <Typography
-        variant="overline"
-        color="text.secondary"
-        display="block"
-        lineHeight={1.2}
-        mb={0.5}
-      >
+      <Typography variant="overline" color="text.secondary" display="block" lineHeight={1.2} mb={0.5}>
         {label}
       </Typography>
       <Typography variant="body1" fontWeight={500} color="text.primary" sx={sx}>
-        {value !== null && value !== undefined && value !== ""
-          ? value
-          : "Not provided"}
+        {value !== null && value !== undefined && value !== "" ? value : "Not provided"}
       </Typography>
     </Box>
   );

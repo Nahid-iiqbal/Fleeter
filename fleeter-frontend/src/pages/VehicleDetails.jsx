@@ -30,7 +30,11 @@ import PersonIcon from "@mui/icons-material/Person";
 import DescriptionIcon from "@mui/icons-material/Description";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
+// Best Practice: Define your API base URL via environment variables.
+const API_BASE_URL = process.env.REACT_APP_API_URL || import.meta.env?.VITE_API_URL || "http://localhost:5000";
+
 function VehicleDetails({ vehicleId, onBack }) {
+
   const [vehicle, setVehicle] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [images, setImages] = useState([]);
@@ -43,67 +47,17 @@ function VehicleDetails({ vehicleId, onBack }) {
   const [showImages, setShowImages] = useState(false);
   const [showIncidents, setShowIncidents] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
+
   const [editDocumentId, setEditDocumentId] = useState(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-
-  const handleCloseUploadDialog = () => {
-    setUploadDialogOpen(false);
-    setEditDocumentId(null);
-    setUploadFeedback({ message: "", isError: false });
-    setSelectedDocCount(0);
-    setTimeout(() => {
-      const form = document.getElementById("upload-doc-form");
-      if (form) form.reset();
-    }, 100);
-  };
-
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
   const [uploading, setUploading] = useState(false);
-  const [imageDialogOpen, setImageDialogOpen] = useState(false);
-  const [selectedImages, setSelectedImages] = useState([]);
-  const [uploadingImages, setUploadingImages] = useState(false);
-  const [imageUploadError, setImageUploadError] = useState("");
+  const [selectedDocCount, setSelectedDocCount] = useState(0);
   const [uploadFeedback, setUploadFeedback] = useState({
     message: "",
     isError: false,
   });
-
-  const handleImageDelete = async (imageId) => {
-    try {
-      await apiFetch(`/api/vehicles/${vehicleId}/images/${imageId}`, {
-        method: "DELETE",
-      });
-      setImages((currentImages) =>
-        currentImages.filter((image) => image.image_id !== imageId),
-      );
-    } catch (err) {
-      setError(err.message || "Failed to delete vehicle image.");
-    }
-  };
-
-  const handleImageUpload = async (event) => {
-    event.preventDefault();
-    if (selectedImages.length === 0) return;
-
-    setUploadingImages(true);
-    setImageUploadError("");
-    const formData = new FormData();
-    selectedImages.forEach((image) => formData.append("vehicleImages", image));
-
-    try {
-      const addedImages = await apiFetch(`/api/vehicles/${vehicleId}/images`, {
-        method: "POST",
-        body: formData,
-      });
-      setImages((currentImages) => [...addedImages, ...currentImages]);
-      setSelectedImages([]);
-      setImageDialogOpen(false);
-    } catch (err) {
-      setImageUploadError(err.message || "Failed to upload vehicle images.");
-    } finally {
-      setUploadingImages(false);
-    }
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -132,34 +86,6 @@ function VehicleDetails({ vehicleId, onBack }) {
     fetchData();
   }, [vehicleId]);
 
-  const executeDelete = async () => {
-    if (!deleteConfirmId) return;
-    try {
-      await apiFetch(
-        `/api/vehicles/${vehicleId}/documents/${deleteConfirmId}`,
-        {
-          method: "DELETE",
-        },
-      );
-      setDocuments(
-        documents.filter((doc) => doc.document_id !== deleteConfirmId),
-      );
-      setDeleteConfirmId(null);
-
-      const form = document.getElementById("upload-doc-form");
-      if (form) {
-        form.reset();
-        if (form.elements["documentFile"])
-          form.elements["documentFile"].required = true;
-      }
-      setEditDocumentId(null);
-    } catch (err) {
-      alert(`Failed to delete: ${err.message}`);
-      setDeleteConfirmId(null);
-    }
-  };
-
-
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -176,11 +102,35 @@ function VehicleDetails({ vehicleId, onBack }) {
       setImages((prev) => [data.image, ...prev]);
       setShowImages(true);
     } catch (err) {
-      setError(err.message || "Failed to upload image");
+      alert(err.message || "Failed to upload image");
     } finally {
       setUploading(false);
       event.target.value = ""; // Reset input
     }
+  };
+
+  const handleImageDelete = async (imageId) => {
+    try {
+      await apiFetch(`/api/vehicles/${vehicleId}/images/${imageId}`, {
+        method: "DELETE",
+      });
+      setImages((currentImages) =>
+        currentImages.filter((image) => image.image_id !== imageId),
+      );
+    } catch (err) {
+      alert(err.message || "Failed to delete vehicle image.");
+    }
+  };
+
+  const handleCloseUploadDialog = () => {
+    setUploadDialogOpen(false);
+    setEditDocumentId(null);
+    setUploadFeedback({ message: "", isError: false });
+    setSelectedDocCount(0);
+    setTimeout(() => {
+      const form = document.getElementById("upload-doc-form");
+      if (form) form.reset();
+    }, 100);
   };
 
   const handleEditClick = (doc) => {
@@ -188,13 +138,16 @@ function VehicleDetails({ vehicleId, onBack }) {
     setUploadFeedback({ message: "", isError: false });
     setSelectedDocCount(0);
     setUploadDialogOpen(true);
+
     setTimeout(() => {
       const form = document.getElementById("upload-doc-form");
-      form.elements["document_type"].value = doc.document_type;
-      form.elements["document_no"].value = doc.document_no;
-      form.elements["issue_date"].value = doc.issue_date.split("T")[0];
-      form.elements["expiry_date"].value = doc.expiry_date.split("T")[0];
-      form.elements["documentFile"].required = false; // Optional on edit
+      if (form) {
+        form.elements["document_type"].value = doc.document_type;
+        form.elements["document_no"].value = doc.document_no;
+        form.elements["issue_date"].value = doc.issue_date.split("T")[0];
+        form.elements["expiry_date"].value = doc.expiry_date.split("T")[0];
+        form.elements["documentFile"].required = false; // Optional on edit
+      }
     }, 100);
   };
 
@@ -202,7 +155,6 @@ function VehicleDetails({ vehicleId, onBack }) {
     e.preventDefault();
     setUploading(true);
     setUploadFeedback({ message: "", isError: false });
-    setSelectedDocCount(0);
 
     const formElement = e.target;
     const formData = new FormData(formElement);
@@ -233,7 +185,6 @@ function VehicleDetails({ vehicleId, onBack }) {
         setShowDocuments(true);
         handleCloseUploadDialog();
       }
-
     } catch (err) {
       console.error("Upload/Update failed:", err);
       setUploadFeedback({
@@ -245,45 +196,27 @@ function VehicleDetails({ vehicleId, onBack }) {
     }
   };
 
+  const executeDelete = async () => {
+    if (!deleteConfirmId) return;
+    try {
+      await apiFetch(
+        `/api/vehicles/${vehicleId}/documents/${deleteConfirmId}`,
+        { method: "DELETE" },
+      );
+      setDocuments(documents.filter((doc) => doc.document_id !== deleteConfirmId));
+      setDeleteConfirmId(null);
+      setEditDocumentId(null);
+    } catch (err) {
+      alert(`Failed to delete: ${err.message}`);
+      setDeleteConfirmId(null);
+    }
+  };
+
   if (loading) {
     return (
-      <Box
-        sx={{
-          p: 4,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-        }}
-      >
+      <Box sx={{ p: 4, display: "flex", flexDirection: "column", alignItems: "center" }}>
         <CircularProgress sx={{ mb: 2 }} />
-        <Typography color="text.secondary">
-          Loading vehicle details...
-        </Typography>
-        {/* DELETE CONFIRMATION MODAL */}
-        <Dialog
-          open={!!deleteConfirmId}
-          onClose={() => setDeleteConfirmId(null)}
-          maxWidth="xs"
-          fullWidth
-        >
-          <DialogTitle sx={{ fontWeight: 700, color: "error.main" }}>
-            Confirm Deletion
-          </DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to permanently delete this document? This
-              action cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, pt: 0 }}>
-            <Button onClick={() => setDeleteConfirmId(null)} color="inherit">
-              Cancel
-            </Button>
-            <Button variant="contained" color="error" onClick={executeDelete}>
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
+        <Typography color="text.secondary">Loading vehicle details...</Typography>
       </Box>
     );
   }
@@ -329,10 +262,7 @@ function VehicleDetails({ vehicleId, onBack }) {
       </Box>
 
       {/* Profile Header */}
-      <Card
-        elevation={0}
-        sx={{ border: 1, borderColor: "divider", overflow: "visible" }}
-      >
+      <Card elevation={0} sx={{ border: 1, borderColor: "divider", overflow: "visible" }}>
         <CardContent
           sx={{
             p: 3,
@@ -364,11 +294,7 @@ function VehicleDetails({ vehicleId, onBack }) {
             </Box>
           </Box>
           <Chip
-            label={
-              vehicle.condition_status
-                ? vehicle.condition_status.replace("_", " ")
-                : "Unknown"
-            }
+            label={vehicle.condition_status ? vehicle.condition_status.replace("_", " ") : "Unknown"}
             color={statusColor}
             sx={{ fontWeight: 600, textTransform: "capitalize", px: 1 }}
           />
@@ -386,10 +312,7 @@ function VehicleDetails({ vehicleId, onBack }) {
               <InfoItem label="Vehicle ID" value={vehicle.vehicle_id} />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <InfoItem
-                label="Registration Number"
-                value={vehicle.registration_no}
-              />
+              <InfoItem label="Registration Number" value={vehicle.registration_no} />
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <InfoItem label="Vehicle Type" value={vehicle.type} />
@@ -415,17 +338,17 @@ function VehicleDetails({ vehicleId, onBack }) {
               </Typography>
               {vehicle.registration_document_url ? (
                 <Tooltip title="View Registration Document">
-                    <IconButton
-                      href={`http://localhost:5000${vehicle.registration_document_url}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      color="primary"
-                      size="small"
-                      sx={{ border: 1, borderColor: "primary.main", borderRadius: 2 }}
-                    >
-                      <OpenInNewIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  <IconButton
+                    href={`${API_BASE_URL}${vehicle.registration_document_url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    color="primary"
+                    size="small"
+                    sx={{ border: 1, borderColor: "primary.main", borderRadius: 2 }}
+                  >
+                    <OpenInNewIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               ) : (
                 <Typography variant="body1" fontWeight={500}>-</Typography>
               )}
@@ -437,10 +360,7 @@ function VehicleDetails({ vehicleId, onBack }) {
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
           {/* Current Assignment */}
-          <Card
-            elevation={0}
-            sx={{ border: 1, borderColor: "divider", height: "100%" }}
-          >
+          <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={700} mb={3}>
                 Current Assignment
@@ -456,25 +376,14 @@ function VehicleDetails({ vehicleId, onBack }) {
                   borderRadius: 2,
                 }}
               >
-                <Avatar
-                  sx={{ bgcolor: "background.paper", color: "text.secondary" }}
-                >
+                <Avatar sx={{ bgcolor: "background.paper", color: "text.secondary" }}>
                   <PersonIcon />
                 </Avatar>
                 <Box>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    fontWeight={600}
-                    display="block"
-                  >
+                  <Typography variant="caption" color="text.secondary" fontWeight={600} display="block">
                     CURRENT DRIVER
                   </Typography>
-                  <Typography
-                    variant="body1"
-                    fontWeight={600}
-                    color="text.primary"
-                  >
+                  <Typography variant="body1" fontWeight={600} color="text.primary">
                     {vehicle.driver_name || "Unassigned"}
                   </Typography>
                 </Box>
@@ -485,10 +394,7 @@ function VehicleDetails({ vehicleId, onBack }) {
 
         <Grid item xs={12} md={6}>
           {/* Service Information */}
-          <Card
-            elevation={0}
-            sx={{ border: 1, borderColor: "divider", height: "100%" }}
-          >
+          <Card elevation={0} sx={{ border: 1, borderColor: "divider", height: "100%" }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" fontWeight={700} mb={3}>
                 Service Information
@@ -499,9 +405,7 @@ function VehicleDetails({ vehicleId, onBack }) {
                     label="Last Service Date"
                     value={
                       vehicle.last_service_date
-                        ? new Date(
-                          vehicle.last_service_date,
-                        ).toLocaleDateString()
+                        ? new Date(vehicle.last_service_date).toLocaleDateString()
                         : "Never Serviced"
                     }
                   />
@@ -519,7 +423,7 @@ function VehicleDetails({ vehicleId, onBack }) {
         </Grid>
       </Grid>
 
-      {/* Document Viewer (Collapsible) */}
+      {/* Document Viewer */}
       <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
         <CardContent sx={{ p: 3 }}>
           <Box
@@ -535,8 +439,7 @@ function VehicleDetails({ vehicleId, onBack }) {
                 Vehicle Documents
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {documents.length} document{documents.length !== 1 ? "s" : ""}{" "}
-                on file.
+                {documents.length} document{documents.length !== 1 ? "s" : ""} on file.
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 1 }}>
@@ -548,7 +451,7 @@ function VehicleDetails({ vehicleId, onBack }) {
                     setEditDocumentId(null);
                     setTimeout(() => {
                       const form = document.getElementById('upload-doc-form');
-                      if(form) {
+                      if (form) {
                         const firstInput = form.querySelector('input');
                         if (firstInput) firstInput.focus();
                       }
@@ -572,9 +475,7 @@ function VehicleDetails({ vehicleId, onBack }) {
           </Box>
 
           {showDocuments && (
-            <Box
-              sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}
-            >
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
               {documents.length === 0 ? (
                 <Typography color="text.secondary" fontStyle="italic">
                   No documents uploaded yet.
@@ -620,73 +521,34 @@ function VehicleDetails({ vehicleId, onBack }) {
                       >
                         {doc.document_url ? (
                           doc.document_url.toLowerCase().endsWith(".pdf") ? (
-                            <Box
-                              sx={{
-                                textAlign: "center",
-                                color: "text.secondary",
-                              }}
-                            >
+                            <Box sx={{ textAlign: "center", color: "text.secondary" }}>
                               <DescriptionIcon sx={{ fontSize: 40, mb: 1 }} />
-                              <Typography variant="caption" display="block">
-                                PDF
-                              </Typography>
+                              <Typography variant="caption" display="block">PDF</Typography>
                             </Box>
                           ) : (
                             <Box
                               component="img"
-                              src={`http://localhost:5000${doc.document_url}`}
+                              src={`${API_BASE_URL}${doc.document_url}`}
                               alt={doc.document_type}
-                              sx={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
+                              sx={{ width: "100%", height: "100%", objectFit: "cover" }}
                             />
                           )
                         ) : (
-                          <Typography variant="caption" color="text.secondary">
-                            No Image
-                          </Typography>
+                          <Typography variant="caption" color="text.secondary">No file</Typography>
                         )}
                       </Box>
 
                       {/* Document Details */}
                       <Box sx={{ flex: 1, width: "100%" }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            mb: 2,
-                          }}
-                        >
-                          <Typography
-                            variant="subtitle1"
-                            fontWeight={700}
-                            sx={{ textTransform: "uppercase" }}
-                          >
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                          <Typography variant="subtitle1" fontWeight={700} sx={{ textTransform: "uppercase" }}>
                             {doc.document_type.replace("_", " ")}
                           </Typography>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 2,
-                            }}
-                          >
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                             {isExpired && (
-                              <Chip
-                                label="EXPIRED"
-                                color="error"
-                                size="small"
-                                sx={{ fontWeight: 700 }}
-                              />
+                              <Chip label="EXPIRED" color="error" size="small" sx={{ fontWeight: 700 }} />
                             )}
-                            <IconButton
-                              onClick={() => handleEditClick(doc)}
-                              color="primary"
-                              size="small"
-                            >
+                            <IconButton onClick={() => handleEditClick(doc)} color="primary" size="small">
                               <EditIcon />
                             </IconButton>
                           </Box>
@@ -694,48 +556,32 @@ function VehicleDetails({ vehicleId, onBack }) {
 
                         <Grid container spacing={2}>
                           <Grid item xs={6} sm={3}>
-                            <InfoItem
-                              label="Doc Number"
-                              value={doc.document_no}
-                            />
+                            <InfoItem label="Doc Number" value={doc.document_no} />
                           </Grid>
                           <Grid item xs={6} sm={3}>
-                            <InfoItem
-                              label="Alert"
-                              value={doc.alert_triggered ? "Yes" : "No"}
-                            />
+                            <InfoItem label="Alert" value={doc.alert_triggered ? "Yes" : "No"} />
                           </Grid>
                           <Grid item xs={6} sm={3}>
-                            <InfoItem
-                              label="Issue Date"
-                              value={new Date(
-                                doc.issue_date,
-                              ).toLocaleDateString()}
-                            />
+                            <InfoItem label="Issue Date" value={new Date(doc.issue_date).toLocaleDateString()} />
                           </Grid>
                           <Grid item xs={6} sm={3}>
-                            <InfoItem
-                              label="Expiry Date"
-                              value={new Date(
-                                doc.expiry_date,
-                              ).toLocaleDateString()}
-                            />
+                            <InfoItem label="Expiry Date" value={new Date(doc.expiry_date).toLocaleDateString()} />
                           </Grid>
                         </Grid>
 
                         {doc.document_url && (
                           <Tooltip title="Open Document">
-                              <IconButton
-                                href={`http://localhost:5000${doc.document_url}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                color="primary"
-                                size="small"
-                                sx={{ mt: 2, border: 1, borderColor: "primary.main", borderRadius: 2 }}
-                              >
-                                <OpenInNewIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            <IconButton
+                              href={`${API_BASE_URL}${doc.document_url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              color="primary"
+                              size="small"
+                              sx={{ mt: 2, border: 1, borderColor: "primary.main", borderRadius: 2 }}
+                            >
+                              <OpenInNewIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         )}
                       </Box>
                     </Paper>
@@ -747,15 +593,18 @@ function VehicleDetails({ vehicleId, onBack }) {
         </CardContent>
       </Card>
 
+      {/* Hidden file input for auto-uploading images */}
       <input type="file" id="upload-image-input" hidden accept="image/*" onChange={handleImageUpload} />
+
       <ExpandableRecordSection
         title="Vehicle Images"
         count={images.length}
         itemLabel="image"
         open={showImages}
         onToggle={() => setShowImages((visible) => !visible)}
-      onAdd={() => document.getElementById("upload-image-input").click()} addTitle="Upload Image">
-
+        onAdd={() => document.getElementById("upload-image-input").click()}
+        addTitle="Upload Image"
+      >
         {images.length === 0 ? (
           <Typography color="text.secondary" fontStyle="italic">
             No vehicle images uploaded.
@@ -767,14 +616,14 @@ function VehicleDetails({ vehicleId, onBack }) {
                 <Paper elevation={0} sx={{ border: 1, borderColor: "divider", overflow: "hidden" }}>
                   <Box
                     component="a"
-                    href={`http://localhost:5000${image.image_url}`}
+                    href={`${API_BASE_URL}${image.image_url}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     sx={{ display: "block" }}
                   >
                     <Box
                       component="img"
-                      src={`http://localhost:5000${image.image_url}`}
+                      src={`${API_BASE_URL}${image.image_url}`}
                       alt={`Vehicle ${vehicle.registration_no}`}
                       sx={{ width: "100%", height: 180, objectFit: "cover", display: "block" }}
                     />
@@ -792,61 +641,7 @@ function VehicleDetails({ vehicleId, onBack }) {
             ))}
           </Grid>
         )}
-        <Button
-          variant="outlined"
-          onClick={() => {
-            setImageUploadError("");
-            setImageDialogOpen(true);
-          }}
-          sx={{ alignSelf: "flex-start" }}
-        >
-          Add image
-        </Button>
       </ExpandableRecordSection>
-
-      <Dialog
-        open={imageDialogOpen}
-        onClose={() => !uploadingImages && setImageDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Add Vehicle Images</DialogTitle>
-        <form onSubmit={handleImageUpload}>
-          <DialogContent dividers>
-            {imageUploadError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {imageUploadError}
-              </Alert>
-            )}
-            <TextField
-              label="Vehicle images"
-              type="file"
-              inputProps={{ accept: "image/*", multiple: true }}
-              onChange={(event) => setSelectedImages(Array.from(event.target.files || []))}
-              required
-              fullWidth
-              InputLabelProps={{ shrink: true }}
-              helperText={
-                selectedImages.length > 0
-                  ? `${selectedImages.length} image${selectedImages.length === 1 ? "" : "s"} selected`
-                  : "Select one or more images."
-              }
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button
-              onClick={() => setImageDialogOpen(false)}
-              color="inherit"
-              disabled={uploadingImages}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" variant="contained" disabled={uploadingImages || selectedImages.length === 0}>
-              {uploadingImages ? "Uploading..." : "Add images"}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
 
       <ExpandableRecordSection
         title="Incidents"
@@ -906,119 +701,109 @@ function VehicleDetails({ vehicleId, onBack }) {
         )}
       </ExpandableRecordSection>
 
-      {/* Upload Document Section Modal */}
+      {/* Upload Document Modal */}
       <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 700 }}>
-            {editDocumentId ? "Edit Document" : "Upload New Document"}
-          </DialogTitle>
-          <form id="upload-doc-form" onSubmit={handleDocumentSubmit}>
-            <DialogContent dividers>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Document Type"
-                    name="document_type"
-                    placeholder="e.g., Registration, Insurance"
-                    required
-                    fullWidth
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Document Number"
-                    name="document_no"
-                    placeholder="Document Number"
-                    required
-                    fullWidth
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Issue Date"
-                    name="issue_date"
-                    type="date"
-                    required
-                    fullWidth
-                    size="small"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Expiry Date"
-                    name="expiry_date"
-                    type="date"
-                    required
-                    fullWidth
-                    size="small"
-                    slotProps={{ inputLabel: { shrink: true } }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <Button variant="outlined" component="label" fullWidth sx={{ justifyContent: 'flex-start' }} size="small">
-                      Choose file (Image/PDF)
-                      <input
-                        hidden
-                        type="file"
-                        name="documentFile"
-                        accept="image/*,.pdf"
-                        required
-                        onChange={(event) => setSelectedDocCount(event.target.files.length)}
-                      />
-                  </Button>
-                  {selectedDocCount > 0 && <Typography variant="caption" display="block" sx={{ mt: 0.5, ml: 1, color: 'success.main' }}>{selectedDocCount} file selected</Typography>}
-                </Grid>
-              </Grid>
-
-              {uploadFeedback.message && (
-                <Alert
-                  severity={uploadFeedback.isError ? "error" : "success"}
-                  sx={{ mt: 2 }}
-                >
-                  {uploadFeedback.message}
-                </Alert>
-              )}
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={handleCloseUploadDialog} variant="outlined" color="primary" disabled={uploading} sx={{ minWidth: 100 }}>
-                Cancel
-              </Button>
-              {editDocumentId && (
-                <Button color="error" variant="outlined" disabled={uploading} onClick={() => { handleCloseUploadDialog(); setDeleteConfirmId(editDocumentId); }}>
-                  Delete
-                </Button>
-              )}
-              <Button type="submit" variant="contained" color="primary" disabled={uploading} sx={{ minWidth: 120 }}>
-                {uploading ? "Saving..." : editDocumentId ? "Update" : "Save Document"}
-              </Button>
-            </DialogActions>
-          </form>
-        </Dialog>
-      {/* DELETE CONFIRMATION MODAL */}
-      <Dialog
-        open={!!deleteConfirmId}
-        onClose={() => setDeleteConfirmId(null)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle sx={{ fontWeight: 700, color: "error.main" }}>
-          Confirm Deletion
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          {editDocumentId ? "Edit Document" : "Upload New Document"}
         </DialogTitle>
+        <form id="upload-doc-form" onSubmit={handleDocumentSubmit}>
+          <DialogContent dividers>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Document Type"
+                  name="document_type"
+                  placeholder="e.g., Registration, Insurance"
+                  required
+                  fullWidth
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Document Number"
+                  name="document_no"
+                  placeholder="Document Number"
+                  required
+                  fullWidth
+                  size="small"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Issue Date"
+                  name="issue_date"
+                  type="date"
+                  required
+                  fullWidth
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Expiry Date"
+                  name="expiry_date"
+                  type="date"
+                  required
+                  fullWidth
+                  size="small"
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Button variant="outlined" component="label" fullWidth sx={{ justifyContent: 'flex-start' }} size="small">
+                  Choose file (Image/PDF)
+                  <input
+                    hidden
+                    type="file"
+                    name="documentFile"
+                    accept="image/*,.pdf"
+                    required={!editDocumentId}
+                    onChange={(event) => setSelectedDocCount(event.target.files.length)}
+                  />
+                </Button>
+                {selectedDocCount > 0 && (
+                  <Typography variant="caption" display="block" sx={{ mt: 0.5, ml: 1, color: 'success.main' }}>
+                    {selectedDocCount} file selected
+                  </Typography>
+                )}
+              </Grid>
+            </Grid>
+
+            {uploadFeedback.message && (
+              <Alert severity={uploadFeedback.isError ? "error" : "success"} sx={{ mt: 2 }}>
+                {uploadFeedback.message}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseUploadDialog} variant="outlined" color="primary" disabled={uploading} sx={{ minWidth: 100 }}>
+              Cancel
+            </Button>
+            {editDocumentId && (
+              <Button color="error" variant="outlined" disabled={uploading} onClick={() => { handleCloseUploadDialog(); setDeleteConfirmId(editDocumentId); }}>
+                Delete
+              </Button>
+            )}
+            <Button type="submit" variant="contained" color="primary" disabled={uploading} sx={{ minWidth: 120 }}>
+              {uploading ? "Saving..." : editDocumentId ? "Update" : "Save Document"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!deleteConfirmId} onClose={() => setDeleteConfirmId(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: "error.main" }}>Confirm Deletion</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to permanently delete this document? This
-            action cannot be undone.
+            Are you sure you want to permanently delete this document? This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0 }}>
-          <Button onClick={() => setDeleteConfirmId(null)} color="inherit">
-            Cancel
-          </Button>
-          <Button variant="contained" color="error" onClick={executeDelete}>
-            Delete
-          </Button>
+          <Button onClick={() => setDeleteConfirmId(null)} color="inherit">Cancel</Button>
+          <Button variant="contained" color="error" onClick={executeDelete}>Delete</Button>
         </DialogActions>
       </Dialog>
     </Box>
@@ -1037,27 +822,27 @@ function ExpandableRecordSection({ title, count, itemLabel, open, onToggle, onAd
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-              {onAdd && (
-                <Tooltip title={addTitle || "Add"}>
-                  <IconButton
-                    color="primary"
-                    onClick={onAdd}
-                    sx={{ border: 1, borderColor: 'primary.main', borderRadius: 2 }}
-                  >
-                    <AddIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-              <Tooltip title={open ? `Hide ${title}` : `View ${title}`}>
+            {onAdd && (
+              <Tooltip title={addTitle || "Add"}>
                 <IconButton
                   color="primary"
-                  onClick={onToggle}
+                  onClick={onAdd}
                   sx={{ border: 1, borderColor: 'primary.main', borderRadius: 2 }}
                 >
-                  {open ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                  <AddIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-            </Box>
+            )}
+            <Tooltip title={open ? `Hide ${title}` : `View ${title}`}>
+              <IconButton
+                color="primary"
+                onClick={onToggle}
+                sx={{ border: 1, borderColor: 'primary.main', borderRadius: 2 }}
+              >
+                {open ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
         {open && <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>{children}</Box>}
       </CardContent>
@@ -1068,13 +853,7 @@ function ExpandableRecordSection({ title, count, itemLabel, open, onToggle, onAd
 function InfoItem({ label, value, sx }) {
   return (
     <Box>
-      <Typography
-        variant="overline"
-        color="text.secondary"
-        display="block"
-        lineHeight={1.2}
-        mb={0.5}
-      >
+      <Typography variant="overline" color="text.secondary" display="block" lineHeight={1.2} mb={0.5}>
         {label}
       </Typography>
       <Typography variant="body1" fontWeight={500} color="text.primary" sx={sx}>
