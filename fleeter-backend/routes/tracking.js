@@ -73,4 +73,25 @@ router.get("/fleet", authorizeRole("owner", "manager"), async (req, res) => {
   }
 });
 
+
+// GET /api/tracking/trips/:tripId/route (Owners/Managers view telemetry history for a specific trip)
+router.get("/trips/:tripId/route", authorizeRole("owner", "manager"), async (req, res) => {
+  try {
+    const query = `
+            SELECT 
+                ST_X(geom) as longitude, ST_Y(geom) as latitude,
+                speed_kmh, ping_time
+            FROM Vehicle_Telemetry
+            WHERE trip_id = $1
+            ORDER BY ping_time ASC;
+        `;
+
+    const result = await pool.query(query, [req.params.tripId]);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch trip route." });
+  }
+});
+
 module.exports = router;
+

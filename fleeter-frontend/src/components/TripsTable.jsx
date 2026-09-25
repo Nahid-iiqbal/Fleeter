@@ -28,6 +28,13 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AddIcon from "@mui/icons-material/Add";
 
+import { MapContainer, TileLayer, Polyline, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import MapIcon from "@mui/icons-material/Map";
+import CloseIcon from "@mui/icons-material/Close";
+import IconButton from "@mui/material/IconButton";
+
+
 function defaultDeparture() {
   const date = new Date(Date.now() + 60 * 60 * 1000);
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
@@ -44,6 +51,27 @@ function TripsTable({
   onVehicleClick,
 }) {
   const [isOpen, setIsOpen] = useState(false);
+
+  const [routeMapOpen, setRouteMapOpen] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState(null);
+  const [telemetryPath, setTelemetryPath] = useState([]);
+  const [telemetryLoading, setTelemetryLoading] = useState(false);
+
+  const handleOpenRouteMap = async (tripId) => {
+    setSelectedTripId(tripId);
+    setTelemetryPath([]);
+    setRouteMapOpen(true);
+    setTelemetryLoading(true);
+    try {
+      const data = await apiFetch(`/api/tracking/trips/${tripId}/route`);
+      setTelemetryPath(data.map((ping) => [ping.latitude, ping.longitude]));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setTelemetryLoading(false);
+    }
+  };
+
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -259,10 +287,15 @@ function TripsTable({
                         {grouped[status].map((trip) => (
                           <TableRow key={trip.trip_id} hover>
                             <TableCell>
-                              <Typography variant="body2" fontWeight={500}>
-                                {trip.origin} → {trip.destination}
-                              </Typography>
-                            </TableCell>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="body2" fontWeight={500}>
+                                    {trip.origin} ➔ {trip.destination}
+                                  </Typography>
+                                  <IconButton size="small" onClick={() => handleOpenRouteMap(trip.trip_id)} color="primary">
+                                    <MapIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              </TableCell>
                             <TableCell>
                               <Button
                                 variant="text"
@@ -326,6 +359,47 @@ function TripsTable({
           </Box>
         )}
       </Box>
+
+      
+      {/* Route Map Dialog */}
+      <Dialog open={routeMapOpen} onClose={() => setRouteMapOpen(false)} maxWidth="md" fullWidth>
+        <Box sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
+          <Typography variant="h6" fontWeight={700}>Trip #{selectedTripId} Route Map</Typography>
+          <IconButton onClick={() => setRouteMapOpen(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <DialogContent sx={{ p: 0, height: "60vh", minHeight: 400 }}>
+          {telemetryLoading ? (
+            <Box sx={{ display: "flex", height: "100%", justifyContent: "center", alignItems: "center" }}>
+              <CircularProgress />
+            </Box>
+          ) : telemetryPath.length === 0 ? (
+            <Box sx={{ display: "flex", height: "100%", justifyContent: "center", alignItems: "center", flexDirection: "column" }}>
+              <MapIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
+              <Typography variant="body1" color="text.secondary">No telemetry data recorded for this trip.</Typography>
+            </Box>
+          ) : (
+            <MapContainer 
+              center={telemetryPath[Math.floor(telemetryPath.length / 2)]} 
+              zoom={11} 
+              style={{ height: "100%", width: "100%" }}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution="&copy; OpenStreetMap contributors"
+              />
+              <Polyline positions={telemetryPath} color="#3b82f6" weight={4} opacity={0.8} />
+              <Marker position={telemetryPath[0]}>
+                <Popup>Start Point</Popup>
+              </Marker>
+              <Marker position={telemetryPath[telemetryPath.length - 1]}>
+                <Popup>End Point</Popup>
+              </Marker>
+            </MapContainer>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Add Trip Dialog */}
       <Dialog

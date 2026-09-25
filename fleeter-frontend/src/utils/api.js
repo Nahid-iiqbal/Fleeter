@@ -7,12 +7,18 @@ export const apiFetch = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
-  // Only add application/json if the payload is NOT FormData
-  if (!(options.body instanceof FormData)) {
+// Only add application/json if the payload is NOT FormData AND there is a body
+  if (options.body && !(options.body instanceof FormData)) {
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
-  } else {
+    
+    // Auto-stringify JSON objects if Content-Type is application/json
+    if (typeof options.body === 'object' && headers["Content-Type"] === "application/json") {
+      options.body = JSON.stringify(options.body);
+    }
+  } else if (options.body instanceof FormData) {
     // Ensure Content-Type is completely removed so the browser can generate the multipart boundary
     delete headers["Content-Type"];
+    delete headers["content-type"];
   }
 
   const response = await fetch(`http://localhost:5000${endpoint}`, {

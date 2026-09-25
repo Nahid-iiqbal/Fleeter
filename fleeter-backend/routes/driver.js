@@ -172,7 +172,7 @@ router.put("/trips/:tripId/complete", async (req, res) => {
     const remainingDriverTrips = await client.query(
       `
         SELECT 1 FROM Trip
-        WHERE driver_id = $1 AND status IN ('scheduled', 'in_progress')
+        WHERE driver_id = $1 AND status = 'in_progress'
         LIMIT 1
       `,
       [req.driver_id],
@@ -181,7 +181,7 @@ router.put("/trips/:tripId/complete", async (req, res) => {
     const remainingVehicleTrips = await client.query(
       `
         SELECT 1 FROM Trip
-        WHERE vehicle_id = $1 AND status IN ('scheduled', 'in_progress')
+        WHERE vehicle_id = $1 AND status = 'in_progress'
         LIMIT 1
       `,
       [result.rows[0].vehicle_id],

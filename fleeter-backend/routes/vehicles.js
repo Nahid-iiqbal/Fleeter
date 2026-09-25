@@ -642,4 +642,32 @@ router.post(
   }
 );
 
+
+// GET /api/vehicles/:vehicleId/trips
+router.get(
+  "/:vehicleId/trips",
+  verifyToken,
+  authorizeRole("owner", "manager", "admin"),
+  async (req, res) => {
+    try {
+      const query = `
+        SELECT t.*, 
+               r.route_name, r.origin, r.destination, 
+               d.full_name as driver_name
+        FROM Trip t
+        LEFT JOIN Route r ON t.route_id = r.route_id
+        LEFT JOIN Driver d ON t.driver_id = d.driver_id
+        WHERE t.vehicle_id = $1
+        ORDER BY t.departure_time DESC;
+      `;
+      const result = await pool.query(query, [req.params.vehicleId]);
+      res.status(200).json(result.rows);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Failed to fetch vehicle trips" });
+    }
+  }
+);
+
 module.exports = router;
+

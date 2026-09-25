@@ -252,6 +252,32 @@ function OwnerDashboard() {
     }
   }, []);
 
+    const fetchDashboardData = useCallback(async () => {
+    try {
+      const response = await fetch("http://localhost:5000/api/dashboard/stats", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch dashboard stats");
+      }
+
+      const data = await response.json();
+      setStats((prev) => ({
+        ...prev,
+        totalVehicles: data.totalVehicles,
+        activeDrivers: data.activeDrivers,
+        alerts: data.alerts || prev.alerts,
+      }));
+    } catch (error) {
+      console.error("Error loading dashboard stats:", error);
+    }
+  }, []);
+
   const fetchAlerts = useCallback(async () => {
     try {
       setAlertsLoading(true);
@@ -306,7 +332,8 @@ function OwnerDashboard() {
     fetchTrips();
     fetchDrivers();
     fetchVehicles();
-  }, [fetchDrivers, fetchTrips, fetchVehicles]);
+    fetchDashboardData();
+  }, [fetchDrivers, fetchTrips, fetchVehicles, fetchDashboardData]);
 
   useEffect(() => {
     // 1. Grab the token from local storage
@@ -384,7 +411,7 @@ function OwnerDashboard() {
     };
 
     fetchDashboardData();
-  }, [fetchAlerts, navigate]);
+  }, [fetchAlerts, fetchDashboardData, navigate]);
 
   // New useEffect for handling Drivers data for Drivers tab
   // Load drivers only when the Drivers tab is opened

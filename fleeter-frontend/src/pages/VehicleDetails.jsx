@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { MapContainer, TileLayer, Polyline, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import { apiFetch } from "../utils/api";
 import {
   Box,
@@ -25,6 +27,8 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
+import MapIcon from "@mui/icons-material/Map";
+import CloseIcon from "@mui/icons-material/Close";
 import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import PersonIcon from "@mui/icons-material/Person";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -40,6 +44,12 @@ function VehicleDetails({ vehicleId, onBack }) {
   const [images, setImages] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [maintenance, setMaintenance] = useState([]);
+  const [trips, setTrips] = useState([]);
+  const [showTrips, setShowTrips] = useState(false);
+  const [routeMapOpen, setRouteMapOpen] = useState(false);
+  const [selectedTripId, setSelectedTripId] = useState(null);
+  const [telemetryPath, setTelemetryPath] = useState([]);
+  const [telemetryLoading, setTelemetryLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -64,18 +74,20 @@ function VehicleDetails({ vehicleId, onBack }) {
       try {
         setLoading(true);
         setError("");
-        const [vehicleData, docsData, imageData, incidentData, maintenanceData] = await Promise.all([
+        const [vehicleData, docsData, imageData, incidentData, maintenanceData, tripsData] = await Promise.all([
           apiFetch(`/api/vehicles/${vehicleId}`),
           apiFetch(`/api/vehicles/${vehicleId}/documents`).catch(() => []),
           apiFetch(`/api/vehicles/${vehicleId}/images`).catch(() => []),
           apiFetch(`/api/vehicles/${vehicleId}/incidents`).catch(() => []),
           apiFetch(`/api/vehicles/${vehicleId}/maintenance`).catch(() => []),
+          apiFetch(`/api/vehicles/${vehicleId}/trips`).catch(() => []),
         ]);
         setVehicle(vehicleData);
         setDocuments(docsData);
         setImages(imageData);
         setIncidents(incidentData);
         setMaintenance(maintenanceData);
+          setTrips(tripsData);
       } catch (err) {
         console.error("Error loading vehicle:", err);
         setError(err.message);
@@ -131,6 +143,21 @@ function VehicleDetails({ vehicleId, onBack }) {
       const form = document.getElementById("upload-doc-form");
       if (form) form.reset();
     }, 100);
+  };
+
+  const handleOpenRouteMap = async (tripId) => {
+    setSelectedTripId(tripId);
+    setTelemetryPath([]);
+    setRouteMapOpen(true);
+    setTelemetryLoading(true);
+    try {
+      const data = await apiFetch(`/api/tracking/trips/${tripId}/route`);
+      setTelemetryPath(data.map((ping) => [ping.latitude, ping.longitude]));
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setTelemetryLoading(false);
+    }
   };
 
   const handleEditClick = (doc) => {
@@ -702,7 +729,97 @@ function VehicleDetails({ vehicleId, onBack }) {
       </ExpandableRecordSection>
 
       {/* Upload Document Modal */}
-      <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="sm" fullWidth>
+      
+        {/* Trip History Section */}
+        <ExpandableRecordSection
+          title="Trip History"
+          count={trips.length}
+          itemLabel="trip"
+          open={showTrips}
+          onToggle={() => setShowTrips((visible) => !visible)}
+        >
+          {showTrips && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {trips.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No trips recorded for this vehicle.
+                </Typography>
+              ) : (
+                trips.map((trip) => (
+                  <Paper key={trip.trip_id} elevation={0} sx={{ p: 2, border: 1, borderColor: "divider", borderRadius: 2 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <Box>
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          Trip #{trip.trip_id} - {trip.route_name || "Custom Route"}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          <strong>Driver:</strong> {trip.driver_name || "Unknown"}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Status:</strong> {trip.status.toUpperCase()}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                          {trip.origin} ➔ {trip.destination}
+                        </Typography>
+                      </Box>
+                      <Button 
+                        variant="outlined" 
+                        size="small" 
+                        startIcon={<MapIcon />} 
+                        onClick={() => handleOpenRouteMap(trip.trip_id)}
+                        sx={{ whiteSpace: "nowrap" }}
+                      >
+                        View Route
+                      </Button>
+                    </Box>
+                  </Paper>
+                ))
+              )}
+            </Box>
+          )}
+        </ExpandableRecordSection>
+
+        {/* Route Map Dialog */}
+        <Dialog open={routeMapOpen} onClose={() => setRouteMapOpen(false)} maxWidth="md" fullWidth>
+          <Box sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
+            <Typography variant="h6" fontWeight={700}>Trip #{selectedTripId} Route Map</Typography>
+            <IconButton onClick={() => setRouteMapOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          <DialogContent sx={{ p: 0, height: "60vh", minHeight: 400 }}>
+            {telemetryLoading ? (
+              <Box sx={{ display: "flex", height: "100%", justifyContent: "center", alignItems: "center" }}>
+                <CircularProgress />
+              </Box>
+            ) : telemetryPath.length === 0 ? (
+              <Box sx={{ display: "flex", height: "100%", justifyContent: "center", alignItems: "center", flexDirection: "column" }}>
+                <MapIcon sx={{ fontSize: 60, color: "text.disabled", mb: 2 }} />
+                <Typography variant="body1" color="text.secondary">No telemetry data recorded for this trip.</Typography>
+              </Box>
+            ) : (
+              <MapContainer 
+                center={telemetryPath[Math.floor(telemetryPath.length / 2)]} 
+                zoom={11} 
+                style={{ height: "100%", width: "100%" }}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution="&copy; OpenStreetMap contributors"
+                />
+                <Polyline positions={telemetryPath} color="#3b82f6" weight={4} opacity={0.8} />
+                <Marker position={telemetryPath[0]}>
+                  <Popup>Start Point</Popup>
+                </Marker>
+                <Marker position={telemetryPath[telemetryPath.length - 1]}>
+                  <Popup>End Point</Popup>
+                </Marker>
+              </MapContainer>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>
           {editDocumentId ? "Edit Document" : "Upload New Document"}
         </DialogTitle>

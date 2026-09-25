@@ -58,18 +58,23 @@ export default function MessagesPopover() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleClick = (event) => {
+const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
     setFeedback({ message: "", isError: false });
-    // Mark all as read when opening
-    messages.forEach(async (m) => {
-      if (!m.is_read) {
+    
+    // Mark all as read when opening (batch it or just do it locally)
+    const unreadMessages = messages.filter(m => !m.is_read);
+    if (unreadMessages.length > 0) {
+      unreadMessages.forEach(async (m) => {
         try {
           await apiFetch(`/api/messages/${m.message_id}/read`, { method: "PUT" });
         } catch (e) {}
-      }
-    });
-    setUnreadCount(0);
+      });
+      
+      // Update local state to reflect UI changes immediately
+      setMessages(messages.map(m => ({ ...m, is_read: true })));
+      setUnreadCount(0);
+    }
   };
 
 
@@ -133,7 +138,7 @@ export default function MessagesPopover() {
                 options={users}
                 getOptionLabel={(option) => option.username}
                 renderOption={(props, option) => (
-                  <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                  <Box component="li" {...props} key={option.user_id} sx={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                     <Typography variant="body2">{option.username}</Typography>
                     <Chip label={option.role} size="small" sx={{ height: 16, fontSize: '0.6rem' }} />
                   </Box>

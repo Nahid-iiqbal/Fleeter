@@ -14,8 +14,13 @@ import {
   Select,
   MenuItem,
   Divider,
+  Dialog,
+  DialogContent,
+  IconButton,
 } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
+import EditIcon from "@mui/icons-material/Edit";
+import CloseIcon from "@mui/icons-material/Close";
 import TuneIcon from "@mui/icons-material/Tune";
 import SaveIcon from "@mui/icons-material/Save";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -37,6 +42,7 @@ export default function AccountSettings() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [pictureDialogOpen, setPictureDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pictureSaving, setPictureSaving] = useState(false);
   const [profilePictureUrl, setProfilePictureUrl] = useState("");
@@ -164,62 +170,85 @@ export default function AccountSettings() {
   return (
     <Box sx={{ maxWidth: "500px", mx: "auto", mt: 2, mb: 6 }}>
       <Box sx={{ textAlign: "center", mb: 3 }}>
-        <Avatar
-          src={
-            profilePictureUrl
-              ? `http://localhost:5000${profilePictureUrl}`
-              : undefined
-          }
-          sx={{
-            width: 64,
-            height: 64,
-            mx: "auto",
-            mb: 1.5,
-            fontSize: "1.5rem",
-            fontWeight: 800,
-            background: "linear-gradient(135deg, #3b82f6, #2563eb)",
-            boxShadow: "0 4px 12px rgba(59,130,246,0.3)",
-          }}
-        >
-          {form.full_name
-            ? form.full_name.charAt(0).toUpperCase()
-            : form.username?.charAt(0)?.toUpperCase() || "U"}
-        </Avatar>
+        <IconButton onClick={() => setPictureDialogOpen(true)} sx={{ p: 0, mb: 1.5, "&:hover": { opacity: 0.8 } }}>
+          <Avatar
+            src={
+              profilePictureUrl
+                ? `http://localhost:5000${profilePictureUrl}`
+                : undefined
+            }
+            sx={{
+              width: 64,
+              height: 64,
+              mx: "auto",
+              fontSize: "1.5rem",
+              fontWeight: 800,
+              background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+              boxShadow: "0 4px 12px rgba(59,130,246,0.3)",
+            }}
+          >
+            {form.full_name
+              ? form.full_name.charAt(0).toUpperCase()
+              : form.username?.charAt(0)?.toUpperCase() || "U"}
+          </Avatar>
+        </IconButton>
         <Typography variant="h6" fontWeight={800}>
           {form.full_name || form.username || "Your Profile"}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {form.email}
-        </Typography>
-        <Box sx={{ display: "flex", justifyContent: "center", gap: 1, mt: 1.5 }}>
-          <Button
-            component="label"
-            variant="outlined"
-            size="small"
-            disabled={pictureSaving}
-          >
-            {pictureSaving ? "Uploading..." : "Add or change picture"}
-            <input
-              hidden
-              type="file"
-              accept="image/*"
-              onChange={handleProfilePictureChange}
-            />
-          </Button>
-          {profilePictureUrl && (
-            <Button
-              variant="outlined"
-              color="error"
-              size="small"
-              startIcon={<DeleteIcon />}
-              disabled={pictureSaving}
-              onClick={handleProfilePictureDelete}
+
+        <Dialog open={pictureDialogOpen} onClose={() => setPictureDialogOpen(false)} PaperProps={{ sx: { maxWidth: 340, width: "100%", borderRadius: 3 } }}>
+          <Box sx={{ position: "relative", px: 2, py: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
+            <Typography variant="subtitle1" fontWeight={700}>Profile Picture</Typography>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <IconButton component="label" color="primary" disabled={pictureSaving}>
+                <EditIcon />
+                <input
+                  hidden
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    handleProfilePictureChange(e);
+                    setPictureDialogOpen(false);
+                  }}
+                />
+              </IconButton>
+              {profilePictureUrl && (
+                <IconButton color="error" disabled={pictureSaving} onClick={() => {
+                  handleProfilePictureDelete();
+                  setPictureDialogOpen(false);
+                }}>
+                  <DeleteIcon />
+                </IconButton>
+              )}
+              <IconButton onClick={() => setPictureDialogOpen(false)} edge="end">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </Box>
+          <DialogContent sx={{ display: "flex", justifyContent: "center", alignItems: "center", p: 4, bgcolor: "action.hover" }}>
+            <Avatar
+              src={
+                profilePictureUrl
+                  ? `http://localhost:5000${profilePictureUrl}`
+                  : undefined
+              }
+              sx={{
+                width: 260,
+                height: 260,
+                fontSize: "5rem",
+                fontWeight: 800,
+                background: "linear-gradient(135deg, #3b82f6, #2563eb)",
+                boxShadow: "0 8px 24px rgba(59,130,246,0.4)",
+              }}
             >
-              Delete picture
-            </Button>
-          )}
-        </Box>
+              {form.full_name
+                ? form.full_name.charAt(0).toUpperCase()
+                : form.username?.charAt(0)?.toUpperCase() || "U"}
+            </Avatar>
+          </DialogContent>
+        </Dialog>
       </Box>
+
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
