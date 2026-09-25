@@ -717,6 +717,12 @@ router.delete(
          WHERE manager_id = $1 AND owner_id = $2`,
         [req.params.managerId, companyId],
       );
+      await client.query(
+        `UPDATE User_Account
+         SET is_active = FALSE
+         WHERE user_id = $1`,
+        [userId],
+      );
 
       await client.query("COMMIT");
       res.json({ message: "Manager terminated and released from the company." });
@@ -1146,9 +1152,14 @@ const decideRequest = async (req, res, decision) => {
     );
 
     if (decision === "approved") {
+      await client.query(
+        "UPDATE User_Account SET is_active = TRUE WHERE user_id = $1",
+        [request.requester_user_id],
+      );
+
       if (request.requested_role === "driver") {
         await client.query(
-          "UPDATE Driver SET owner_id = $1 WHERE user_id = $2",
+          "UPDATE Driver SET owner_id = $1, status = 'available' WHERE user_id = $2",
           [request.owner_id, request.requester_user_id],
         );
       } else {

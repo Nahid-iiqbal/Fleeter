@@ -58,9 +58,10 @@ export default function MessagesPopover() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleClick = (event) => {
+  const handleClick = async (event) => {
     setAnchorEl(event.currentTarget);
     setFeedback({ message: "", isError: false });
+    await fetchUsers();
     // Mark all as read when opening
     messages.forEach(async (m) => {
       if (!m.is_read) {
