@@ -42,6 +42,10 @@ function VehicleDetails({ vehicleId, onBack }) {
   const [editDocumentId, setEditDocumentId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState("");
   const [uploadFeedback, setUploadFeedback] = useState({
     message: "",
     isError: false,
@@ -57,6 +61,30 @@ function VehicleDetails({ vehicleId, onBack }) {
       );
     } catch (err) {
       setError(err.message || "Failed to delete vehicle image.");
+    }
+  };
+
+  const handleImageUpload = async (event) => {
+    event.preventDefault();
+    if (selectedImages.length === 0) return;
+
+    setUploadingImages(true);
+    setImageUploadError("");
+    const formData = new FormData();
+    selectedImages.forEach((image) => formData.append("vehicleImages", image));
+
+    try {
+      const addedImages = await apiFetch(`/api/vehicles/${vehicleId}/images`, {
+        method: "POST",
+        body: formData,
+      });
+      setImages((currentImages) => [...addedImages, ...currentImages]);
+      setSelectedImages([]);
+      setImageDialogOpen(false);
+    } catch (err) {
+      setImageUploadError(err.message || "Failed to upload vehicle images.");
+    } finally {
+      setUploadingImages(false);
     }
   };
 
@@ -703,7 +731,61 @@ function VehicleDetails({ vehicleId, onBack }) {
             ))}
           </Grid>
         )}
+        <Button
+          variant="outlined"
+          onClick={() => {
+            setImageUploadError("");
+            setImageDialogOpen(true);
+          }}
+          sx={{ alignSelf: "flex-start" }}
+        >
+          Add image
+        </Button>
       </ExpandableRecordSection>
+
+      <Dialog
+        open={imageDialogOpen}
+        onClose={() => !uploadingImages && setImageDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Add Vehicle Images</DialogTitle>
+        <form onSubmit={handleImageUpload}>
+          <DialogContent dividers>
+            {imageUploadError && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {imageUploadError}
+              </Alert>
+            )}
+            <TextField
+              label="Vehicle images"
+              type="file"
+              inputProps={{ accept: "image/*", multiple: true }}
+              onChange={(event) => setSelectedImages(Array.from(event.target.files || []))}
+              required
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              helperText={
+                selectedImages.length > 0
+                  ? `${selectedImages.length} image${selectedImages.length === 1 ? "" : "s"} selected`
+                  : "Select one or more images."
+              }
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => setImageDialogOpen(false)}
+              color="inherit"
+              disabled={uploadingImages}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" disabled={uploadingImages || selectedImages.length === 0}>
+              {uploadingImages ? "Uploading..." : "Add images"}
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
 
       <ExpandableRecordSection
         title="Incidents"

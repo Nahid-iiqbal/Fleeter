@@ -159,7 +159,7 @@ const initializeDatabase = async () => {
         trip_id SERIAL PRIMARY KEY,
         owner_id INT NOT NULL REFERENCES Owner_Profile(owner_id) ON DELETE CASCADE,
         vehicle_id INT NOT NULL REFERENCES Vehicle(vehicle_id) ON DELETE RESTRICT,
-        driver_id INT NOT NULL REFERENCES Driver(driver_id) ON DELETE RESTRICT,
+        driver_id INT NOT NULL REFERENCES Driver(driver_id) ON DELETE CASCADE,
         route_id INT NULL REFERENCES Route(route_id) ON DELETE RESTRICT,
         origin_address VARCHAR(255),
         destination_address VARCHAR(255),

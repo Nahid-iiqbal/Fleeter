@@ -38,6 +38,7 @@ import {
   Alert,
 } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";
 import LocalGasStationIcon from "@mui/icons-material/LocalGasStation";
@@ -584,214 +585,240 @@ function DriverDashboard() {
               FLEETER
             </Typography>
             <Typography variant="body2">Welcome, {driverStats.name}</Typography>
+            <Tooltip title={currentView === "settings" ? "Company requests" : "Settings"}>
+              <IconButton
+                color="inherit"
+                onClick={() =>
+                  setCurrentView((view) =>
+                    view === "settings" ? "dashboard" : "settings",
+                  )
+                }
+                sx={{ ml: 1 }}
+              >
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
             <IconButton color="error" onClick={handleLogout} sx={{ ml: 2 }}>
               <LogoutIcon />
             </IconButton>
           </Toolbar>
         </AppBar>
-        <Box sx={{ maxWidth: "900px", mx: "auto", p: { xs: 2, sm: 4 } }}>
-          {docsLoading ? (
-            <Typography color="text.secondary">
-              Preparing your account setup...
-            </Typography>
-          ) : !driverDocs.some(
-            (doc) =>
-              doc.document_type === "driving_license" &&
-              doc.document_no &&
-              doc.issue_date &&
-              doc.expiry_date &&
-              doc.document_url,
-          ) ? (
-            <Box sx={{ maxWidth: 680, mx: "auto" }}>
-              <Typography
-                variant="overline"
-                color="primary.main"
-                fontWeight={700}
-              >
-                Step 2 of 3 · Driver verification
+        {currentView === "settings" ? (
+          <Box sx={{ maxWidth: "900px", mx: "auto", p: { xs: 2, sm: 4 } }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() => setCurrentView("dashboard")}
+              sx={{ mb: 3 }}
+            >
+              Back to company requests
+            </Button>
+            <AccountSettings />
+          </Box>
+        ) : (
+          <Box sx={{ maxWidth: "900px", mx: "auto", p: { xs: 2, sm: 4 } }}>
+            {docsLoading ? (
+              <Typography color="text.secondary">
+                Preparing your account setup...
               </Typography>
-              <Typography variant="h3" sx={{ mt: 1, mb: 1, fontWeight: 800 }}>
-                Add your driver&apos;s licence
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Upload your driver&apos;s licence before requesting access to a
-                company. You can add or update other documents from the
-                Documents tab later.
-              </Typography>
-              <Box sx={{ display: "flex", gap: 1, mb: 3 }}>
-                {["Name entered", "Driver's licence", "Company request"].map(
-                  (step, index) => (
-                    <Box
-                      key={step}
-                      sx={{
-                        flex: 1,
-                        borderTop: "4px solid",
-                        borderColor: index === 0 ? "primary.main" : "divider",
-                        pt: 1,
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        fontWeight={700}
-                        color={index === 1 ? "primary.main" : "text.secondary"}
+            ) : !driverDocs.some(
+              (doc) =>
+                doc.document_type === "driving_license" &&
+                doc.document_no &&
+                doc.issue_date &&
+                doc.expiry_date &&
+                doc.document_url,
+            ) ? (
+              <Box sx={{ maxWidth: 680, mx: "auto" }}>
+                <Typography
+                  variant="overline"
+                  color="primary.main"
+                  fontWeight={700}
+                >
+                  Step 2 of 3 · Driver verification
+                </Typography>
+                <Typography variant="h3" sx={{ mt: 1, mb: 1, fontWeight: 800 }}>
+                  Add your driver&apos;s licence
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+                  Upload your driver&apos;s licence before requesting access to a
+                  company. You can add or update other documents from the
+                  Documents tab later.
+                </Typography>
+                <Box sx={{ display: "flex", gap: 1, mb: 3 }}>
+                  {["Name entered", "Driver's licence", "Company request"].map(
+                    (step, index) => (
+                      <Box
+                        key={step}
+                        sx={{
+                          flex: 1,
+                          borderTop: "4px solid",
+                          borderColor: index === 0 ? "primary.main" : "divider",
+                          pt: 1,
+                        }}
                       >
-                        {step}
-                      </Typography>
-                    </Box>
-                  ),
-                )}
-              </Box>
-              <Box
-                sx={{
-                  p: { xs: 2, sm: 3 },
-                  borderRadius: 3,
-                  bgcolor: "background.paper",
-                  boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
-                }}
-              >
-                {docError && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {docError}
-                  </Alert>
-                )}
-                <form onSubmit={submitDocument}>
-                  <Stack spacing={3}>
-                    <input
-                      type="hidden"
-                      name="document_type"
-                      value="driving_license"
-                    />
-                    <Box
-                      sx={{
-                        p: 2,
-                        bgcolor: "background.default",
-                        borderRadius: 2,
-                        border: "1px solid",
-                        borderColor: "divider",
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        display="block"
-                      >
-                        Required document
-                      </Typography>
-                      <Typography variant="body1" fontWeight={700}>
-                        Driver&apos;s licence
-                      </Typography>
-                    </Box>
-                    <TextField
-                      variant="outlined"
-                      label="Document number"
-                      name="document_no"
-                      value={newDocForm.document_no}
-                      onChange={handleDocChange}
-                      required
-                      fullWidth
-                    />
-                    <Box
-                      sx={{
-                        display: "grid",
-                        gridTemplateColumns:
-                          "repeat(auto-fit, minmax(180px, 1fr))",
-                        gap: 2,
-                      }}
-                    >
-                      <Box>
                         <Typography
                           variant="caption"
                           fontWeight={700}
-                          color="text.secondary"
-                          sx={{ ml: 1, mb: 0.5, display: "block" }}
+                          color={index === 1 ? "primary.main" : "text.secondary"}
                         >
-                          Issue Date
+                          {step}
                         </Typography>
-                        <TextField
-                          variant="outlined"
-                          type="date"
-                          name="issue_date"
-                          value={newDocForm.issue_date}
-                          onChange={handleDocChange}
-                          required
-                          fullWidth
-                        />
                       </Box>
-                      <Box>
+                    ),
+                  )}
+                </Box>
+                <Box
+                  sx={{
+                    p: { xs: 2, sm: 3 },
+                    borderRadius: 3,
+                    bgcolor: "background.paper",
+                    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.08)",
+                  }}
+                >
+                  {docError && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                      {docError}
+                    </Alert>
+                  )}
+                  <form onSubmit={submitDocument}>
+                    <Stack spacing={3}>
+                      <input
+                        type="hidden"
+                        name="document_type"
+                        value="driving_license"
+                      />
+                      <Box
+                        sx={{
+                          p: 2,
+                          bgcolor: "background.default",
+                          borderRadius: 2,
+                          border: "1px solid",
+                          borderColor: "divider",
+                        }}
+                      >
                         <Typography
                           variant="caption"
-                          fontWeight={700}
                           color="text.secondary"
-                          sx={{ ml: 1, mb: 0.5, display: "block" }}
+                          display="block"
                         >
-                          Expiry Date
+                          Required document
                         </Typography>
-                        <TextField
-                          variant="outlined"
-                          type="date"
-                          name="expiry_date"
-                          value={newDocForm.expiry_date}
-                          inputProps={{ min: newDocForm.issue_date }}
-                          onChange={handleDocChange}
-                          required
-                          fullWidth
-                        />
+                        <Typography variant="body1" fontWeight={700}>
+                          Driver&apos;s licence
+                        </Typography>
                       </Box>
-                    </Box>
-                    <Box
-                      sx={{
-                        border: "2px dashed",
-                        borderColor: "divider",
-                        borderRadius: 2,
-                        p: 3,
-                        textAlign: "center",
-                        bgcolor: "background.paper",
-                        "&:hover": {
-                          borderColor: "primary.main",
-                          bgcolor: "action.hover",
-                        },
-                      }}
-                    >
+                      <TextField
+                        variant="outlined"
+                        label="Document number"
+                        name="document_no"
+                        value={newDocForm.document_no}
+                        onChange={handleDocChange}
+                        required
+                        fullWidth
+                      />
+                      <Box
+                        sx={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fit, minmax(180px, 1fr))",
+                          gap: 2,
+                        }}
+                      >
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            fontWeight={700}
+                            color="text.secondary"
+                            sx={{ ml: 1, mb: 0.5, display: "block" }}
+                          >
+                            Issue Date
+                          </Typography>
+                          <TextField
+                            variant="outlined"
+                            type="date"
+                            name="issue_date"
+                            value={newDocForm.issue_date}
+                            onChange={handleDocChange}
+                            required
+                            fullWidth
+                          />
+                        </Box>
+                        <Box>
+                          <Typography
+                            variant="caption"
+                            fontWeight={700}
+                            color="text.secondary"
+                            sx={{ ml: 1, mb: 0.5, display: "block" }}
+                          >
+                            Expiry Date
+                          </Typography>
+                          <TextField
+                            variant="outlined"
+                            type="date"
+                            name="expiry_date"
+                            value={newDocForm.expiry_date}
+                            inputProps={{ min: newDocForm.issue_date }}
+                            onChange={handleDocChange}
+                            required
+                            fullWidth
+                          />
+                        </Box>
+                      </Box>
+                      <Box
+                        sx={{
+                          border: "2px dashed",
+                          borderColor: "divider",
+                          borderRadius: 2,
+                          p: 3,
+                          textAlign: "center",
+                          bgcolor: "background.paper",
+                          "&:hover": {
+                            borderColor: "primary.main",
+                            bgcolor: "action.hover",
+                          },
+                        }}
+                      >
+                        <Button
+                          component="label"
+                          variant="contained"
+                          color="primary"
+                        >
+                          Choose File (Image/PDF)
+                          <input
+                            type="file"
+                            hidden
+                            name="documentFile"
+                            accept="image/*,.pdf"
+                            required={!editDocumentId}
+                          />
+                        </Button>
+                        <Typography
+                          variant="caption"
+                          display="block"
+                          mt={1}
+                          color="text.secondary"
+                        >
+                          Upload an image or PDF of your driver's licence.
+                        </Typography>
+                      </Box>
                       <Button
-                        component="label"
+                        type="submit"
                         variant="contained"
                         color="primary"
+                        size="large"
+                        disableElevation
                       >
-                        Choose File (Image/PDF)
-                        <input
-                          type="file"
-                          hidden
-                          name="documentFile"
-                          accept="image/*,.pdf"
-                          required={!editDocumentId}
-                        />
+                        Save document and continue
                       </Button>
-                      <Typography
-                        variant="caption"
-                        display="block"
-                        mt={1}
-                        color="text.secondary"
-                      >
-                        Upload an image or PDF of your driver's licence.
-                      </Typography>
-                    </Box>
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      color="primary"
-                      size="large"
-                      disableElevation
-                    >
-                      Save document and continue
-                    </Button>
-                  </Stack>
-                </form>
+                    </Stack>
+                  </form>
+                </Box>
               </Box>
-            </Box>
-          ) : (
-            <CompanyRequests joinOnly />
-          )}
-        </Box>
+            ) : (
+              <CompanyRequests joinOnly />
+            )}
+          </Box>
+        )}
       </Box>
     );
   }
