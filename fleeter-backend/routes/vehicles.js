@@ -312,6 +312,48 @@ router.get(
   },
 );
 
+// POST /api/vehicles/:vehicleId/images
+router.post(
+  "/:vehicleId/images",
+  verifyToken,
+  authorizeRole("owner", "manager"),
+  upload.array("vehicleImages", 20),
+  async (req, res) => {
+    try {
+      const ownerId = await getOwnerId(req.user.user_id);
+      const vehicleCheck = await pool.query(
+        "SELECT 1 FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2",
+        [req.params.vehicleId, ownerId],
+      );
+
+      if (vehicleCheck.rowCount === 0) {
+        return res
+          .status(403)
+          .json({ message: "Vehicle not found or unauthorized." });
+      }
+
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ message: "At least one image is required." });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO Vehicle_Image (vehicle_id, image_url)
+         SELECT $1, unnest($2::text[])
+         RETURNING image_id, image_url, created_at`,
+        [
+          req.params.vehicleId,
+          req.files.map((file) => `/uploads/${file.filename}`),
+        ],
+      );
+
+      res.status(201).json(result.rows);
+    } catch (error) {
+      console.error("Error uploading vehicle images:", error);
+      res.status(500).json({ message: "Failed to upload vehicle images" });
+    }
+  },
+);
+
 // DELETE /api/vehicles/:vehicleId/images/:imageId
 router.delete(
   "/:vehicleId/images/:imageId",

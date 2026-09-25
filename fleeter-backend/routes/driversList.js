@@ -91,13 +91,15 @@ router.get("/:driverId", verifyToken, authorizeRole("owner", "manager", "admin",
           u.profile_picture_url,
           document.document_no,
           document.document_type,
+          document.issue_date AS document_issue_date,
+          document.expiry_date AS document_expiry_date,
           document.document_no AS license_no,
           document.document_type AS license_type,
           document.expiry_date AS license_expiry
         FROM Driver d
         LEFT JOIN User_Account u ON u.user_id = d.user_id
         LEFT JOIN LATERAL (
-          SELECT document_no, document_type, expiry_date
+          SELECT document_no, document_type, issue_date, expiry_date
           FROM Driver_Document
           WHERE driver_id = d.driver_id
           ORDER BY expiry_date DESC
@@ -127,6 +129,130 @@ router.get("/:driverId", verifyToken, authorizeRole("owner", "manager", "admin",
     });
   }
 });
+
+// PUT /api/drivers/:driverId/status
+router.put(
+  "/:driverId/status",
+  verifyToken,
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    const { status } = req.body;
+    if (!["available", "suspended", "on_leave"].includes(status)) {
+      return res
+        .status(400)
+        .json({ message: "Status must be available, suspended, or on_leave." });
+    }
+
+    try {
+      const ownerResult = await pool.query(
+        `SELECT owner_id FROM Owner_Profile WHERE user_id = $1
+         UNION
+         SELECT owner_id FROM Manager_Profile WHERE user_id = $1`,
+        [req.user.user_id],
+      );
+      const ownerId = ownerResult.rows[0]?.owner_id;
+
+      if (!ownerId) {
+        return res.status(403).json({ message: "Company membership is required." });
+      }
+
+      const result = await pool.query(
+        `UPDATE Driver
+         SET status = $1
+         WHERE driver_id = $2
+           AND owner_id = $3
+           AND status IN ('available', 'suspended', 'on_leave')
+         RETURNING driver_id, status`,
+        [status, req.params.driverId, ownerId],
+      );
+
+      if (result.rowCount === 0) {
+        return res.status(409).json({
+          message: "Only available, suspended, or on-leave drivers in your company can change status.",
+        });
+      }
+
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error("Error updating driver status:", error);
+      res.status(500).json({ message: "Failed to update driver status." });
+    }
+  },
+);
+
+// DELETE /api/drivers/:driverId - remove a driver from the current company
+router.delete(
+  "/:driverId",
+  verifyToken,
+  authorizeRole("owner", "manager"),
+  async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const companyResult = await client.query(
+        `SELECT owner_id FROM Owner_Profile WHERE user_id = $1
+         UNION
+         SELECT owner_id FROM Manager_Profile WHERE user_id = $1`,
+        [req.user.user_id],
+      );
+      const ownerId = companyResult.rows[0]?.owner_id;
+
+      if (!ownerId) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ message: "Company membership is required." });
+      }
+
+      const driverResult = await client.query(
+        `SELECT user_id
+         FROM Driver
+         WHERE driver_id = $1 AND owner_id = $2
+         FOR UPDATE`,
+        [req.params.driverId, ownerId],
+      );
+
+      if (driverResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Driver not found in your company." });
+      }
+
+      const userId = driverResult.rows[0].user_id;
+
+      await client.query(
+        `DELETE FROM Fuel_Log
+         WHERE trip_id IN (SELECT trip_id FROM Trip WHERE driver_id = $1)`,
+        [req.params.driverId],
+      );
+      await client.query("DELETE FROM Trip WHERE driver_id = $1", [
+        req.params.driverId,
+      ]);
+
+      if (userId) {
+        await client.query(
+          `DELETE FROM Company_Request
+           WHERE requester_user_id = $1 AND status IN ('pending', 'approved')`,
+          [userId],
+        );
+      }
+
+      await client.query(
+        `UPDATE Driver
+         SET owner_id = NULL, status = 'available'
+         WHERE driver_id = $1 AND owner_id = $2`,
+        [req.params.driverId, ownerId],
+      );
+
+      await client.query("COMMIT");
+      res.json({ message: "Driver terminated and released from the company." });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Error terminating driver:", error);
+      res.status(500).json({ message: "Failed to terminate driver." });
+    } finally {
+      client.release();
+    }
+  },
+);
 
 // GET /api/drivers/:driverId/documents - documents visible to the driver's company
 // FIX 2: Added authorizeRole middleware for consistency and defense-in-depth

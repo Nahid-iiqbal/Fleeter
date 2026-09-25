@@ -683,6 +683,53 @@ router.get("/managers/:managerId", authorizeRole("owner"), async (req, res) => {
   }
 });
 
+// DELETE /api/company/managers/:managerId - remove a manager from the company
+router.delete(
+  "/managers/:managerId",
+  authorizeRole("owner"),
+  async (req, res) => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const companyId = await getCompanyId(req.user.user_id);
+      const managerResult = await client.query(
+        `SELECT user_id
+         FROM Manager_Profile
+         WHERE manager_id = $1 AND owner_id = $2
+         FOR UPDATE`,
+        [req.params.managerId, companyId],
+      );
+
+      if (managerResult.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ message: "Manager not found in your company." });
+      }
+
+      const userId = managerResult.rows[0].user_id;
+      await client.query(
+        `DELETE FROM Company_Request
+         WHERE requester_user_id = $1 AND status IN ('pending', 'approved')`,
+        [userId],
+      );
+      await client.query(
+        `UPDATE Manager_Profile
+         SET owner_id = NULL
+         WHERE manager_id = $1 AND owner_id = $2`,
+        [req.params.managerId, companyId],
+      );
+
+      await client.query("COMMIT");
+      res.json({ message: "Manager terminated and released from the company." });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Error terminating manager:", error);
+      res.status(500).json({ message: "Failed to terminate manager." });
+    } finally {
+      client.release();
+    }
+  },
+);
+
 // GET /api/company/alerts - company-wide alert list
 router.get("/alerts", authorizeRole("owner", "manager"), async (req, res) => {
   try {

@@ -184,7 +184,15 @@ router.get("/account", verifyToken, async (req, res) => {
   try {
     await ensureProfilePictureColumn();
     const userQuery = await db.query(
-      "SELECT u.username, u.email, u.full_name, u.phone, u.address, u.profile_picture_url, u.theme, u.notifications_enabled, u.role, o.company_name FROM User_Account u LEFT JOIN Owner_Profile o ON u.user_id = o.user_id WHERE u.user_id = $1",
+      `SELECT u.username, u.email,
+        COALESCE(d.full_name, m.full_name, u.full_name) AS full_name,
+        COALESCE(d.phone, m.phone, u.phone) AS phone, u.address, u.profile_picture_url,
+        u.theme, u.notifications_enabled, u.role, o.company_name
+       FROM User_Account u
+       LEFT JOIN Owner_Profile o ON u.user_id = o.user_id
+       LEFT JOIN Driver d ON u.user_id = d.user_id
+       LEFT JOIN Manager_Profile m ON u.user_id = m.user_id
+       WHERE u.user_id = $1`,
       [req.user.user_id],
     );
     if (userQuery.rows.length === 0)
@@ -358,6 +366,18 @@ router.put("/account", verifyToken, async (req, res) => {
           notifications_enabled !== false,
           req.user.user_id,
         ],
+      );
+    }
+    if (req.user.role === "driver") {
+      await db.query(
+        "UPDATE Driver SET full_name = $1, phone = $2 WHERE user_id = $3",
+        [full_name || null, phone || null, req.user.user_id],
+      );
+    }
+    if (req.user.role === "manager") {
+      await db.query(
+        "UPDATE Manager_Profile SET full_name = $1, phone = $2 WHERE user_id = $3",
+        [full_name || null, phone || null, req.user.user_id],
       );
     }
     if (req.user.role === "owner" && company_name !== undefined) {

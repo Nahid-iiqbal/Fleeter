@@ -13,8 +13,9 @@ import {
   CircularProgress,
   Avatar,
   Paper,
-  IconButton,
-  Tooltip,
+  FormControl,
+  MenuItem,
+  Select,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -32,6 +33,8 @@ function DriverDetails({ driverId, onBack }) {
   const [showIncidents, setShowIncidents] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [terminating, setTerminating] = useState(false);
 
   useEffect(() => {
     const fetchDriver = async () => {
@@ -58,8 +61,11 @@ function DriverDetails({ driverId, onBack }) {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case "available":
       case "active":
         return "success";
+      case "dispatched":
+        return "info";
       case "on_leave":
         return "warning";
       case "suspended":
@@ -68,6 +74,41 @@ function DriverDetails({ driverId, onBack }) {
         return "default";
       default:
         return "default";
+    }
+  };
+
+  const handleStatusChange = async (event) => {
+    const status = event.target.value;
+    if (!['available', 'suspended', 'on_leave'].includes(driver.status) || status === driver.status) return;
+
+    setStatusUpdating(true);
+    setError("");
+    try {
+      const updatedDriver = await apiFetch(`/api/drivers/${driverId}/status`, {
+        method: "PUT",
+        body: JSON.stringify({ status }),
+      });
+      setDriver((currentDriver) => ({ ...currentDriver, ...updatedDriver }));
+    } catch (err) {
+      setError(err.message || "Unable to update driver status.");
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  const handleTerminate = async () => {
+    if (!window.confirm("Terminate this driver and remove them from the company?")) {
+      return;
+    }
+
+    setTerminating(true);
+    setError("");
+    try {
+      await apiFetch(`/api/drivers/${driverId}`, { method: "DELETE" });
+      onBack();
+    } catch (err) {
+      setError(err.message || "Unable to terminate driver.");
+      setTerminating(false);
     }
   };
 
@@ -147,6 +188,7 @@ function DriverDetails({ driverId, onBack }) {
           Back
         </Button>
       </Box>
+      {error && <Alert severity="error">{error}</Alert>}
 
       {/* Driver Identity Card */}
       <Card elevation={0} sx={{ border: 1, borderColor: "divider" }}>
@@ -186,16 +228,32 @@ function DriverDetails({ driverId, onBack }) {
               </Typography>
             </Box>
           </Box>
-          <Chip
-            label={driver.status?.replaceAll("_", " ")}
-            color={getStatusColor(driver.status)}
-            sx={{
-              fontWeight: 700,
-              textTransform: "capitalize",
-              px: 1,
-              fontSize: "0.875rem",
-            }}
-          />
+          {["available", "suspended", "on_leave"].includes(driver.status) ? (
+            <FormControl size="small" sx={{ minWidth: 135 }}>
+              <Select
+                value={driver.status}
+                onChange={handleStatusChange}
+                disabled={statusUpdating}
+                color={getStatusColor(driver.status)}
+                sx={{ fontWeight: 700, textTransform: "capitalize" }}
+              >
+                <MenuItem value="available">Available</MenuItem>
+                <MenuItem value="suspended">Suspended</MenuItem>
+                <MenuItem value="on_leave">On leave</MenuItem>
+              </Select>
+            </FormControl>
+          ) : (
+            <Chip
+              label={driver.status?.replace("_", " ")}
+              color={getStatusColor(driver.status)}
+              sx={{
+                fontWeight: 700,
+                textTransform: "capitalize",
+                px: 1,
+                fontSize: "0.875rem",
+              }}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -409,6 +467,16 @@ function DriverDetails({ driverId, onBack }) {
           </Grid>
         </CardContent>
       </Card>
+
+      <Button
+        variant="contained"
+        color="error"
+        onClick={handleTerminate}
+        disabled={terminating}
+        sx={{ alignSelf: "flex-start" }}
+      >
+        {terminating ? "Terminating..." : "Terminate this Driver"}
+      </Button>
     </Box>
   );
 }

@@ -12,6 +12,7 @@ import {
   AppBar,
   Toolbar,
   IconButton,
+  Button,
   Badge,
   Popover,
   Paper,
@@ -452,24 +453,55 @@ function OwnerDashboard() {
             <Typography variant="body2">
               Company: No company selected
             </Typography>
+            <Tooltip
+              title={
+                activeTab === "settings" ? "Company requests" : "Settings"
+              }
+            >
+              <IconButton
+                color="inherit"
+                onClick={() =>
+                  navigate(
+                    activeTab === "settings"
+                      ? "/dashboard/recruit"
+                      : "/dashboard/settings",
+                  )
+                }
+                sx={{ ml: 1 }}
+              >
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
             <IconButton color="error" onClick={handleLogout} sx={{ ml: 2 }}>
               <LogoutIcon />
             </IconButton>
           </Toolbar>
         </AppBar>
-        <Box sx={{ maxWidth: "900px", mx: "auto", p: { xs: 2, sm: 4 } }}>
-          <Typography variant="overline" color="primary.main" fontWeight={700}>
-            Step 2 of 2 · Manager onboarding
-          </Typography>
-          <Typography variant="h4" gutterBottom sx={{ mt: 1, fontWeight: 800 }}>
-            Join a company
-          </Typography>
-          <Typography variant="body1" color="text.secondary" gutterBottom>
-            Your name is saved. Choose a company and send a request for manager
-            access.
-          </Typography>
-          <CompanyRequests joinOnly />
-        </Box>
+        {activeTab === "settings" ? (
+          <Box sx={{ maxWidth: "900px", mx: "auto", p: { xs: 2, sm: 4 } }}>
+            <Button
+              onClick={() => navigate("/dashboard/recruit")}
+              sx={{ mb: 3 }}
+            >
+              Back to company requests
+            </Button>
+            <AccountSettings />
+          </Box>
+        ) : (
+          <Box sx={{ maxWidth: "900px", mx: "auto", p: { xs: 2, sm: 4 } }}>
+            <Typography variant="overline" color="primary.main" fontWeight={700}>
+              Step 2 of 2 · Manager onboarding
+            </Typography>
+            <Typography variant="h4" gutterBottom sx={{ mt: 1, fontWeight: 800 }}>
+              Join a company
+            </Typography>
+            <Typography variant="body1" color="text.secondary" gutterBottom>
+              Your name is saved. Choose a company and send a request for manager
+              access.
+            </Typography>
+            <CompanyRequests joinOnly />
+          </Box>
+        )}
       </Box>
     );
   }
@@ -701,7 +733,10 @@ function OwnerDashboard() {
             (selectedDriverId ? (
               <DriverDetails
                 driverId={selectedDriverId}
-                onBack={() => navigate("/dashboard/drivers")}
+                onBack={() => {
+                  setDriversLoaded(false);
+                  navigate("/dashboard/drivers");
+                }}
               />
             ) : (
               <DriversTable
@@ -738,7 +773,10 @@ function OwnerDashboard() {
             (selectedManagerId ? (
               <ManagerDetails
                 managerId={selectedManagerId}
-                onBack={() => navigate("/dashboard/managers")}
+                onBack={() => {
+                  setManagersLoaded(false);
+                  navigate("/dashboard/managers");
+                }}
               />
             ) : (
               <ManagersTable

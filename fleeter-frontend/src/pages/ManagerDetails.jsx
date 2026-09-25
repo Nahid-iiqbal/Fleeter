@@ -19,6 +19,7 @@ function ManagerDetails({ managerId, onBack }) {
   const [manager, setManager] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [terminating, setTerminating] = useState(false);
 
   useEffect(() => {
     const fetchManager = async () => {
@@ -37,6 +38,22 @@ function ManagerDetails({ managerId, onBack }) {
 
     fetchManager();
   }, [managerId]);
+
+  const handleTerminate = async () => {
+    if (!window.confirm("Terminate this manager and remove them from the company?")) {
+      return;
+    }
+
+    setTerminating(true);
+    setError("");
+    try {
+      await apiFetch(`/api/company/managers/${managerId}`, { method: "DELETE" });
+      onBack();
+    } catch (err) {
+      setError(err.message || "Unable to terminate manager.");
+      setTerminating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -201,6 +218,16 @@ function ManagerDetails({ managerId, onBack }) {
           </Grid>
         </CardContent>
       </Card>
+
+      <Button
+        variant="contained"
+        color="error"
+        onClick={handleTerminate}
+        disabled={terminating}
+        sx={{ alignSelf: "flex-start" }}
+      >
+        {terminating ? "Terminating..." : "Terminate this Manager"}
+      </Button>
     </Box>
   );
 }
