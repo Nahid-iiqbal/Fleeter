@@ -423,7 +423,7 @@ function TripsTable({
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
               <Autocomplete
-                options={drivers}
+                options={drivers.filter(d => d.status === "available")}
                 getOptionLabel={(driver) => driver.full_name}
                 inputValue={driverSearch}
                 onInputChange={(_, newInputValue) =>
@@ -446,7 +446,7 @@ function TripsTable({
               />
 
               <Autocomplete
-                options={vehicles}
+                options={vehicles.filter(v => v.availability_status === "available")}
                 getOptionLabel={(vehicle) =>
                   `${vehicle.registration_no} (${vehicle.brand} ${vehicle.model})`
                 }

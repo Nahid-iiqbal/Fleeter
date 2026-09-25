@@ -693,7 +693,7 @@ function VehicleDetails({ vehicleId, onBack }) {
               </Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>{incident.description || "No notes provided."}</Typography>
               {incident.severity && <Typography variant="body2" color="text.secondary">Severity: {incident.severity}</Typography>}
-              {incident.damage_cost !== null && incident.damage_cost !== undefined && <Typography variant="body2" color="text.secondary">Damage cost: {incident.damage_cost}</Typography>}
+              {incident.damage_cost !== null && incident.damage_cost !== undefined && <Typography variant="body2" color="text.secondary">Damage cost: ৳{incident.damage_cost}</Typography>}
             </Paper>
           ))
         )}
@@ -720,7 +720,7 @@ function VehicleDetails({ vehicleId, onBack }) {
               </Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>{record.description || "No notes provided."}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Cost: {record.cost ?? "Not provided"} · Odometer: {record.odometer_km ?? "Not provided"} km
+                Cost: ৳{record.cost ?? "Not provided"} · Odometer: {record.odometer_km ?? "Not provided"} km
               </Typography>
               {record.mechanic_name && <Typography variant="body2" color="text.secondary">Mechanic: {record.mechanic_name}</Typography>}
             </Paper>

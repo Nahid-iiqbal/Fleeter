@@ -975,7 +975,7 @@ function DashboardAnalytics() {
                 <TableRow key={i}>
                   <TableCell>#{v.cost_rank}</TableCell>
                   <TableCell>{v.registration_no} ({v.brand})</TableCell>
-                  <TableCell align="right">${Number(v.total_fuel_cost).toFixed(2)}</TableCell>
+                  <TableCell align="right">৳{Number(v.total_fuel_cost).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -993,7 +993,7 @@ function DashboardAnalytics() {
                 <TableRow key={i}>
                   <TableCell sx={{ textTransform: 'capitalize' }}>{v.type}</TableCell>
                   <TableCell align="right">{v.maintenance_events}</TableCell>
-                  <TableCell align="right">${Number(v.total_maintenance_cost).toFixed(2)}</TableCell>
+                  <TableCell align="right">৳{Number(v.total_maintenance_cost).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

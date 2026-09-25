@@ -47,6 +47,7 @@ function DriversTable({
   onDriverClick,
 }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [assigningDriver, setAssigningDriver] = useState(null);
   const [routes, setRoutes] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -67,8 +68,8 @@ function DriversTable({
   });
 
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredDrivers = drivers.filter((driver) =>
-    [
+  const filteredDrivers = drivers.filter((driver) => {
+    const searchMatch = [
       driver.driver_id,
       driver.full_name,
       driver.document_no,
@@ -82,8 +83,10 @@ function DriversTable({
       .filter(Boolean)
       .join(" ")
       .toLowerCase()
-      .includes(normalizedSearch),
-  );
+      .includes(normalizedSearch);
+    const statusMatch = statusFilter === "all" || driver.status === statusFilter;
+    return searchMatch && statusMatch;
+  });
 
   useEffect(() => {
     if (!assigningDriver) {
@@ -199,6 +202,19 @@ function DriversTable({
           }}
         >
           <TextField
+            select
+            size="small"
+            label="Filter Status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="all">All Statuses</MenuItem>
+            <MenuItem value="available">Available</MenuItem>
+            <MenuItem value="dispatched">Dispatched</MenuItem>
+            <MenuItem value="on_leave">On Leave</MenuItem>
+          </TextField>
+          <TextField
             size="small"
             placeholder="Search drivers..."
             value={searchTerm}
@@ -224,7 +240,7 @@ function DriversTable({
                 <RefreshIcon />
               )
             }
-            sx={{ whiteSpace: "nowrap" }}
+            sx={{ whiteSpace: "nowrap" , px: 5}}
           >
             Refresh
           </Button>
@@ -331,6 +347,7 @@ function DriversTable({
                         variant="contained"
                         color="secondary"
                         size="small"
+                        disabled={driver.status !== "available"}
                         onClick={() => {
                           setTripForm((current) => ({
                             ...current,
