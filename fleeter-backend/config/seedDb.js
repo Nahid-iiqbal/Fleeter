@@ -1228,8 +1228,8 @@ const seedDatabase = async () => {
 
       co.vehicles.forEach(
         (v) =>
-          (odometerCursor[v.vehicleId] =
-            10000 + Math.floor(Math.random() * 5000)),
+        (odometerCursor[v.vehicleId] =
+          10000 + Math.floor(Math.random() * 5000)),
       );
 
       for (const [dIdx, d] of co.drivers.entries()) {

@@ -63,10 +63,10 @@ const features = [
 ];
 
 const stats = [
-  { value: "10K+", label: "Vehicles Managed" },
-  { value: "99.9%", label: "Uptime SLA" },
+  { value: "10+", label: "Vehicles Managed" },
+  { value: "< 0.9%", label: "Uptime SLA (hamara marzi)" },
   { value: "< 3s", label: "GPS Refresh Rate" },
-  { value: "5★", label: "Operator Rating" },
+  { value: "inf★", label: "Operator Rating" },
 ];
 
 export default function Landing() {

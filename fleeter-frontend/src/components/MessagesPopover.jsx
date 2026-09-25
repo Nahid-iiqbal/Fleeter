@@ -58,10 +58,11 @@ export default function MessagesPopover() {
     return () => clearInterval(interval);
   }, []);
 
-const handleClick = (event) => {
+const handleClick = async (event) => {
     setAnchorEl(event.currentTarget);
     setFeedback({ message: "", isError: false });
-    
+
+    await fetchUsers();
     // Mark all as read when opening (batch it or just do it locally)
     const unreadMessages = messages.filter(m => !m.is_read);
     if (unreadMessages.length > 0) {
@@ -70,7 +71,7 @@ const handleClick = (event) => {
           await apiFetch(`/api/messages/${m.message_id}/read`, { method: "PUT" });
         } catch (e) {}
       });
-      
+
       // Update local state to reflect UI changes immediately
       setMessages(messages.map(m => ({ ...m, is_read: true })));
       setUnreadCount(0);

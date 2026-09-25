@@ -237,10 +237,18 @@ router.delete(
 
       await client.query(
         `UPDATE Driver
-         SET owner_id = NULL, status = 'available'
+         SET owner_id = NULL, status = 'terminated'
          WHERE driver_id = $1 AND owner_id = $2`,
         [req.params.driverId, ownerId],
       );
+      if (userId) {
+        await client.query(
+          `UPDATE User_Account
+           SET is_active = FALSE
+           WHERE user_id = $1`,
+          [userId],
+        );
+      }
 
       await client.query("COMMIT");
       res.json({ message: "Driver terminated and released from the company." });
