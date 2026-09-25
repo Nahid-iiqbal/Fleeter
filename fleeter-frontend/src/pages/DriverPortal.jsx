@@ -40,6 +40,7 @@ import {
 import SettingsIcon from "@mui/icons-material/Settings";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";
+import MessagesPopover from "../components/MessagesPopover";
 import LocalGasStationIcon from "@mui/icons-material/LocalGasStation";
 import WarningIcon from "@mui/icons-material/Warning";
 import BuildIcon from "@mui/icons-material/Build";
@@ -406,7 +407,7 @@ function DriverDashboard() {
         setDocSuccess("Document updated successfully!");
         setEditDocumentId(null);
       } else {
-        const data = await apiFetch("/api/driver/documents", {
+        await apiFetch("/api/driver/documents", {
           method: "POST",
           body: formData,
         });
@@ -576,7 +577,7 @@ function DriverDashboard() {
     return (
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
         <AppBar position="static" color="secondary">
-          <Toolbar>
+          <Toolbar sx={{ gap: 1 }}>
             <Typography
               variant="h5"
               sx={{ fontFamily: '"Passero One", cursive', flexGrow: 1 }}
@@ -584,6 +585,7 @@ function DriverDashboard() {
               FLEETER
             </Typography>
             <Typography variant="body2">Welcome, {driverStats.name}</Typography>
+            <MessagesPopover />
             <IconButton color="error" onClick={handleLogout} sx={{ ml: 2 }}>
               <LogoutIcon />
             </IconButton>
@@ -699,43 +701,20 @@ function DriverDashboard() {
                       }}
                     >
                       <Box>
-                        <Typography
-                          variant="caption"
-                          fontWeight={700}
-                          color="text.secondary"
-                          sx={{ ml: 1, mb: 0.5, display: "block" }}
-                        >
-                          Issue Date
-                        </Typography>
-                        <TextField
-                          variant="outlined"
-                          type="date"
-                          name="issue_date"
+                        <TextField label="Issue Date" variant="outlined" type="date" name="issue_date"
                           value={newDocForm.issue_date}
                           onChange={handleDocChange}
                           required
                           fullWidth
-                        />
+                         slotProps={{ inputLabel: { shrink: true } }} />
                       </Box>
                       <Box>
-                        <Typography
-                          variant="caption"
-                          fontWeight={700}
-                          color="text.secondary"
-                          sx={{ ml: 1, mb: 0.5, display: "block" }}
-                        >
-                          Expiry Date
-                        </Typography>
-                        <TextField
-                          variant="outlined"
-                          type="date"
-                          name="expiry_date"
+                        <TextField label="Expiry Date" variant="outlined" type="date" name="expiry_date"
                           value={newDocForm.expiry_date}
-                          inputProps={{ min: newDocForm.issue_date }}
+                          slotProps={{ htmlInput: { min: newDocForm.issue_date }, inputLabel: { shrink: true } }}
                           onChange={handleDocChange}
                           required
-                          fullWidth
-                        />
+                          fullWidth />
                       </Box>
                     </Box>
                     <Box
@@ -992,7 +971,7 @@ function DriverDashboard() {
           elevation={0}
           sx={{ borderBottom: 1, borderColor: "divider" }}
         >
-          <Toolbar>
+          <Toolbar sx={{ gap: 1 }}>
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
               Driver Portal
             </Typography>
@@ -1088,6 +1067,7 @@ function DriverDashboard() {
               </Box>
             </Popover>
 
+            <MessagesPopover />
             <Tooltip title="Settings">
               <IconButton onClick={() => setCurrentView("settings")}>
                 <SettingsIcon />
@@ -1730,16 +1710,18 @@ function DriverDashboard() {
                               </Box>
 
                               {doc.document_url && (
-                                <Button
-                                  href={`http://localhost:5000${doc.document_url}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  startIcon={<OpenInNewIcon />}
-                                  size="small"
-                                  sx={{ mt: 1.5 }}
-                                >
-                                  Open Document
-                                </Button>
+                                <Tooltip title="Open Document">
+                                  <IconButton
+                                    href={`http://localhost:5000${doc.document_url}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    color="primary"
+                                    size="small"
+                                    sx={{ mt: 1.5, border: 1, borderColor: "primary.main", borderRadius: 2 }}
+                                  >
+                                    <OpenInNewIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
                               )}
                             </Box>
                           </Paper>
@@ -1845,42 +1827,23 @@ function DriverDashboard() {
                   }}
                 >
                   <Box>
-                    <Typography
-                      variant="caption"
-                      fontWeight={700}
-                      color="text.secondary"
-                      sx={{ display: "block", mb: 0.8, ml: 0.5 }}
-                    >
-                      Issue Date *
-                    </Typography>
-                    <TextField
-                      type="date"
+                    <TextField label="Issue Date" type="date"
                       name="issue_date"
                       value={newDocForm.issue_date}
                       onChange={handleDocChange}
                       required
                       fullWidth
-                    />
+                     slotProps={{ inputLabel: { shrink: true } }} />
                   </Box>
 
                   <Box>
-                    <Typography
-                      variant="caption"
-                      fontWeight={700}
-                      color="text.secondary"
-                      sx={{ display: "block", mb: 0.8, ml: 0.5 }}
-                    >
-                      Expiry Date *
-                    </Typography>
-                    <TextField
-                      type="date"
+                    <TextField label="Expiry Date" type="date"
                       name="expiry_date"
                       value={newDocForm.expiry_date}
-                      inputProps={{ min: newDocForm.issue_date }}
-                      onChange={handleDocChange}
-                      required
-                      fullWidth
-                    />
+                      slotProps={{ htmlInput: { min: newDocForm.issue_date }, inputLabel: { shrink: true } }}
+                          onChange={handleDocChange}
+                          required
+                          fullWidth />
                   </Box>
                 </Box>
 
@@ -2082,7 +2045,7 @@ function DriverDashboard() {
                   <TextField
                     label="Liters Filled"
                     type="number"
-                    inputProps={{ step: "0.01" }}
+                    slotProps={{ htmlInput: { step: "0.01" } }}
                     name="liters"
                     value={fuelForm.liters}
                     onChange={handleFuelChange}
@@ -2094,7 +2057,7 @@ function DriverDashboard() {
                   <TextField
                     label="Total Cost (৳)"
                     type="number"
-                    inputProps={{ step: "0.01" }}
+                    slotProps={{ htmlInput: { step: "0.01" } }}
                     name="totalCost"
                     value={fuelForm.totalCost}
                     onChange={handleFuelChange}

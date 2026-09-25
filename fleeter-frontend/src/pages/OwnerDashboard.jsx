@@ -17,8 +17,16 @@ import {
   Paper,
   Tooltip,
   Alert,
+  Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  CircularProgress
 } from "@mui/material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import MessagesPopover from "../components/MessagesPopover";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AccountSettings from "../components/AccountSettings";
@@ -436,7 +444,7 @@ function OwnerDashboard() {
   if (!companyContext.hasCompany) {
     return (
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-        <AppBar position="static" color="secondary">
+        <AppBar position="static" color="secondary" sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Toolbar>
             <Typography variant="h6" sx={{ flexGrow: 1 }}>
               Fleeter OS
@@ -568,11 +576,12 @@ function OwnerDashboard() {
           overflow: "hidden",
         }}
       >
-        <AppBar position="static" elevation={0}>
+        <AppBar position="static" elevation={0} sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "background.paper", color: "text.primary" }}>
           <Toolbar sx={{ gap: 1 }}>
             <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
               {navItems.find((n) => n.tab === activeTab)?.label || "Dashboard"}
             </Typography>
+            <MessagesPopover />
             <IconButton onClick={handleNotificationsClick} size="small">
               <Badge
                 badgeContent={
@@ -669,19 +678,7 @@ function OwnerDashboard() {
                   onClick={() => navigate("/dashboard/alerts")}
                 />
               </Box>
-              <Paper
-                variant="outlined"
-                sx={{
-                  minHeight: 400,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Typography color="text.secondary">
-                  Overview Analytics Will Go Here
-                </Typography>
-              </Paper>
+              <DashboardAnalytics />
             </>
           )}
           {activeTab === "map" && <LiveMap />}
@@ -853,6 +850,92 @@ function MetricCard({ title, value, color, icon, onClick }) {
         {value}
       </Typography>
     </Box>
+  );
+}
+
+
+function DashboardAnalytics() {
+  const [data, setData] = React.useState(null);
+  
+  React.useEffect(() => {
+    apiFetch("/api/dashboard/analytics")
+      .then(setData)
+      .catch(console.error);
+  }, []);
+
+  if (!data) return <CircularProgress sx={{ display: 'block', mx: 'auto', mt: 4 }} />;
+
+  return (
+    <Grid container spacing={3}>
+      <Grid item xs={12} md={4}>
+        <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+          <Typography variant="h6" gutterBottom fontWeight={600}>Fleet Utilization</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80%' }}>
+            <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+              <CircularProgress variant="determinate" value={data.utilization} size={120} thickness={5} color={data.utilization < 50 ? 'warning' : 'success'} />
+              <Box sx={{ top: 0, left: 0, bottom: 0, right: 0, position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography variant="h5" fontWeight="bold">{data.utilization}%</Typography>
+              </Box>
+            </Box>
+          </Box>
+        </Paper>
+      </Grid>
+      
+      <Grid item xs={12} md={8}>
+        <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+          <Typography variant="h6" gutterBottom fontWeight={600}>Top Drivers (Efficiency)</Typography>
+          <Table size="small">
+            <TableHead><TableRow><TableCell>Driver</TableCell><TableCell align="right">Trips</TableCell><TableCell align="right">Avg Time (hrs)</TableCell><TableCell align="right">Incidents</TableCell></TableRow></TableHead>
+            <TableBody>
+              {(data.efficiency || []).map((d, i) => (
+                <TableRow key={i}>
+                  <TableCell>{d.full_name}</TableCell>
+                  <TableCell align="right">{d.total_trips}</TableCell>
+                  <TableCell align="right">{d.avg_trip_hours}</TableCell>
+                  <TableCell align="right" sx={{ color: d.incident_count > 0 ? 'error.main' : 'success.main' }}>{d.incident_count}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      </Grid>
+
+      <Grid item xs={12} md={6}>
+        <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+          <Typography variant="h6" gutterBottom fontWeight={600}>Highest Fuel Consumers</Typography>
+          <Table size="small">
+            <TableHead><TableRow><TableCell>Rank</TableCell><TableCell>Vehicle</TableCell><TableCell align="right">Total Cost</TableCell></TableRow></TableHead>
+            <TableBody>
+              {(data.fuelRanking || []).map((v, i) => (
+                <TableRow key={i}>
+                  <TableCell>#{v.cost_rank}</TableCell>
+                  <TableCell>{v.registration_no} ({v.brand})</TableCell>
+                  <TableCell align="right">${Number(v.total_fuel_cost).toFixed(2)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      </Grid>
+
+      <Grid item xs={12} md={6}>
+        <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
+          <Typography variant="h6" gutterBottom fontWeight={600}>Maintenance by Type</Typography>
+          <Table size="small">
+            <TableHead><TableRow><TableCell>Vehicle Type</TableCell><TableCell align="right">Events</TableCell><TableCell align="right">Total Cost</TableCell></TableRow></TableHead>
+            <TableBody>
+              {(data.maintenanceCost || []).map((v, i) => (
+                <TableRow key={i}>
+                  <TableCell sx={{ textTransform: 'capitalize' }}>{v.type}</TableCell>
+                  <TableCell align="right">{v.maintenance_events}</TableCell>
+                  <TableCell align="right">${Number(v.total_maintenance_cost).toFixed(2)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      </Grid>
+    </Grid>
   );
 }
 

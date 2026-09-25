@@ -20,7 +20,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
 function ManagersTable({
-  managers,
+  managers = [],
   managersLoading,
   error,
   onRefresh,
@@ -109,7 +109,7 @@ function ManagersTable({
                 <RefreshIcon />
               )
             }
-            sx={{ whiteSpace: "nowrap" }}
+            sx={{ whiteSpace: "nowrap", height: 40, minWidth: "120px" }}
           >
             Refresh
           </Button>

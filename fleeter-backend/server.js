@@ -39,6 +39,7 @@ app.use("/api/vehicles", require("./routes/vehicles"));
 app.use("/api/driver", require("./routes/driver"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/company", require("./routes/company"));
+app.use("/api/messages", require("./routes/messages"));
 
 if (!process.env.JWT_SECRET) {
   console.error("FATAL: JWT_SECRET is not set in .env");

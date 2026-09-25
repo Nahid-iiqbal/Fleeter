@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import {
   Alert,
+  Box,
   Button,
+  Stack,
   Dialog,
   DialogActions,
   DialogContent,
@@ -11,6 +13,7 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Typography,
   TextField,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -34,6 +37,7 @@ function AddVehicleDialog({ onCreated }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [imageCount, setImageCount] = useState(0);
+  const [docCount, setDocCount] = useState(0);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -57,6 +61,7 @@ function AddVehicleDialog({ onCreated }) {
       await apiFetch("/api/vehicles", { method: "POST", body: formData });
       setValues(initialValues);
       setImageCount(0);
+      setDocCount(0);
       setOpen(false);
       onCreated();
     } catch (submitError) {
@@ -68,7 +73,7 @@ function AddVehicleDialog({ onCreated }) {
 
   return (
     <>
-      <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)}>
+      <Button variant="contained" startIcon={<AddIcon />} onClick={() => setOpen(true)} sx={{ height: 40, whiteSpace: "nowrap", minWidth: "max-content" }}>
         Add New Vehicle
       </Button>
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -90,18 +95,18 @@ function AddVehicleDialog({ onCreated }) {
                 <TextField label="Model name" name="model" value={values.model} onChange={handleChange} fullWidth />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField label="Year" name="year" type="number" value={values.year} onChange={handleChange} inputProps={{ min: 1886, max: new Date().getFullYear() + 1 }} fullWidth />
+                <TextField label="Year" name="year" type="number" value={values.year} onChange={handleChange} slotProps={{ htmlInput: { min: 1886, max: new Date().getFullYear() + 1 } }} fullWidth />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField label="Capacity" name="capacity" type="number" value={values.capacity} onChange={handleChange} inputProps={{ min: 0 }} fullWidth />
+                <TextField label="Capacity" name="capacity" type="number" value={values.capacity} onChange={handleChange} slotProps={{ htmlInput: { min: 0 } }} fullWidth />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={6}>
                 <TextField label="Fuel type" name="fuel_type" value={values.fuel_type} onChange={handleChange} fullWidth />
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Condition status</InputLabel>
-                  <Select label="Condition status" name="condition_status" value={values.condition_status} onChange={handleChange}>
+                  <Select fullWidth label="Condition status" name="condition_status" value={values.condition_status} onChange={handleChange}>
                     <MenuItem value="good">Good</MenuItem>
                     <MenuItem value="needs_service">Needs service</MenuItem>
                     <MenuItem value="in_maintenance">In maintenance</MenuItem>
@@ -109,10 +114,10 @@ function AddVehicleDialog({ onCreated }) {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel>Availability</InputLabel>
-                  <Select label="Availability" name="availability_status" value={values.availability_status} onChange={handleChange}>
+                  <Select fullWidth label="Availability" name="availability_status" value={values.availability_status} onChange={handleChange}>
                     <MenuItem value="available">Available</MenuItem>
                     <MenuItem value="dispatched">Dispatched</MenuItem>
                     <MenuItem value="reserved">Reserved</MenuItem>
@@ -121,30 +126,47 @@ function AddVehicleDialog({ onCreated }) {
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
-                <TextField label="Registration document" name="registrationDocument" type="file" required inputProps={{ accept: "image/*,.pdf" }} fullWidth InputLabelProps={{ shrink: true }} helperText="Required. Upload one registration document." />
-              </Grid>
-              <Grid item xs={12}>
-                <Button variant="outlined" component="label">
-                  Choose vehicle images
-                  <input
-                    hidden
-                    type="file"
-                    name="vehicleImages"
-                    accept="image/*"
-                    multiple
-                    onChange={(event) => setImageCount(event.target.files.length)}
-                  />
-                </Button>
-                {imageCount > 0 && ` ${imageCount} image${imageCount === 1 ? "" : "s"} selected`}
-                <Alert severity="info" icon={false} sx={{ mt: 1 }}>
-                  Optional. You can select multiple images.
-                </Alert>
+                <Stack spacing={2} sx={{ width: { xs: '100%', sm: 400 } }}>
+                  <Box>
+                    <Button variant="outlined" component="label" fullWidth sx={{ justifyContent: 'flex-start', height: 40, whiteSpace: "nowrap" }}>
+                      Choose registration document (Required)
+                      <input
+                        hidden
+                        type="file"
+                        name="registrationDocument"
+                        accept="image/*,.pdf"
+                        required
+                        onChange={(event) => setDocCount(event.target.files.length)}
+                      />
+                    </Button>
+                    {docCount > 0 && <Typography variant="caption" display="block" sx={{ mt: 0.5, ml: 1, color: 'success.main' }}>{docCount} file selected</Typography>}
+                  </Box>
+
+                  <Box>
+                    <Button variant="outlined" component="label" fullWidth sx={{ justifyContent: 'flex-start', height: 40, whiteSpace: "nowrap" }}>
+                      Choose vehicle images (Optional)
+                      <input
+                        hidden
+                        type="file"
+                        name="vehicleImages"
+                        accept="image/*"
+                        multiple
+                        onChange={(event) => setImageCount(event.target.files.length)}
+                      />
+                    </Button>
+                    {imageCount > 0 && (
+                      <Typography variant="caption" display="block" sx={{ mt: 0.5, ml: 1, color: 'success.main' }}>
+                        {imageCount} file{imageCount === 1 ? "" : "s"} selected
+                      </Typography>
+                    )}
+                  </Box>
+                </Stack>
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleClose} color="inherit" disabled={saving}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={saving}>
+            <Button onClick={handleClose} variant="outlined" color="primary" disabled={saving} sx={{ minWidth: 120 }}>Cancel</Button>
+            <Button type="submit" variant="contained" color="primary" disabled={saving} sx={{ minWidth: 120 }}>
               {saving ? "Saving..." : "Add Vehicle"}
             </Button>
           </DialogActions>

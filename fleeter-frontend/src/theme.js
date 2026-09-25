@@ -28,6 +28,18 @@ const theme = createTheme({
   shape: {
     borderRadius: 8,
   },
+  components: {
+    MuiInputLabel: {
+      defaultProps: {
+        shrink: true,
+      },
+    },
+    MuiTextField: {
+      defaultProps: {
+        InputLabelProps: { shrink: true },
+      },
+    },
+  },
 });
 
 export default theme;

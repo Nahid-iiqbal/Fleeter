@@ -275,8 +275,7 @@ export default function AccountSettings() {
                   value={form.username}
                   onChange={handleChange}
                   required
-                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
-                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                  slotProps={{ inputLabel: { sx: { fontSize: "0.85rem" } }, input: { sx: { fontSize: "0.85rem" } } }}
                 />
                 <TextField
                   size="small"
@@ -288,8 +287,7 @@ export default function AccountSettings() {
                   value={form.email}
                   onChange={handleChange}
                   required
-                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
-                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                  slotProps={{ inputLabel: { sx: { fontSize: "0.85rem" } }, input: { sx: { fontSize: "0.85rem" } } }}
                 />
                 <TextField
                   size="small"
@@ -299,8 +297,7 @@ export default function AccountSettings() {
                   name="full_name"
                   value={form.full_name}
                   onChange={handleChange}
-                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
-                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                  slotProps={{ inputLabel: { sx: { fontSize: "0.85rem" } }, input: { sx: { fontSize: "0.85rem" } } }}
                 />
                 {form.role === "owner" && (
                   <TextField
@@ -311,8 +308,7 @@ export default function AccountSettings() {
                     name="company_name"
                     value={form.company_name}
                     onChange={handleChange}
-                    InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
-                    InputProps={{ sx: { fontSize: "0.85rem" } }}
+                    slotProps={{ inputLabel: { sx: { fontSize: "0.85rem" } }, input: { sx: { fontSize: "0.85rem" } } }}
                   />
                 )}
                 <TextField
@@ -323,8 +319,7 @@ export default function AccountSettings() {
                   name="phone"
                   value={form.phone}
                   onChange={handleChange}
-                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
-                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                  slotProps={{ inputLabel: { sx: { fontSize: "0.85rem" } }, input: { sx: { fontSize: "0.85rem" } } }}
                 />
                 <TextField
                   size="small"
@@ -336,8 +331,7 @@ export default function AccountSettings() {
                   name="address"
                   value={form.address}
                   onChange={handleChange}
-                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
-                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                  slotProps={{ inputLabel: { sx: { fontSize: "0.85rem" } }, input: { sx: { fontSize: "0.85rem" } } }}
                 />
 
                 <Divider sx={{ my: 1 }} />
@@ -359,8 +353,7 @@ export default function AccountSettings() {
                   value={form.password}
                   onChange={handleChange}
                   placeholder="Leave blank to keep current"
-                  InputLabelProps={{ sx: { fontSize: "0.85rem" } }}
-                  InputProps={{ sx: { fontSize: "0.85rem" } }}
+                  slotProps={{ inputLabel: { sx: { fontSize: "0.85rem" } }, input: { sx: { fontSize: "0.85rem" } } }}
                 />
               </Stack>
             </CardContent>

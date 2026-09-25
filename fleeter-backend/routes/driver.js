@@ -83,7 +83,6 @@ router.get("/trips", async (req, res) => {
 });
 
 // PUT /api/driver/trips/:tripId/start
-// PUT /api/driver/trips/:tripId/start
 router.put("/trips/:tripId/start", async (req, res) => {
   const { tripId } = req.params;
 
@@ -113,7 +112,7 @@ router.put("/trips/:tripId/start", async (req, res) => {
       `UPDATE Trip
        SET status = 'in_progress', departure_time = NOW()
        WHERE trip_id = $1 AND driver_id = $2 AND status = 'scheduled'
-        RETURNING trip_id, vehicle_id, status, departure_time`,
+       RETURNING trip_id, vehicle_id, status, departure_time`,
       [tripId, req.driver_id],
     );
 
@@ -316,12 +315,15 @@ router.post(
 
     // Input Validation
     if (!trip_id || !type || !severity) {
+      if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
       return res
         .status(400)
         .json({ error: "Trip ID, type, and severity are required." });
     }
-    if (!req.driver_id)
+    if (!req.driver_id) {
+      if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
       return res.status(403).json({ error: "Driver profile missing." });
+    }
 
     // Determine the image path if a file was uploaded
     const image_url = req.file ? `/uploads/${req.file.filename}` : null;
@@ -333,6 +335,7 @@ router.post(
         [trip_id, req.driver_id],
       );
       if (tripCheck.rowCount === 0) {
+        if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
         return res
           .status(403)
           .json({ error: "Forbidden: You are not assigned to this trip." });
@@ -358,6 +361,7 @@ router.post(
         image_url: image_url,
       });
     } catch (error) {
+      if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
       console.error("Error inserting incident:", error);
       res
         .status(500)
@@ -391,7 +395,7 @@ router.post("/request-maintenance", async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO Maintenance (vehicle_id, service_date, service_type, description, cost, workshop, odometer_km, logged_by)
-       VALUES ($1, CURRENT_DATE, $2, $3, 0.00, $4, $5, $6)`,
+       VALUES ($1, CURRENT_DATE, $2, $3, 0.00, $4, $5, $6) RETURNING *`,
       [
         vehicle_id,
         service_type,
@@ -420,6 +424,7 @@ router.post("/documents", upload.single("documentFile"), async (req, res) => {
   const { document_type, document_no, issue_date, expiry_date } = req.body;
 
   if (!document_type || !document_no || !issue_date || !expiry_date) {
+    if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
     return res.status(400).json({ error: "All document fields are required." });
   }
 
@@ -458,6 +463,7 @@ router.post("/documents", upload.single("documentFile"), async (req, res) => {
       document: documentResult.rows[0],
     });
   } catch (error) {
+    if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
     console.error("Error adding document:", error);
     res.status(500).json({ error: "Failed to add document." });
   }
@@ -486,17 +492,28 @@ router.put(
   upload.single("documentFile"),
   async (req, res) => {
     const documentId = req.params.id;
-    if (!req.driver_id)
-      return res.status(404).json({ error: "Driver profile not found." });
 
-    const { document_type, document_no, issue_date, expiry_date } = req.body;
-    let documentUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
-    const previousDocument = await pool.query(
-      "SELECT document_url FROM Driver_Document WHERE document_id = $1 AND driver_id = $2",
-      [documentId, req.driver_id],
-    );
+    if (!req.driver_id) {
+      if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
+      return res.status(404).json({ error: "Driver profile not found." });
+    }
 
     try {
+      const previousDocument = await pool.query(
+        "SELECT document_url FROM Driver_Document WHERE document_id = $1 AND driver_id = $2",
+        [documentId, req.driver_id],
+      );
+
+      if (previousDocument.rowCount === 0) {
+        if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
+        return res
+          .status(404)
+          .json({ error: "Document not found or you do not own it." });
+      }
+
+      const { document_type, document_no, issue_date, expiry_date } = req.body;
+      let documentUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+
       let updateQuery = `
       UPDATE Driver_Document
       SET
@@ -517,14 +534,8 @@ router.put(
 
       const result = await pool.query(updateQuery, queryParams);
 
-      if (result.rowCount === 0) {
-        return res
-          .status(404)
-          .json({ error: "Document not found or you do not own it." });
-      }
-
-      if (documentUrl) {
-        await deleteUploadFile(previousDocument.rows[0]?.document_url);
+      if (documentUrl && previousDocument.rows[0].document_url) {
+        await deleteUploadFile(previousDocument.rows[0].document_url);
       }
 
       res.json({
@@ -532,97 +543,12 @@ router.put(
         document: result.rows[0],
       });
     } catch (error) {
+      if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
       console.error("Error updating document:", error);
       res.status(500).json({ error: "Failed to update document" });
     }
   },
 );
-
-// PUT /api/driver/documents/:id (Edit Driver Document)
-router.put(
-  "/documents/:id",
-  upload.single("documentFile"),
-  async (req, res) => {
-    const documentId = req.params.id;
-    if (!req.driver_id)
-      return res.status(404).json({ error: "Driver profile not found." });
-
-    const { document_type, document_no, issue_date, expiry_date } = req.body;
-    let documentUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
-
-    try {
-      let updateQuery = `
-      UPDATE Driver_Document
-      SET
-        document_type = COALESCE($1, document_type),
-        document_no = COALESCE($2, document_no),
-        issue_date = COALESCE($3, issue_date),
-        expiry_date = COALESCE($4, expiry_date)
-    `;
-      let queryParams = [document_type, document_no, issue_date, expiry_date];
-
-      if (documentUrl) {
-        updateQuery += `, document_url = $5 WHERE document_id = $6 AND driver_id = $7 RETURNING *`;
-        queryParams.push(documentUrl, documentId, req.driver_id);
-      } else {
-        updateQuery += ` WHERE document_id = $5 AND driver_id = $6 RETURNING *`;
-        queryParams.push(documentId, req.driver_id);
-      }
-
-      const result = await pool.query(updateQuery, queryParams);
-
-      if (result.rowCount === 0) {
-        return res
-          .status(404)
-          .json({ error: "Document not found or you do not own it." });
-      }
-
-      res.json({
-        message: "Document updated successfully",
-        document: result.rows[0],
-      });
-    } catch (error) {
-      console.error("Error updating document:", error);
-      res.status(500).json({ error: "Failed to update document" });
-    }
-  },
-);
-
-// 3. PUT /api/driver/documents/:id
-router.put("/documents/:id", upload.single("documentFile"), async (req, res) => {
-  const { document_type, document_no, issue_date, expiry_date } = req.body;
-  if (!req.driver_id) {
-    return res.status(404).json({ error: "Driver profile not found." });
-  }
-  if (!document_type || !document_no || !issue_date || !expiry_date) {
-    return res.status(400).json({ error: "All document fields are required." });
-  }
-
-  try {
-    const documentUrl = req.file ? `/uploads/${req.file.filename}` : null;
-    const result = await pool.query(
-      `UPDATE Driver_Document
-       SET document_type = $1,
-           document_no = $2,
-           issue_date = $3,
-           expiry_date = $4,
-           document_url = COALESCE($5, document_url)
-       WHERE document_id = $6 AND driver_id = $7
-       RETURNING document_id, driver_id, document_type, document_no, issue_date,
-         expiry_date, alert_triggered, document_url`,
-      [document_type, document_no, issue_date, expiry_date, documentUrl, req.params.id, req.driver_id],
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Document not found." });
-    }
-
-    res.json({ message: "Document updated successfully", document: result.rows[0] });
-  } catch (error) {
-    console.error("Error updating driver document:", error);
-    res.status(500).json({ error: "Failed to update document." });
-  }
-});
 
 // 4. DELETE /api/driver/documents/:id
 router.delete("/documents/:id", async (req, res) => {

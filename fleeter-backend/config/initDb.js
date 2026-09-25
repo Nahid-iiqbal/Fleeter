@@ -22,6 +22,7 @@ const initializeDatabase = async () => {
 
       DROP TABLE IF EXISTS telemetry_y2026m08 CASCADE;
       DROP TABLE IF EXISTS Vehicle_Telemetry CASCADE;
+      DROP TABLE IF EXISTS Message CASCADE;
       DROP TABLE IF EXISTS System_Alert CASCADE;
       DROP TABLE IF EXISTS Vehicle_Document CASCADE;
       DROP TABLE IF EXISTS Vehicle_Image CASCADE;
@@ -202,6 +203,16 @@ const initializeDatabase = async () => {
         logged_by INT REFERENCES User_Account(user_id) ON DELETE SET NULL
       );
 
+      
+      CREATE TABLE Message (
+        message_id SERIAL PRIMARY KEY,
+        sender_id INT NOT NULL REFERENCES User_Account(user_id) ON DELETE CASCADE,
+        receiver_id INT NOT NULL REFERENCES User_Account(user_id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        sent_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        is_read BOOLEAN DEFAULT FALSE
+      );
+
       -- TABLE FOR SYSTEM ALERTS
       CREATE TABLE System_Alert (
         alert_id SERIAL PRIMARY KEY,
@@ -343,7 +354,93 @@ const initializeDatabase = async () => {
       CREATE INDEX idx_incident_trip       ON Incident(trip_id);
       CREATE INDEX idx_telemetry_trip      ON Vehicle_Telemetry(trip_id, ping_time DESC);
       CREATE INDEX idx_telemetry_geom      ON Vehicle_Telemetry USING GIST (geom);
-      CREATE INDEX idx_company_request_owner_status ON Company_Request(owner_id, status);
+CREATE INDEX idx_company_request_owner_status ON Company_Request(owner_id, status);
+    `);
+
+    console.log("5. Creating Triggers, Functions, and Procedures...");
+    await client.query(`
+      -- 1. Create Audit Table for Trigger
+      CREATE TABLE IF NOT EXISTS Vehicle_Status_History (
+          history_id SERIAL PRIMARY KEY,
+          vehicle_id INT REFERENCES Vehicle(vehicle_id) ON DELETE CASCADE,
+          old_status VARCHAR(50),
+          new_status VARCHAR(50),
+          changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- 2. Trigger Function and Trigger (Audit Logging)
+      CREATE OR REPLACE FUNCTION log_vehicle_status_change()
+      RETURNS TRIGGER AS $$
+      BEGIN
+          IF OLD.availability_status IS DISTINCT FROM NEW.availability_status THEN
+              INSERT INTO Vehicle_Status_History(vehicle_id, old_status, new_status)
+              VALUES (NEW.vehicle_id, OLD.availability_status, NEW.availability_status);
+          END IF;
+          RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+
+      DROP TRIGGER IF EXISTS trg_log_vehicle_status ON Vehicle;
+      CREATE TRIGGER trg_log_vehicle_status
+      AFTER UPDATE OF availability_status ON Vehicle
+      FOR EACH ROW
+      EXECUTE FUNCTION log_vehicle_status_change();
+
+      -- 3. Database Function (Scalar Calculation)
+      CREATE OR REPLACE FUNCTION calculate_fleet_utilization(p_owner_id INT)
+      RETURNS DECIMAL AS $$
+      DECLARE
+          total_vehicles INT;
+          dispatched_vehicles INT;
+      BEGIN
+          SELECT COUNT(*) INTO total_vehicles FROM Vehicle WHERE owner_id = p_owner_id;
+          IF total_vehicles = 0 THEN
+              RETURN 0.00;
+          END IF;
+          
+          SELECT COUNT(*) INTO dispatched_vehicles 
+          FROM Vehicle 
+          WHERE owner_id = p_owner_id AND availability_status = 'dispatched';
+          
+          RETURN ROUND((dispatched_vehicles::DECIMAL / total_vehicles::DECIMAL) * 100, 2);
+      END;
+      $$ LANGUAGE plpgsql;
+
+      -- 4. Stored Procedure (Multi-table workflow)
+      CREATE OR REPLACE PROCEDURE assign_trip_workflow(
+          p_owner_id INT,
+          p_vehicle_id INT,
+          p_driver_id INT,
+          p_route_name VARCHAR,
+          p_origin VARCHAR,
+          p_destination VARCHAR,
+          p_departure_time TIMESTAMP,
+          p_cargo_type VARCHAR,
+          p_notes TEXT,
+          p_dispatched_by INT
+      )
+      LANGUAGE plpgsql
+      AS $$
+      DECLARE
+          v_route_id INT;
+      BEGIN
+          INSERT INTO Route (owner_id, route_name, origin, destination)
+          VALUES (p_owner_id, p_route_name, p_origin, p_destination)
+          RETURNING route_id INTO v_route_id;
+
+          INSERT INTO Trip (
+              owner_id, vehicle_id, driver_id, route_id, 
+              departure_time, cargo_type, notes, dispatched_by
+          )
+          VALUES (
+              p_owner_id, p_vehicle_id, p_driver_id, v_route_id, 
+              p_departure_time, p_cargo_type, p_notes, p_dispatched_by
+          );
+
+          UPDATE Driver SET status = 'dispatched' WHERE driver_id = p_driver_id;
+          UPDATE Vehicle SET availability_status = 'dispatched' WHERE vehicle_id = p_vehicle_id;
+      END;
+      $$;
     `);
 
     await client.query("COMMIT");

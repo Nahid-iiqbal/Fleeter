@@ -37,6 +37,7 @@ import {
   CardContent,
 } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
+import MessagesPopover from "../components/MessagesPopover";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import GroupIcon from "@mui/icons-material/Group";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -129,6 +130,7 @@ export default function AdminDashboard() {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
     localStorage.removeItem("username");
+    localStorage.removeItem("userId");
     navigate("/login");
   };
 
@@ -378,6 +380,7 @@ export default function AdminDashboard() {
               {currentTab === "settings" && "Global Configuration"}
             </Typography>
 
+            <MessagesPopover />
             <Tooltip title="Logout">
               <IconButton color="error" onClick={handleLogout} size="small">
                 <LogoutIcon fontSize="small" />

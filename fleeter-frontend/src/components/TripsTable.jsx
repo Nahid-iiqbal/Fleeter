@@ -35,7 +35,7 @@ function defaultDeparture() {
 }
 
 function TripsTable({
-  trips,
+  trips = [],
   tripsLoading,
   drivers,
   vehicles,
@@ -183,13 +183,14 @@ function TripsTable({
                 <RefreshIcon />
               )
             }
+            sx={{ whiteSpace: "nowrap", height: 40, minWidth: "140px" }}
           >
             Refresh trips
           </Button>
           <Button
             variant="contained"
             color="primary"
-            startIcon={<AddIcon />}
+            startIcon={<AddIcon />} sx={{ height: 40, whiteSpace: "nowrap", minWidth: "max-content" }}
             onClick={() => {
               setError("");
               setTripFormState((current) => ({
@@ -434,7 +435,7 @@ function TripsTable({
                     value={tripFormState.route_name}
                     onChange={update}
                     required
-                    inputProps={{ maxLength: 100 }}
+                    slotProps={{ htmlInput: { maxLength: 100 } }}
                     fullWidth
                   />
                   <Grid container spacing={2}>
@@ -469,7 +470,7 @@ function TripsTable({
                 value={tripFormState.departure_time}
                 onChange={update}
                 required
-                InputLabelProps={{ shrink: true }}
+                slotProps={{ inputLabel: { shrink: true } }}
                 fullWidth
               />
 

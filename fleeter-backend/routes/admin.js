@@ -1,27 +1,25 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db"); // Adjust path if your db.js is located elsewhere
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, authorizeRole } = require("../middleware/authMiddleware");
 const { deleteUploadFiles } = require("../utils/uploadFiles");
 
 // GET /api/admin/roster
-router.get("/roster", verifyToken, async (req, res) => {
+router.get("/roster", verifyToken, authorizeRole("admin"), async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ error: "Unauthorized. Site Admins only." });
-    }
-
     const rosterQuery = await pool.query(`
       SELECT
         u.user_id, u.username, u.email, u.role, u.created_at,
-        o.company_name,
-        d.full_name AS driver_name, d.status AS driver_status
+        COALESCE(o.company_name, mo.company_name) AS company_name,
+        COALESCE(d.full_name, m.full_name) AS full_name,
+        d.status AS driver_status
       FROM User_Account u
       LEFT JOIN Owner_Profile o ON u.user_id = o.user_id
       LEFT JOIN Driver d ON u.user_id = d.user_id
+      LEFT JOIN Manager_Profile m ON u.user_id = m.user_id
+      LEFT JOIN Owner_Profile mo ON m.owner_id = mo.owner_id
       ORDER BY u.user_id ASC, u.created_at DESC
     `);
-
     res.json(rosterQuery.rows);
   } catch (error) {
     console.error("Error fetching universal roster:", error);
@@ -30,10 +28,9 @@ router.get("/roster", verifyToken, async (req, res) => {
 });
 
 // DELETE /api/admin/users/:userId
-router.delete("/users/:userId", verifyToken, async (req, res) => {
+router.delete("/users/:userId", verifyToken, authorizeRole("admin"), async (req, res) => {
   try {
-    if (req.user.role !== "admin")
-      return res.status(403).json({ error: "Unauthorized." });
+    
     if (parseInt(req.params.userId) === req.user.user_id)
       return res.status(400).json({ error: "Cannot delete yourself." });
 
@@ -94,10 +91,9 @@ router.delete("/users/:userId", verifyToken, async (req, res) => {
 });
 
 // PATCH /api/admin/users/:userId/role
-router.patch("/users/:userId/role", verifyToken, async (req, res) => {
+router.patch("/users/:userId/role", verifyToken, authorizeRole("admin"), async (req, res) => {
   try {
-    if (req.user.role !== "admin")
-      return res.status(403).json({ error: "Unauthorized." });
+    
     if (parseInt(req.params.userId) === req.user.user_id)
       return res.status(400).json({ error: "Cannot change your own role." });
     await pool.query("UPDATE User_Account SET role = $1 WHERE user_id = $2", [

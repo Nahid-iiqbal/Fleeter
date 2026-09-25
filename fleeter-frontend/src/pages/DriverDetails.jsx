@@ -13,8 +13,12 @@ import {
   CircularProgress,
   Avatar,
   Paper,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import DescriptionIcon from "@mui/icons-material/Description";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 
@@ -183,7 +187,7 @@ function DriverDetails({ driverId, onBack }) {
             </Box>
           </Box>
           <Chip
-            label={driver.status?.replace("_", " ")}
+            label={driver.status?.replaceAll("_", " ")}
             color={getStatusColor(driver.status)}
             sx={{
               fontWeight: 700,
@@ -273,12 +277,18 @@ function DriverDetails({ driverId, onBack }) {
                 {documents.length} document{documents.length !== 1 ? "s" : ""} on file.
               </Typography>
             </Box>
-            <Button
-              variant="outlined"
-              onClick={() => setShowDocuments((visible) => !visible)}
-            >
-              {showDocuments ? "Hide Documents" : "View Documents"}
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+
+                <Tooltip title={showDocuments ? "Hide Documents" : "View Documents"}>
+                  <IconButton
+                    color="primary"
+                    onClick={() => setShowDocuments((visible) => !visible)}
+                    sx={{ border: 1, borderColor: 'primary.main', borderRadius: 2 }}
+                  >
+                    {showDocuments ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                  </IconButton>
+                </Tooltip>
+              </Box>
           </Box>
           {showDocuments && <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>
             {documents.length === 0 ? (
@@ -313,9 +323,18 @@ function DriverDetails({ driverId, onBack }) {
                       <Typography variant="body2" color="text.secondary">Issued: {document.issue_date}</Typography>
                       <Typography variant="body2" color={expired ? "error.main" : "success.main"} fontWeight={700}>Expires: {document.expiry_date}</Typography>
                       {document.document_url && (
-                        <Button href={`http://localhost:5000${document.document_url}`} target="_blank" rel="noopener noreferrer" startIcon={<OpenInNewIcon />} size="small" sx={{ mt: 1 }}>
-                          Open document
-                        </Button>
+                        <Tooltip title="Open Document">
+                            <IconButton
+                              href={`http://localhost:5000${document.document_url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              color="primary"
+                              size="small"
+                              sx={{ mt: 1, border: 1, borderColor: "primary.main", borderRadius: 2 }}
+                            >
+                              <OpenInNewIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                       )}
                     </Box>
                   </Paper>
@@ -335,9 +354,15 @@ function DriverDetails({ driverId, onBack }) {
                 {incidents.length} incident{incidents.length !== 1 ? "s" : ""} recorded.
               </Typography>
             </Box>
-            <Button variant="outlined" onClick={() => setShowIncidents((visible) => !visible)}>
-              {showIncidents ? "Hide Incidents" : "View Incidents"}
-            </Button>
+            <Tooltip title={showIncidents ? "Hide Incidents" : "View Incidents"}>
+                <IconButton
+                  color="primary"
+                  onClick={() => setShowIncidents((visible) => !visible)}
+                  sx={{ border: 1, borderColor: 'primary.main', borderRadius: 2 }}
+                >
+                  {showIncidents ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
           </Box>
           {showIncidents && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 3 }}>

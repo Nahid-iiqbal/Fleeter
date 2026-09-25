@@ -11,6 +11,9 @@ import {
   Typography,
   TextField,
   Button,
+  Select,
+  MenuItem,
+  FormControl,
   Chip,
   InputAdornment,
   CircularProgress,
@@ -30,16 +33,17 @@ const getVehicleStatusColor = (status) => {
 };
 
 function VehiclesTable({
-  vehicles,
+  vehicles = [],
   vehiclesLoading,
   onRefresh,
   onVehicleClick,
   onDriverClick,
 }) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const filteredVehicles = vehicles.filter((vehicle) =>
-    [
+  const filteredVehicles = vehicles.filter((vehicle) => {
+    const matchesSearch = [
       vehicle.vehicle_id,
       vehicle.registration_no,
       vehicle.brand,
@@ -52,8 +56,11 @@ function VehiclesTable({
       .filter(Boolean)
       .join(" ")
       .toLowerCase()
-      .includes(normalizedSearch),
-  );
+      .includes(normalizedSearch);
+      
+    const matchesStatus = statusFilter === "all" || vehicle.availability_status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <Paper
@@ -84,15 +91,28 @@ function VehiclesTable({
         </Typography>
 
         <Box
-          sx={{
-            display: "flex",
-            gap: 2,
-            flexGrow: 1,
-            justifyContent: "flex-end",
-            maxWidth: { xs: "100%", md: "600px" },
-          }}
-        >
-          <TextField
+            sx={{
+              display: "flex",
+              gap: 2,
+              flexGrow: 1,
+              justifyContent: "flex-end",
+              maxWidth: { xs: "100%", md: "800px" },
+            }}
+          >
+            <FormControl size="small" sx={{ minWidth: 160 }}>
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                displayEmpty
+              >
+                <MenuItem value="all">All Statuses</MenuItem>
+                <MenuItem value="available">Available</MenuItem>
+                <MenuItem value="dispatched">Dispatched</MenuItem>
+                <MenuItem value="reserved">Reserved</MenuItem>
+                <MenuItem value="unavailable">Unavailable</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
             size="small"
             placeholder="Search vehicles..."
             value={searchTerm}
@@ -118,7 +138,7 @@ function VehiclesTable({
                 <RefreshIcon />
               )
             }
-            sx={{ whiteSpace: "nowrap" }}
+            sx={{ whiteSpace: "nowrap", height: 40, minWidth: "120px" }}
           >
             Refresh
           </Button>

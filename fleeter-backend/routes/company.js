@@ -119,12 +119,12 @@ const upsertCompanyAlerts = async (companyId) => {
 
   const incidentRows = await pool.query(
     `
-            SELECT i.incident_id, i.type, i.description, i.severity, i.incident_date AS created_at,
-              i.reported_to, i.damage_cost, i.image_url, t.trip_id, t.vehicle_id,
-              d.driver_id, d.full_name AS driver_name,
-              v.registration_no, v.brand, v.model,
-             CONCAT('Incident on trip #', t.trip_id) AS title,
-             CONCAT('Vehicle ', v.registration_no, ' · ', d.full_name) AS about
+      SELECT i.incident_id, i.type, i.description, i.severity, i.incident_date AS created_at,
+        i.reported_to, i.damage_cost, i.image_url, t.trip_id, t.vehicle_id,
+        d.driver_id, d.full_name AS driver_name,
+        v.registration_no, v.brand, v.model,
+        CONCAT('Incident on trip #', t.trip_id) AS title,
+        CONCAT('Vehicle ', v.registration_no, ' · ', d.full_name) AS about
       FROM Incident i
       JOIN Trip t ON t.trip_id = i.trip_id
       JOIN Vehicle v ON v.vehicle_id = t.vehicle_id
@@ -165,21 +165,21 @@ const upsertCompanyAlerts = async (companyId) => {
 
   const maintenanceRows = await pool.query(
     `
-            SELECT m.maintenance_id, m.service_date AS created_at, m.service_type, m.description,
-              m.cost, m.workshop, m.mechanic_name, m.odometer_km, m.next_due_km,
-              m.next_due_date AS deadline, v.vehicle_id, v.registration_no, v.brand, v.model,
-              assignment.driver_id, assignment.driver_name
+      SELECT m.maintenance_id, m.service_date AS created_at, m.service_type, m.description,
+        m.cost, m.workshop, m.mechanic_name, m.odometer_km, m.next_due_km,
+        m.next_due_date AS deadline, v.vehicle_id, v.registration_no, v.brand, v.model,
+        assignment.driver_id, assignment.driver_name
       FROM Maintenance m
       JOIN Vehicle v ON v.vehicle_id = m.vehicle_id
-            LEFT JOIN LATERAL (
-         SELECT t.driver_id, d.full_name AS driver_name
-         FROM Trip t
-         JOIN Driver d ON d.driver_id = t.driver_id
-         WHERE t.vehicle_id = v.vehicle_id
-         ORDER BY (t.status = 'in_progress') DESC, t.departure_time DESC, t.trip_id DESC
-         LIMIT 1
-            ) assignment ON TRUE
-      WHERE v.owner_id = $1
+      LEFT JOIN LATERAL (
+        SELECT t.driver_id, d.full_name AS driver_name
+        FROM Trip t
+        JOIN Driver d ON d.driver_id = t.driver_id
+        WHERE t.vehicle_id = v.vehicle_id
+        ORDER BY (t.status = 'in_progress') DESC, t.departure_time DESC, t.trip_id DESC
+        LIMIT 1
+      ) assignment ON TRUE
+      WHERE v.owner_id = $1 AND m.next_due_date IS NOT NULL AND m.next_due_date <= CURRENT_DATE + INTERVAL '14 days'
     `,
     [companyId],
   );
@@ -315,13 +315,13 @@ const upsertCompanyAlerts = async (companyId) => {
 
   const refuelRows = await pool.query(
     `
-            SELECT fl.fuel_id, fl.refuel_time AS created_at, fl.trip_id, fl.station_name,
-              fl.liters, fl.cost_per_liter, fl.odometer_km, v.vehicle_id,
-              v.registration_no, v.brand, v.model, t.driver_id, d.full_name AS driver_name
+      SELECT fl.fuel_id, fl.refuel_time AS created_at, fl.trip_id, fl.station_name,
+        fl.liters, fl.cost_per_liter, fl.odometer_km, v.vehicle_id,
+        v.registration_no, v.brand, v.model, t.driver_id, d.full_name AS driver_name
       FROM Fuel_Log fl
       JOIN Vehicle v ON v.vehicle_id = fl.vehicle_id
-            LEFT JOIN Trip t ON t.trip_id = fl.trip_id
-            LEFT JOIN Driver d ON d.driver_id = t.driver_id
+      LEFT JOIN Trip t ON t.trip_id = fl.trip_id
+      LEFT JOIN Driver d ON d.driver_id = t.driver_id
       WHERE v.owner_id = $1
       ORDER BY fl.refuel_time DESC
     `,
@@ -493,16 +493,16 @@ router.post("/trips", authorizeRole("owner", "manager"), async (req, res) => {
       .json({ message: "Select an existing route or add a custom route." });
   }
 
+  const companyId = await getCompanyId(req.user.user_id);
+  if (!companyId) {
+    return res
+      .status(403)
+      .json({ message: "Company membership is required." });
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const companyId = await getCompanyId(req.user.user_id);
-    if (!companyId) {
-      await client.query("ROLLBACK");
-      return res
-        .status(403)
-        .json({ message: "Company membership is required." });
-    }
 
     const driverResult = await client.query(
       "SELECT driver_id FROM Driver WHERE driver_id = $1 AND owner_id = $2 FOR UPDATE",
@@ -520,8 +520,8 @@ router.post("/trips", authorizeRole("owner", "manager"), async (req, res) => {
     }
 
     let assignedRouteId = routeId;
-    let tripOrigin = null;
-    let tripDestination = null;
+    let tripOrigin = origin_address || null;
+    let tripDestination = destination_address || null;
 
     if (custom_route) {
       const routeResult = await client.query(
@@ -813,15 +813,15 @@ router.delete(
   "/alerts/:alertType/:alertId",
   authorizeRole("owner", "manager"),
   async (req, res) => {
+    const companyId = await getCompanyId(req.user.user_id);
+    if (!companyId) {
+      return res
+        .status(403)
+        .json({ message: "Company membership required." });
+    }
+
     const client = await pool.connect();
     try {
-      const companyId = await getCompanyId(req.user.user_id);
-      if (!companyId) {
-        return res
-          .status(403)
-          .json({ message: "Company membership required." });
-      }
-
       await client.query("BEGIN");
       const result = await client.query(
         `
@@ -837,12 +837,7 @@ router.delete(
         return res.status(404).json({ message: "Alert not found." });
       }
 
-      const alert = result.rows[0];
-      if (alert.reference_type === "fuel_log") {
-        await client.query("DELETE FROM Fuel_Log WHERE fuel_id = $1", [
-          alert.reference_id,
-        ]);
-      }
+      // DO NOT delete from Fuel_Log when dismissing an alert; this would destroy accounting data.
 
       await client.query("COMMIT");
       res.json({ message: "Alert deleted." });
@@ -1063,10 +1058,12 @@ router.get(
 );
 
 const decideRequest = async (req, res, decision) => {
+  const companyId = await getCompanyId(req.user.user_id);
   const client = await pool.connect();
+
   try {
     await client.query("BEGIN");
-    const companyId = await getCompanyId(req.user.user_id);
+
     const requestResult = await client.query(
       `
         SELECT * FROM Company_Request

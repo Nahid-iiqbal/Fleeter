@@ -33,7 +33,6 @@ router.get("/", verifyToken, async (req, res) => {
         (SELECT MAX(service_date) FROM Maintenance m WHERE m.vehicle_id = v.vehicle_id) AS last_service_date,
         v.condition_status,
         v.availability_status,
-        v.registration_document_url,
         assignment.driver_id AS current_driver_id,
         assignment.driver_name AS current_driver_name
       FROM Vehicle v
@@ -82,7 +81,6 @@ router.get("/:vehicleId", verifyToken, async (req, res) => {
         (SELECT MAX(service_date) FROM Maintenance m WHERE m.vehicle_id = v.vehicle_id) AS last_service_date,
         v.condition_status,
         v.availability_status,
-        v.registration_document_url,
         assignment.driver_id AS current_driver_id,
         assignment.driver_name
       FROM Vehicle v
@@ -122,35 +120,39 @@ router.get("/:vehicleId", verifyToken, async (req, res) => {
 // POST /api/vehicles (Create new vehicle)
 router.post(
   "/",
-  verifyToken, // <-- ADDED
+  verifyToken,
   authorizeRole("owner", "manager"),
   upload.fields([
     { name: "registrationDocument", maxCount: 1 },
     { name: "vehicleImages", maxCount: 20 },
   ]),
   async (req, res) => {
-    const { registration_no, brand, type, model, year, capacity, fuel_type,
-      condition_status, availability_status } = req.body;
+    const { registration_no, brand, type, model, year, capacity, fuel_type, condition_status, availability_status } = req.body;
     const registrationDocument = req.files?.registrationDocument?.[0];
     const vehicleImages = req.files?.vehicleImages || [];
 
     if (!registration_no || !type || !registrationDocument) {
-      return res
-        .status(400)
-        .json({ message: "Registration number, type, and registration document are required." });
+      // Clean up orphaned files immediately if validation fails
+      if (registrationDocument) await deleteUploadFile(`/uploads/${registrationDocument.filename}`);
+      for (const img of vehicleImages) await deleteUploadFile(`/uploads/${img.filename}`);
+
+      return res.status(400).json({ message: "Registration number, type, and registration document are required." });
     }
 
     const client = await pool.connect();
     try {
       const ownerId = await getOwnerId(req.user.user_id);
-      if (!ownerId)
+      if (!ownerId) {
+        if (registrationDocument) await deleteUploadFile(`/uploads/${registrationDocument.filename}`);
+        for (const img of vehicleImages) await deleteUploadFile(`/uploads/${img.filename}`);
         return res.status(403).json({ message: "Owner profile required." });
+      }
 
       await client.query("BEGIN");
       const result = await client.query(
         `
-        INSERT INTO Vehicle (owner_id, registration_no, brand, type, model, year, capacity, fuel_type, condition_status, availability_status, registration_document_url)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 'good'), COALESCE($10, 'available'), $11)
+        INSERT INTO Vehicle (owner_id, registration_no, brand, type, model, year, capacity, fuel_type, condition_status, availability_status)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 'good'), COALESCE($10, 'available'))
         RETURNING *
         `,
         [
@@ -164,7 +166,6 @@ router.post(
           fuel_type,
           condition_status,
           availability_status,
-          `/uploads/${registrationDocument.filename}`,
         ],
       );
 
@@ -191,10 +192,14 @@ router.post(
       res.status(201).json(vehicle);
     } catch (error) {
       await client.query("ROLLBACK");
+
+      // Clean up newly uploaded files on database transaction failure
+      const filesToDelete = [`/uploads/${registrationDocument.filename}`];
+      for (const img of vehicleImages) filesToDelete.push(`/uploads/${img.filename}`);
+      await deleteUploadFiles(filesToDelete);
+
       if (error.code === "23505")
-        return res
-          .status(409)
-          .json({ message: "Registration number already exists." });
+        return res.status(409).json({ message: "Registration number already exists." });
       res.status(500).json({ message: "Server error creating vehicle." });
     } finally {
       client.release();
@@ -205,18 +210,16 @@ router.post(
 // DELETE /api/vehicles/:vehicleId (Delete vehicle)
 router.delete(
   "/:vehicleId",
-  verifyToken, // <-- ADDED
+  verifyToken,
   authorizeRole("owner", "manager"),
   async (req, res) => {
     try {
       const ownerId = await getOwnerId(req.user.user_id);
 
+      // FIXED: Added `AS file_url` because the UNION takes the column name from the first SELECT (`document_url`),
+      // causing `row.file_url` to be undefined below.
       const media = await pool.query(
-        `SELECT v.registration_document_url AS file_url
-         FROM Vehicle v
-         WHERE v.vehicle_id = $1 AND v.owner_id = $2
-         UNION ALL
-         SELECT vd.document_url
+        `SELECT vd.document_url AS file_url
          FROM Vehicle_Document vd
          JOIN Vehicle v ON v.vehicle_id = vd.vehicle_id
          WHERE vd.vehicle_id = $1 AND v.owner_id = $2
@@ -240,14 +243,14 @@ router.delete(
       );
 
       if (result.rowCount === 0) {
-        return res
-          .status(404)
-          .json({ message: "Vehicle not found or unauthorized." });
+        return res.status(404).json({ message: "Vehicle not found or unauthorized." });
       }
 
-      await deleteUploadFiles(media.rows.map((row) => row.file_url));
+      // Now row.file_url correctly maps to the union alias
+      await deleteUploadFiles(media.rows.map((row) => row.file_url).filter(Boolean));
       res.status(204).send();
     } catch (error) {
+      console.error(error);
       res.status(500).json({ message: "Server error deleting vehicle." });
     }
   },
@@ -256,7 +259,7 @@ router.delete(
 // GET /api/vehicles/:vehicleId/documents (Fetch all documents for a vehicle)
 router.get(
   "/:vehicleId/documents",
-  verifyToken, // <-- ADDED
+  verifyToken,
   authorizeRole("owner", "manager"),
   async (req, res) => {
     try {
@@ -269,9 +272,7 @@ router.get(
       );
 
       if (vehicleCheck.rowCount === 0) {
-        return res
-          .status(403)
-          .json({ message: "Vehicle not found or unauthorized." });
+        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
       }
 
       const result = await pool.query(
@@ -408,7 +409,7 @@ router.get(
 // POST /api/vehicles/:vehicleId/documents (Upload Vehicle Document)
 router.post(
   "/:vehicleId/documents",
-  verifyToken, // <-- ADDED
+  verifyToken,
   authorizeRole("owner", "manager"),
   upload.single("documentFile"),
   async (req, res) => {
@@ -416,23 +417,20 @@ router.post(
     const { document_type, document_no, issue_date, expiry_date } = req.body;
 
     if (!document_type || !document_no || !issue_date || !expiry_date) {
-      return res
-        .status(400)
-        .json({ message: "All document fields are required." });
+      if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
+      return res.status(400).json({ message: "All document fields are required." });
     }
 
     try {
       const ownerId = await getOwnerId(req.user.user_id);
-
       const vehicleCheck = await pool.query(
         "SELECT 1 FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2",
         [vehicleId, ownerId],
       );
 
       if (vehicleCheck.rowCount === 0) {
-        return res
-          .status(403)
-          .json({ message: "Vehicle not found or unauthorized." });
+        if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
+        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
       }
 
       const document_url = req.file ? `/uploads/${req.file.filename}` : null;
@@ -456,6 +454,7 @@ router.post(
         document: result.rows[0],
       });
     } catch (error) {
+      if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
       console.error("Error uploading vehicle document:", error);
       res.status(500).json({ message: "Server error uploading document." });
     }
@@ -479,9 +478,8 @@ router.put(
       );
 
       if (vehicleCheck.rowCount === 0) {
-        return res
-          .status(403)
-          .json({ message: "Vehicle not found or unauthorized." });
+        if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
+        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
       }
 
       const { document_type, document_no, issue_date, expiry_date } = req.body;
@@ -492,8 +490,8 @@ router.put(
       );
 
       let updateQuery = `
-        UPDATE Vehicle_Document 
-        SET 
+        UPDATE Vehicle_Document
+        SET
           document_type = COALESCE($1, document_type),
           document_no = COALESCE($2, document_no),
           issue_date = COALESCE($3, issue_date),
@@ -512,17 +510,12 @@ router.put(
       const result = await pool.query(updateQuery, queryParams);
 
       if (result.rowCount === 0) {
+        if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
         return res.status(404).json({ message: "Document not found." });
       }
 
       if (documentUrl) {
         await deleteUploadFile(previousDocument.rows[0]?.document_url);
-        if (result.rows[0].document_type === "registration") {
-          await pool.query(
-            "UPDATE Vehicle SET registration_document_url = $1 WHERE vehicle_id = $2",
-            [documentUrl, vehicleId],
-          );
-        }
       }
 
       res.json({
@@ -530,6 +523,7 @@ router.put(
         document: result.rows[0],
       });
     } catch (error) {
+      if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
       console.error("Error updating document:", error);
       res.status(500).json({ message: "Failed to update document" });
     }
@@ -539,7 +533,7 @@ router.put(
 // DELETE /api/vehicles/:vehicleId/documents/:documentId (Delete Vehicle Document)
 router.delete(
   "/:vehicleId/documents/:documentId",
-  verifyToken, // <-- ADDED
+  verifyToken,
   authorizeRole("owner", "manager"),
   async (req, res) => {
     try {
@@ -552,9 +546,7 @@ router.delete(
       );
 
       if (vehicleCheck.rowCount === 0) {
-        return res
-          .status(403)
-          .json({ message: "Vehicle not found or unauthorized." });
+        return res.status(403).json({ message: "Vehicle not found or unauthorized." });
       }
 
       const result = await pool.query(
@@ -567,18 +559,45 @@ router.delete(
       }
 
       await deleteUploadFile(result.rows[0].document_url);
-      if (result.rows[0].document_type === "registration") {
-        await pool.query(
-          "UPDATE Vehicle SET registration_document_url = NULL WHERE vehicle_id = $1",
-          [vehicleId],
-        );
-      }
+
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting document:", error);
       res.status(500).json({ message: "Server error deleting document." });
     }
   },
+);
+
+// POST /api/vehicles/:vehicleId/images
+router.post(
+  "/:vehicleId/images",
+  verifyToken,
+  authorizeRole("owner", "manager"),
+  upload.single("imageFile"),
+  async (req, res) => {
+    try {
+      const ownerId = await getOwnerId(req.user.user_id);
+      const { vehicleId } = req.params;
+
+      const vCheck = await pool.query("SELECT vehicle_id FROM Vehicle WHERE vehicle_id = $1 AND owner_id = $2", [vehicleId, ownerId]);
+      if (vCheck.rowCount === 0) {
+        if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
+        return res.status(404).json({ message: "Vehicle not found." });
+      }
+
+      if (!req.file) return res.status(400).json({ message: "No image file provided." });
+
+      const result = await pool.query(
+        "INSERT INTO Vehicle_Image (vehicle_id, image_url) VALUES ($1, $2) RETURNING *",
+        [vehicleId, `/uploads/${req.file.filename}`]
+      );
+      res.status(201).json({ message: "Image added successfully", image: result.rows[0] });
+    } catch (error) {
+      if (req.file) await deleteUploadFile(`/uploads/${req.file.filename}`);
+      console.error("Error adding vehicle image:", error);
+      res.status(500).json({ message: "Failed to add vehicle image" });
+    }
+  }
 );
 
 module.exports = router;

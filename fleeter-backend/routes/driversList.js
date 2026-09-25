@@ -2,20 +2,23 @@ const express = require("express");
 const router = express.Router();
 
 const pool = require("../config/db");
-const { verifyToken } = require("../middleware/authMiddleware");
+const { verifyToken, authorizeRole } = require("../middleware/authMiddleware");
 
 let profilePictureColumnPromise;
 const ensureProfilePictureColumn = () => {
   if (!profilePictureColumnPromise) {
     profilePictureColumnPromise = pool.query(
-      "ALTER TABLE User_Account ADD COLUMN IF NOT EXISTS profile_picture_url TEXT",
-    );
+      "ALTER TABLE User_Account ADD COLUMN IF NOT EXISTS profile_picture_url TEXT"
+    ).catch(e => {
+      profilePictureColumnPromise = null;
+      throw e;
+    });
   }
   return profilePictureColumnPromise;
 };
 
 // GET /api/drivers
-router.get("/", verifyToken, async (req, res) => {
+router.get("/", verifyToken, authorizeRole("owner", "manager", "admin"), async (req, res) => {
   try {
     await ensureProfilePictureColumn();
     const result = await pool.query(
@@ -64,10 +67,15 @@ router.get("/", verifyToken, async (req, res) => {
 });
 
 // GET /api/drivers/:driverId
-router.get("/:driverId", verifyToken, async (req, res) => {
+router.get("/:driverId", verifyToken, authorizeRole("owner", "manager", "admin", "driver"), async (req, res) => {
   try {
+    // FIX: Defend against "undefined" or null strings crashing Postgres
+    const driverId = parseInt(req.params.driverId, 10);
+    if (isNaN(driverId)) {
+      return res.status(400).json({ message: "Invalid driver ID format." });
+    }
+
     await ensureProfilePictureColumn();
-    const { driverId } = req.params;
 
     const result = await pool.query(
       `
@@ -96,7 +104,7 @@ router.get("/:driverId", verifyToken, async (req, res) => {
           LIMIT 1
         ) document ON TRUE
         WHERE d.driver_id = $1
-          AND ($2 = 'admin' OR d.owner_id = COALESCE(
+          AND ($2 = 'admin' OR d.user_id = $3 OR d.owner_id = COALESCE(
             (SELECT owner_id FROM Owner_Profile WHERE user_id = $3),
             (SELECT owner_id FROM Manager_Profile WHERE user_id = $3)
           ))
@@ -121,8 +129,15 @@ router.get("/:driverId", verifyToken, async (req, res) => {
 });
 
 // GET /api/drivers/:driverId/documents - documents visible to the driver's company
-router.get("/:driverId/documents", verifyToken, async (req, res) => {
+// FIX 2: Added authorizeRole middleware for consistency and defense-in-depth
+router.get("/:driverId/documents", verifyToken, authorizeRole("owner", "manager", "admin", "driver"), async (req, res) => {
   try {
+    // FIX: Defend against "undefined" strings
+    const driverId = parseInt(req.params.driverId, 10);
+    if (isNaN(driverId)) {
+      return res.status(400).json({ message: "Invalid driver ID format." });
+    }
+
     const result = await pool.query(
       `
         SELECT dd.document_id, dd.driver_id, dd.document_type, dd.document_no,
@@ -130,13 +145,13 @@ router.get("/:driverId/documents", verifyToken, async (req, res) => {
         FROM Driver_Document dd
         JOIN Driver d ON d.driver_id = dd.driver_id
         WHERE d.driver_id = $1
-          AND ($2 = 'admin' OR d.owner_id = COALESCE(
+          AND ($2 = 'admin' OR d.user_id = $3 OR d.owner_id = COALESCE(
             (SELECT owner_id FROM Owner_Profile WHERE user_id = $3),
             (SELECT owner_id FROM Manager_Profile WHERE user_id = $3)
           ))
         ORDER BY dd.expiry_date ASC, dd.document_id DESC
       `,
-      [req.params.driverId, req.user.role, req.user.user_id],
+      [driverId, req.user.role, req.user.user_id],
     );
 
     res.json(result.rows);
@@ -147,8 +162,15 @@ router.get("/:driverId/documents", verifyToken, async (req, res) => {
 });
 
 // GET /api/drivers/:driverId/incidents - incidents linked to the driver's trips
-router.get("/:driverId/incidents", verifyToken, async (req, res) => {
+// FIX 3: Added authorizeRole middleware here as well
+router.get("/:driverId/incidents", verifyToken, authorizeRole("owner", "manager", "admin", "driver"), async (req, res) => {
   try {
+    // FIX: Defend against "undefined" strings
+    const driverId = parseInt(req.params.driverId, 10);
+    if (isNaN(driverId)) {
+      return res.status(400).json({ message: "Invalid driver ID format." });
+    }
+
     const result = await pool.query(
       `
         SELECT i.incident_id, i.incident_date, i.type, i.description,
@@ -159,13 +181,13 @@ router.get("/:driverId/incidents", verifyToken, async (req, res) => {
         JOIN Vehicle v ON v.vehicle_id = t.vehicle_id
         JOIN Driver d ON d.driver_id = t.driver_id
         WHERE d.driver_id = $1
-          AND ($2 = 'admin' OR d.owner_id = COALESCE(
+          AND ($2 = 'admin' OR d.user_id = $3 OR d.owner_id = COALESCE(
             (SELECT owner_id FROM Owner_Profile WHERE user_id = $3),
             (SELECT owner_id FROM Manager_Profile WHERE user_id = $3)
           ))
         ORDER BY i.incident_date DESC, i.incident_id DESC
       `,
-      [req.params.driverId, req.user.role, req.user.user_id],
+      [driverId, req.user.role, req.user.user_id],
     );
 
     res.json(result.rows);

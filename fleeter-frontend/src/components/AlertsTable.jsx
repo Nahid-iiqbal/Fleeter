@@ -25,7 +25,7 @@ import {
 } from "../utils/alerts";
 
 function AlertsTable({
-  alerts,
+  alerts = [],
   alertsLoading,
   onRefresh,
   onAlertClick,
@@ -230,7 +230,7 @@ function AlertsTable({
               <RefreshIcon />
             )
           }
-        >
+        sx={{ whiteSpace: "nowrap", height: 40, minWidth: "140px" }}>
           Refresh alerts
         </Button>
       </Box>
