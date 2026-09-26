@@ -36,6 +36,7 @@ import {
   Card,
   CardContent,
 } from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MessagesPopover from "../components/MessagesPopover";
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -47,6 +48,7 @@ import BuildIcon from "@mui/icons-material/Build";
 import HistoryIcon from "@mui/icons-material/History";
 
 export default function AdminDashboard() {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
 
   const [currentTab, setCurrentTab] = useState("overview");
@@ -186,15 +188,7 @@ export default function AdminDashboard() {
     <Box
       sx={{ display: "flex", height: "100vh", bgcolor: "background.default" }}
     >
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: 260,
-          flexShrink: 0,
-          "& .MuiDrawer-paper": { width: 260, boxSizing: "border-box" },
-        }}
-      >
-        <Box
+      <Drawer variant="temporary" open={mobileOpen} onClose={() => setMobileOpen(false)} ModalProps={{ keepMounted: true }} sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 260 } }}><Box
           sx={{
             px: 2.5,
             py: 2.5,
@@ -348,8 +342,162 @@ export default function AdminDashboard() {
               <ListItemText primary="Global Config" />
             </ListItemButton>
           </ListItem>
-        </List>
-      </Drawer>
+        </List></Drawer>
+      <Drawer variant="permanent" sx={{ display: { xs: 'none', md: 'block' }, '& .MuiDrawer-paper': { width: 260, boxSizing: 'border-box' } }} open><Box
+          sx={{
+            px: 2.5,
+            py: 2.5,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Box>
+            <Typography
+              variant="h6"
+              fontWeight={900}
+              sx={{
+                fontFamily: '"Passero One", cursive',
+                background: "linear-gradient(135deg, #60a5fa, #3b82f6)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                letterSpacing: 2,
+                lineHeight: 1,
+              }}
+            >
+              FLEETER
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box sx={{ px: 2, pt: 2, pb: 1 }}>
+          <Typography
+            variant="caption"
+            fontWeight={700}
+            color="text.secondary"
+            sx={{ letterSpacing: 1, textTransform: "uppercase" }}
+          >
+            Admin Portal
+          </Typography>
+        </Box>
+
+        <List sx={{ flexGrow: 1, pt: 0 }}>
+          <Typography
+            variant="caption"
+            sx={{ px: 2, color: "text.secondary", fontWeight: "bold" }}
+          >
+            DASHBOARD
+          </Typography>
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={currentTab === "overview"}
+              onClick={() => setCurrentTab("overview")}
+            >
+              <DashboardIcon
+                sx={{
+                  mr: 2,
+                  color:
+                    currentTab === "overview"
+                      ? "primary.main"
+                      : "text.secondary",
+                }}
+              />
+              <ListItemText primary="System Overview" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={currentTab === "analytics"}
+              onClick={() => setCurrentTab("analytics")}
+            >
+              <BarChartIcon
+                sx={{
+                  mr: 2,
+                  color:
+                    currentTab === "analytics"
+                      ? "primary.main"
+                      : "text.secondary",
+                }}
+              />
+              <ListItemText primary="Platform Analytics" />
+            </ListItemButton>
+          </ListItem>
+
+          <Typography
+            variant="caption"
+            sx={{
+              px: 2,
+              color: "text.secondary",
+              fontWeight: "bold",
+              mt: 2,
+              display: "block",
+            }}
+          >
+            MANAGEMENT
+          </Typography>
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={currentTab === "users"}
+              onClick={() => setCurrentTab("users")}
+            >
+              <GroupIcon
+                sx={{
+                  mr: 2,
+                  color:
+                    currentTab === "users" ? "primary.main" : "text.secondary",
+                }}
+              />
+              <ListItemText primary="Universal Roster" />
+            </ListItemButton>
+          </ListItem>
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={currentTab === "logs"}
+              onClick={() => setCurrentTab("logs")}
+            >
+              <HistoryIcon
+                sx={{
+                  mr: 2,
+                  color:
+                    currentTab === "logs" ? "primary.main" : "text.secondary",
+                }}
+              />
+              <ListItemText primary="System Logs" />
+            </ListItemButton>
+          </ListItem>
+
+          <Typography
+            variant="caption"
+            sx={{
+              px: 2,
+              color: "text.secondary",
+              fontWeight: "bold",
+              mt: 2,
+              display: "block",
+            }}
+          >
+            SYSTEM
+          </Typography>
+          <ListItem disablePadding>
+            <ListItemButton
+              selected={currentTab === "settings"}
+              onClick={() => setCurrentTab("settings")}
+            >
+              <BuildIcon
+                sx={{
+                  mr: 2,
+                  color:
+                    currentTab === "settings"
+                      ? "primary.main"
+                      : "text.secondary",
+                }}
+              />
+              <ListItemText primary="Global Config" />
+            </ListItemButton>
+          </ListItem>
+        </List></Drawer>
 
       <Box
         component="main"
@@ -372,6 +520,7 @@ export default function AdminDashboard() {
           }}
         >
           <Toolbar sx={{ gap: 1 }}>
+            <IconButton color="inherit" aria-label="open drawer" edge="start" onClick={() => setMobileOpen(!mobileOpen)} sx={{ mr: 2, display: { md: 'none' }, color: 'text.primary' }}><MenuIcon /></IconButton>
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
               {currentTab === "overview" && "System Overview"}
               {currentTab === "analytics" && "Platform Analytics"}

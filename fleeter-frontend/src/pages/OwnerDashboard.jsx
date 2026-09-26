@@ -28,6 +28,7 @@ import {
 } from "@mui/material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import MessagesPopover from "../components/MessagesPopover";
+import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AccountSettings from "../components/AccountSettings";
@@ -59,6 +60,7 @@ import { API_BASE_URL } from "../utils/api";
 
 const DRAWER_WIDTH = 260;
 function OwnerDashboard() {
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const handleNotificationsClick = (event) =>
     setNotificationAnchorEl(event.currentTarget);
@@ -553,18 +555,7 @@ function OwnerDashboard() {
       sx={{ display: "flex", height: "100vh", bgcolor: "background.default" }}
     >
       {/* Sidebar */}
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          "& .MuiDrawer-paper": {
-            width: DRAWER_WIDTH,
-            boxSizing: "border-box",
-          },
-        }}
-      >
-        {/* Logo */}
+      <Drawer variant="temporary" open={mobileOpen} onClose={() => setMobileOpen(false)} ModalProps={{ keepMounted: true }} sx={{ display: { xs: 'block', md: 'none' }, '& .MuiDrawer-paper': { boxSizing: 'border-box', width: DRAWER_WIDTH } }}>{/* Logo */}
         <Box
           sx={{
             px: 2.5,
@@ -610,7 +601,7 @@ function OwnerDashboard() {
               <ListItem key={tab} disablePadding>
                 <ListItemButton
                   selected={activeTab === tab}
-                  onClick={() => navigate(`/dashboard/${tab}`)}
+                  onClick={() => { navigate(`/dashboard/${tab}`); setMobileOpen(false); }}
                 >
                   <ListItemIcon>{icon}</ListItemIcon>
                   <ListItemText
@@ -624,8 +615,68 @@ function OwnerDashboard() {
               </ListItem>
             ))}
           </List>
+        </Box></Drawer>
+      <Drawer variant="permanent" sx={{ display: { xs: 'none', md: 'block' }, '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box' } }} open>{/* Logo */}
+        <Box
+          sx={{
+            px: 2.5,
+            py: 2.5,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            borderBottom: "1px solid",
+            borderColor: "divider",
+          }}
+        >
+          <Box>
+            <Typography
+              variant="h5"
+              fontWeight={1000}
+              sx={{
+                fontFamily: '"Passero One", cursive',
+                background: "linear-gradient(135deg, #60a5fa, #3b82f6)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                letterSpacing: 2,
+                lineHeight: 1,
+              }}
+            >
+              FLEETER
+            </Typography>
+          </Box>
         </Box>
-      </Drawer>
+
+        <Box sx={{ flex: 1, overflowY: "auto", pt: 1.5 }}>
+          <Box sx={{ px: 2.5, mb: 1.5 }}>
+            <Typography
+              variant="caption"
+              fontWeight={700}
+              color="text.secondary"
+              sx={{ letterSpacing: 1, textTransform: "uppercase" }}
+            >
+              {companyContext.companyName || "No company"}
+            </Typography>
+          </Box>
+          <List disablePadding>
+            {navItems.map(({ label, tab, icon }) => (
+              <ListItem key={tab} disablePadding>
+                <ListItemButton
+                  selected={activeTab === tab}
+                  onClick={() => { navigate(`/dashboard/${tab}`); setMobileOpen(false); }}
+                >
+                  <ListItemIcon>{icon}</ListItemIcon>
+                  <ListItemText
+                    primary={label}
+                    primaryTypographyProps={{
+                      fontSize: "0.875rem",
+                      fontWeight: activeTab === tab ? 700 : 500,
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </Box></Drawer>
 
       {/* Main */}
       <Box
@@ -638,6 +689,7 @@ function OwnerDashboard() {
       >
         <AppBar position="static" elevation={0} sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "background.paper", color: "text.primary" }}>
           <Toolbar sx={{ gap: 1 }}>
+            <IconButton color="inherit" aria-label="open drawer" edge="start" onClick={() => setMobileOpen(!mobileOpen)} sx={{ mr: 2, display: { md: 'none' }, color: 'text.primary' }}><MenuIcon /></IconButton>
             <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
               {navItems.find((n) => n.tab === activeTab)?.label || "Dashboard"}
             </Typography>
