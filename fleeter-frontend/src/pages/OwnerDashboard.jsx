@@ -39,6 +39,7 @@ import RouteIcon from "@mui/icons-material/Route";
 import GroupIcon from "@mui/icons-material/Group";
 import WorkIcon from "@mui/icons-material/Work";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import MenuIcon from "@mui/icons-material/Menu";
 
 // import driver and vehicle details for the details page
 import DriverDetails from "./DriverDetails";
@@ -59,6 +60,8 @@ import { API_BASE_URL } from "../utils/api";
 
 const DRAWER_WIDTH = 260;
 function OwnerDashboard() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
   const handleNotificationsClick = (event) =>
     setNotificationAnchorEl(event.currentTarget);
@@ -548,83 +551,101 @@ function OwnerDashboard() {
     { label: "Settings", tab: "settings", icon: <SettingsIcon /> },
   ];
 
+  const drawerContent = (
+    <>
+      {/* Logo */}
+      <Box
+        sx={{
+          px: 2.5,
+          py: 2.5,
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Box>
+          <Typography
+            variant="h5"
+            fontWeight={1000}
+            sx={{
+              fontFamily: '"Passero One", cursive',
+              background: "linear-gradient(135deg, #60a5fa, #3b82f6)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              letterSpacing: 2,
+              lineHeight: 1,
+            }}
+          >
+            FLEETER
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ flex: 1, overflowY: "auto", pt: 1.5 }}>
+        <Box sx={{ px: 2.5, mb: 1.5 }}>
+          <Typography
+            variant="caption"
+            fontWeight={700}
+            color="text.secondary"
+            sx={{ letterSpacing: 1, textTransform: "uppercase" }}
+          >
+            {companyContext.companyName || "No company"}
+          </Typography>
+        </Box>
+        <List disablePadding>
+          {navItems.map(({ label, tab, icon }) => (
+            <ListItem key={tab} disablePadding>
+              <ListItemButton
+                selected={activeTab === tab}
+                onClick={() => { navigate(`/dashboard/${tab}`); setMobileOpen(false); }}
+              >
+                <ListItemIcon>{icon}</ListItemIcon>
+                <ListItemText
+                  primary={label}
+                  primaryTypographyProps={{
+                    fontSize: "0.875rem",
+                    fontWeight: activeTab === tab ? 700 : 500,
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+    </>
+  );
+
   return (
     <Box
       sx={{ display: "flex", height: "100vh", bgcolor: "background.default" }}
     >
-      {/* Sidebar */}
+      {/* Mobile Sidebar */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: "block", md: "none" },
+          "& .MuiDrawer-paper": { boxSizing: "border-box", width: DRAWER_WIDTH },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+      {/* Desktop Sidebar */}
       <Drawer
         variant="permanent"
         sx={{
+          display: { xs: "none", md: "block" },
           width: DRAWER_WIDTH,
           flexShrink: 0,
-          "& .MuiDrawer-paper": {
-            width: DRAWER_WIDTH,
-            boxSizing: "border-box",
-          },
+          "& .MuiDrawer-paper": { width: DRAWER_WIDTH, boxSizing: "border-box" },
         }}
+        open
       >
-        {/* Logo */}
-        <Box
-          sx={{
-            px: 2.5,
-            py: 2.5,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            borderBottom: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Box>
-            <Typography
-              variant="h5"
-              fontWeight={1000}
-              sx={{
-                fontFamily: '"Passero One", cursive',
-                background: "linear-gradient(135deg, #60a5fa, #3b82f6)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                letterSpacing: 2,
-                lineHeight: 1,
-              }}
-            >
-              FLEETER
-            </Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ flex: 1, overflowY: "auto", pt: 1.5 }}>
-          <Box sx={{ px: 2.5, mb: 1.5 }}>
-            <Typography
-              variant="caption"
-              fontWeight={700}
-              color="text.secondary"
-              sx={{ letterSpacing: 1, textTransform: "uppercase" }}
-            >
-              {companyContext.companyName || "No company"}
-            </Typography>
-          </Box>
-          <List disablePadding>
-            {navItems.map(({ label, tab, icon }) => (
-              <ListItem key={tab} disablePadding>
-                <ListItemButton
-                  selected={activeTab === tab}
-                  onClick={() => navigate(`/dashboard/${tab}`)}
-                >
-                  <ListItemIcon>{icon}</ListItemIcon>
-                  <ListItemText
-                    primary={label}
-                    primaryTypographyProps={{
-                      fontSize: "0.875rem",
-                      fontWeight: activeTab === tab ? 700 : 500,
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        </Box>
+        {drawerContent}
       </Drawer>
 
       {/* Main */}
@@ -638,6 +659,15 @@ function OwnerDashboard() {
       >
         <AppBar position="static" elevation={0} sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "background.paper", color: "text.primary" }}>
           <Toolbar sx={{ gap: 1 }}>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              sx={{ display: { md: "none" } }}
+            >
+              <MenuIcon />
+            </IconButton>
             <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
               {navItems.find((n) => n.tab === activeTab)?.label || "Dashboard"}
             </Typography>
@@ -922,7 +952,7 @@ function MetricCard({ title, value, color, icon, onClick }) {
 
 function DashboardAnalytics() {
   const [data, setData] = React.useState(null);
-  
+
   React.useEffect(() => {
     apiFetch("/api/dashboard/analytics")
       .then(setData)
@@ -946,7 +976,7 @@ function DashboardAnalytics() {
           </Box>
         </Paper>
       </Grid>
-      
+
       <Grid item xs={12} md={8}>
         <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
           <Typography variant="h6" gutterBottom fontWeight={600}>Top Drivers (Efficiency)</Typography>

@@ -36,8 +36,11 @@ import {
   MenuItem,
   CircularProgress,
   Alert,
+  useMediaQuery,
+  useTheme,
 } from "@mui/material";
 import SettingsIcon from "@mui/icons-material/Settings";
+import MenuIcon from "@mui/icons-material/Menu";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -65,6 +68,10 @@ L.Icon.Default.mergeOptions({
 const DRAWER_WIDTH = 260;
 
 function DriverDashboard() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -825,6 +832,188 @@ function DriverDashboard() {
     );
   }
 
+  const drawerContent = (
+    <>
+      <Box
+        sx={{
+          px: 2.5,
+          py: 2.5,
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
+          borderBottom: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Box>
+          <Typography
+            variant="h5"
+            fontWeight={1000}
+            sx={{
+              fontFamily: '"Passero One", cursive',
+              background: "linear-gradient(135deg, #34d399, #10b981)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              letterSpacing: 2,
+              lineHeight: 1,
+            }}
+          >
+            FLEETER
+          </Typography>
+        </Box>
+      </Box>
+      <Box sx={{ px: 2.5, pt: 2, pb: 1.5 }}>
+        {!driverStats.driverProfileMissing && (
+          <Typography
+            variant="caption"
+            fontWeight={700}
+            color="text.secondary"
+            sx={{
+              letterSpacing: 1,
+              textTransform: "uppercase",
+              display: "block",
+              mb: 0.5,
+            }}
+          >
+            {driverStats.companyName}
+          </Typography>
+        )}
+        <Typography variant="caption" color="text.disabled">
+          Welcome, {driverStats.name}
+        </Typography>
+      </Box>
+      <List sx={{ flexGrow: 1, pt: 0 }}>
+        <ListItem disablePadding>
+          <ListItemButton
+            selected={currentView === "dashboard"}
+            onClick={() => {
+              setCurrentView("dashboard");
+              setMobileOpen(false);
+            }}
+          >
+            <DashboardIcon
+              sx={{
+                mr: 2,
+                color:
+                  currentView === "dashboard"
+                    ? "primary.main"
+                    : "text.secondary",
+              }}
+            />
+            <ListItemText
+              primary="Dashboard"
+              primaryTypographyProps={{
+                fontWeight: currentView === "dashboard" ? 700 : 500,
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton
+            selected={currentView === "history"}
+            onClick={() => {
+              setCurrentView("history");
+              setMobileOpen(false);
+            }}
+          >
+            <HistoryIcon
+              sx={{
+                mr: 2,
+                color:
+                  currentView === "history"
+                    ? "primary.main"
+                    : "text.secondary",
+              }}
+            />
+            <ListItemText
+              primary="Trip History"
+              primaryTypographyProps={{
+                fontWeight: currentView === "history" ? 700 : 500,
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton
+            selected={currentView === "documents"}
+            onClick={() => {
+              setCurrentView("documents");
+              setMobileOpen(false);
+            }}
+          >
+            <DescriptionIcon
+              sx={{
+                mr: 2,
+                color:
+                  currentView === "documents"
+                    ? "primary.main"
+                    : "text.secondary",
+              }}
+            />
+            <ListItemText
+              primary="Documents"
+              primaryTypographyProps={{
+                fontWeight: currentView === "documents" ? 700 : 500,
+              }}
+            />
+          </ListItemButton>
+        </ListItem>
+      </List>
+      <Box sx={{ p: 2 }}>
+        <Typography
+          variant="overline"
+          color="text.secondary"
+          display="block"
+          sx={{ mb: 1, ml: 1 }}
+        >
+          Trip Actions
+        </Typography>
+        <Button
+          fullWidth
+          variant="outlined"
+          color="info"
+          sx={{ mb: 1.5, justifyContent: "flex-start" }}
+          startIcon={<LocalGasStationIcon />}
+          disabled={!canAccessTripFeatures}
+          onClick={() => {
+            setIsFuelModalOpen(true);
+            setMobileOpen(false);
+          }}
+        >
+          Log Fuel
+        </Button>
+        <Button
+          fullWidth
+          variant="outlined"
+          color="error"
+          sx={{ mb: 1.5, justifyContent: "flex-start" }}
+          startIcon={<WarningIcon />}
+          disabled={!canAccessTripFeatures}
+          onClick={() => {
+            setIsIncidentModalOpen(true);
+            setMobileOpen(false);
+          }}
+        >
+          Report Incident
+        </Button>
+        <Button
+          fullWidth
+          variant="outlined"
+          color="warning"
+          sx={{ mb: 1.5, justifyContent: "flex-start" }}
+          startIcon={<BuildIcon />}
+          disabled={!canAccessTripFeatures}
+          onClick={() => {
+            setIsMaintenanceModalOpen(true);
+            setMobileOpen(false);
+          }}
+        >
+          Maintenance
+        </Button>
+      </Box>
+    </>
+  );
+
   return (
     <Box
       sx={{
@@ -833,177 +1022,42 @@ function DriverDashboard() {
         bgcolor: "background.default",
       }}
     >
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          "& .MuiDrawer-paper": {
-            width: DRAWER_WIDTH,
-            boxSizing: "border-box",
-          },
-        }}
+      <Box
+        component="nav"
+        sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}
       >
-        <Box
-          sx={{
-            px: 2.5,
-            py: 2.5,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            borderBottom: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Box>
-            <Typography
-              variant="h5"
-              fontWeight={1000}
-              sx={{
-                fontFamily: '"Passero One", cursive',
-                background: "linear-gradient(135deg, #34d399, #10b981)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                letterSpacing: 2,
-                lineHeight: 1,
-              }}
-            >
-              FLEETER
-            </Typography>
-          </Box>
-        </Box>
-        <Box sx={{ px: 2.5, pt: 2, pb: 1.5 }}>
-          {!driverStats.driverProfileMissing && (
-            <Typography
-              variant="caption"
-              fontWeight={700}
-              color="text.secondary"
-              sx={{
-                letterSpacing: 1,
-                textTransform: "uppercase",
-                display: "block",
-                mb: 0.5,
-              }}
-            >
-              {driverStats.companyName}
-            </Typography>
-          )}
-          <Typography variant="caption" color="text.disabled">
-            Welcome, {driverStats.name}
-          </Typography>
-        </Box>
-        <List sx={{ flexGrow: 1, pt: 0 }}>
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={currentView === "dashboard"}
-              onClick={() => setCurrentView("dashboard")}
-            >
-              <DashboardIcon
-                sx={{
-                  mr: 2,
-                  color:
-                    currentView === "dashboard"
-                      ? "primary.main"
-                      : "text.secondary",
-                }}
-              />
-              <ListItemText
-                primary="Dashboard"
-                primaryTypographyProps={{
-                  fontWeight: currentView === "dashboard" ? 700 : 500,
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={currentView === "history"}
-              onClick={() => setCurrentView("history")}
-            >
-              <HistoryIcon
-                sx={{
-                  mr: 2,
-                  color:
-                    currentView === "history"
-                      ? "primary.main"
-                      : "text.secondary",
-                }}
-              />
-              <ListItemText
-                primary="Trip History"
-                primaryTypographyProps={{
-                  fontWeight: currentView === "history" ? 700 : 500,
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-          <ListItem disablePadding>
-            <ListItemButton
-              selected={currentView === "documents"}
-              onClick={() => setCurrentView("documents")}
-            >
-              <DescriptionIcon
-                sx={{
-                  mr: 2,
-                  color:
-                    currentView === "documents"
-                      ? "primary.main"
-                      : "text.secondary",
-                }}
-              />
-              <ListItemText
-                primary="Documents"
-                primaryTypographyProps={{
-                  fontWeight: currentView === "documents" ? 700 : 500,
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-        </List>
-        <Box sx={{ p: 2 }}>
-          <Typography
-            variant="overline"
-            color="text.secondary"
-            display="block"
-            sx={{ mb: 1, ml: 1 }}
+        {isMobile ? (
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={() => setMobileOpen(false)}
+            ModalProps={{ keepMounted: true }}
+            sx={{
+              display: { xs: "block", md: "none" },
+              "& .MuiDrawer-paper": {
+                boxSizing: "border-box",
+                width: DRAWER_WIDTH,
+              },
+            }}
           >
-            Trip Actions
-          </Typography>
-          <Button
-            fullWidth
-            variant="outlined"
-            color="info"
-            sx={{ mb: 1.5, justifyContent: "flex-start" }}
-            startIcon={<LocalGasStationIcon />}
-            disabled={!canAccessTripFeatures}
-            onClick={() => setIsFuelModalOpen(true)}
+            {drawerContent}
+          </Drawer>
+        ) : (
+          <Drawer
+            variant="permanent"
+            sx={{
+              display: { xs: "none", md: "block" },
+              "& .MuiDrawer-paper": {
+                boxSizing: "border-box",
+                width: DRAWER_WIDTH,
+              },
+            }}
+            open
           >
-            Log Fuel
-          </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            color="error"
-            sx={{ mb: 1.5, justifyContent: "flex-start" }}
-            startIcon={<WarningIcon />}
-            disabled={!canAccessTripFeatures}
-            onClick={() => setIsIncidentModalOpen(true)}
-          >
-            Report Incident
-          </Button>
-          <Button
-            fullWidth
-            variant="outlined"
-            color="warning"
-            sx={{ mb: 1.5, justifyContent: "flex-start" }}
-            startIcon={<BuildIcon />}
-            disabled={!canAccessTripFeatures}
-            onClick={() => setIsMaintenanceModalOpen(true)}
-          >
-            Maintenance
-          </Button>
-        </Box>
-      </Drawer>
+            {drawerContent}
+          </Drawer>
+        )}
+      </Box>
 
       <Box
         component="main"
@@ -1022,6 +1076,15 @@ function DriverDashboard() {
           sx={{ borderBottom: 1, borderColor: "divider" }}
         >
           <Toolbar sx={{ gap: 1 }}>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              sx={{ display: { md: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
               Driver Portal
             </Typography>
