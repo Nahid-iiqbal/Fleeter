@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
+const ensurePartitionsExist = require("./utils/partitionManager");
 
 const app = express();
 
@@ -78,6 +79,8 @@ if (!process.env.JWT_SECRET) {
 }
 
 const PORT = process.env.PORT || 5000;
+ensurePartitionsExist();
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Fleeter server listening on port ${PORT}`);
 });

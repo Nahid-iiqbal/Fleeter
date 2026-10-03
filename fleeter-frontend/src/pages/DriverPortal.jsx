@@ -342,7 +342,7 @@ function DriverDashboard() {
                 battery_level: batteryLevel,
               }),
             });
-          } catch (error) { }
+          } catch (error) { console.error("Telemetry Ping Failed:", error); }
         },
         (error) => console.error("Error capturing GPS:", error),
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 },

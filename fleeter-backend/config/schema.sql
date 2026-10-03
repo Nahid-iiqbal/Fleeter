@@ -233,20 +233,13 @@ CREATE TABLE Vehicle_Telemetry (
     PRIMARY KEY (telemetry_id, ping_time)
 ) PARTITION BY RANGE (ping_time);
 
-CREATE TABLE telemetry_y2026m08 PARTITION OF Vehicle_Telemetry FOR VALUES FROM ('2026-08-01 00:00:00+00') TO ('2026-09-01 00:00:00+00');
-CREATE TABLE telemetry_y2026m09 PARTITION OF Vehicle_Telemetry FOR VALUES FROM ('2026-09-01 00:00:00+00') TO ('2026-10-01 00:00:00+00');
+CREATE TABLE telemetry_y2026m08 PARTITION OF Vehicle_Telemetry FOR VALUES FROM ('2026-08-01 00:00:00Z') TO ('2026-09-01 00:00:00Z');
+CREATE TABLE telemetry_y2026m09 PARTITION OF Vehicle_Telemetry FOR VALUES FROM ('2026-09-01 00:00:00Z') TO ('2026-10-01 00:00:00Z');
+CREATE TABLE telemetry_y2026m10 PARTITION OF Vehicle_Telemetry FOR VALUES FROM ('2026-10-01 00:00:00Z') TO ('2026-11-01 00:00:00Z');
+CREATE TABLE telemetry_y2026m11 PARTITION OF Vehicle_Telemetry FOR VALUES FROM ('2026-11-01 00:00:00Z') TO ('2026-12-01 00:00:00Z');
+CREATE TABLE telemetry_y2026m12 PARTITION OF Vehicle_Telemetry FOR VALUES FROM ('2026-12-01 00:00:00Z') TO ('2027-01-01 00:00:00Z');
+CREATE TABLE telemetry_default PARTITION OF Vehicle_Telemetry DEFAULT;
 
--- 14. VIEWS
-CREATE VIEW v_vehicle_expense_ledger AS
-SELECT vehicle_id, 'fuel' AS category, (liters * cost_per_liter) AS amount, refuel_time AS expense_date, fuel_id AS reference_id
-FROM Fuel_Log
-UNION ALL
-SELECT vehicle_id, 'maintenance' AS category, cost AS amount, service_date::timestamptz AS expense_date, maintenance_id AS reference_id
-FROM Maintenance
-UNION ALL
-SELECT t.vehicle_id, 'incident' AS category, i.damage_cost AS amount, i.incident_date AS expense_date, i.incident_id AS reference_id
-FROM Incident i
-JOIN Trip t ON i.trip_id = t.trip_id;
 
 CREATE VIEW v_vehicle_cost_summary AS
 SELECT v.vehicle_id, v.owner_id, v.registration_no, v.brand, v.model, COALESCE(SUM(el.amount), 0.00) AS total_expenses_incurred
