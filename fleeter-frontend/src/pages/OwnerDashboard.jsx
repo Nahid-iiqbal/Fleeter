@@ -28,6 +28,7 @@ import {
 } from "@mui/material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import MessagesPopover from "../components/MessagesPopover";
+import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AccountSettings from "../components/AccountSettings";
@@ -39,7 +40,6 @@ import RouteIcon from "@mui/icons-material/Route";
 import GroupIcon from "@mui/icons-material/Group";
 import WorkIcon from "@mui/icons-material/Work";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import MenuIcon from "@mui/icons-material/Menu";
 
 // import driver and vehicle details for the details page
 import DriverDetails from "./DriverDetails";

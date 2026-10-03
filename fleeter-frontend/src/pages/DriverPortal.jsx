@@ -587,6 +587,7 @@ function DriverDashboard() {
       <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
         <AppBar position="static" color="secondary">
           <Toolbar sx={{ gap: 1 }}>
+            <IconButton color="inherit" aria-label="open drawer" edge="start" onClick={() => setMobileOpen(!mobileOpen)} sx={{ mr: 2, display: { md: "none" }, color: "text.primary" }}><MenuIcon /></IconButton>
             <Typography
               variant="h5"
               sx={{ fontFamily: '"Passero One", cursive', flexGrow: 1 }}
